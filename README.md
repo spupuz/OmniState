@@ -26,7 +26,7 @@ OmniState is integrated with Antigravity's **Knowledge Item (KI)** system to ens
 ## 💻 SSH / Remote Host One-Liner
 To install OmniState on a remote server instantly (even if already present):
 ```bash
-export REPO_DIR=~/AntiGOptimize; [ -d $REPO_DIR ] || git clone https://github.com/spupuz/AntiGOptimize.git $REPO_DIR; cd $REPO_DIR && git pull && bash update.sh
+export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/spupuz/OmniState.git $REPO_DIR; cd $REPO_DIR && git pull && bash update.sh
 ```
 
 ## 🛠️ How to Use in Any Project

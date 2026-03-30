@@ -1,10 +1,10 @@
-# Update and Install AntiGOptimize from GitHub
+# Update and Install OmniState from GitHub
 
 param(
     [string]$ProjectRoot = ""
 )
 
-Write-Host "Updating and Synchronizing AntiGOptimize..." -ForegroundColor Cyan
+Write-Host "Updating and Synchronizing OmniState..." -ForegroundColor Cyan
 
 # Change directory to the script's folder
 Set-Location $PSScriptRoot
@@ -116,4 +116,4 @@ if (($ProjectRoot -ne "") -and (Test-Path $ProjectRoot)) {
 
 Write-Host "`nUpdate and Installation complete! Type 'OmniState activation' if slash commands are missing." -ForegroundColor Cyan
 if ($args.Count -eq 0 -and $ProjectRoot -eq "" -and $Host.Name -eq "ConsoleHost") { pause }
-# End of AntiGOptimize update script
+# End of OmniState update script

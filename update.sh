@@ -3,8 +3,8 @@
 # Optional: Target Project Path
 PROJECT_ROOT="$1"
 
-# Update and Install AntiGOptimize from GitHub
-echo -e "\033[0;36mUpdating and Synchronizing AntiGOptimize...\033[0m"
+# Update and Install OmniState from GitHub
+echo -e "\033[0;36mUpdating and Synchronizing OmniState...\033[0m"
 
 # Change directory to the script's folder
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
