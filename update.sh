@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Optional: Target Project Path
+PROJECT_ROOT="$1"
+
 # Update and Install AntiGOptimize from GitHub
 echo -e "\033[0;36mUpdating and Synchronizing AntiGOptimize...\033[0m"
 
@@ -24,33 +27,87 @@ fi
 
 # 2. Automated Installation to Antigravity
 pluginName="omnistate"
-globalPluginsDir="$HOME/.gemini/antigravity/plugins"
-targetPath="$globalPluginsDir/$pluginName"
+globalBaseDir="$HOME/.gemini/antigravity"
+globalPluginsDir="$globalBaseDir/plugins"
+globalWorkflowsDir="$globalBaseDir/workflows"
+globalKnowledgeDir="$globalBaseDir/knowledge"
+targetPluginPath="$globalPluginsDir/$pluginName"
+targetKnowledgePath="$globalKnowledgeDir/$pluginName"
 
-echo -e "\033[0;36mVerifying Global Installation in $globalPluginsDir...\033[0m"
+echo -e "\033[0;36mVerifying Global Installation in $globalBaseDir...\033[0m"
 
-# Create plugins directory if it doesn't exist
+# A. Handle Global Plugins
 if [ ! -d "$globalPluginsDir" ]; then
     echo -e "\033[0;33mCreating Antigravity plugins directory...\033[0m"
     mkdir -p "$globalPluginsDir"
 fi
 
-# Remove existing target to ensure fresh installation
-if [ -L "$targetPath" ] || [ -e "$targetPath" ]; then
-    echo -e "\033[0;33mCleaning up old installation...\033[0m"
-    rm -rf "$targetPath"
+# Clean up old installation
+if [ -e "$targetPluginPath" ]; then
+    echo -e "\033[0;33mCleaning up old global plugin...\033[0m"
+    rm -rf "$targetPluginPath"
+fi
+mkdir -p "$targetPluginPath"
+
+# Copy everything EXCEPT .git and .agent to the plugin folder
+echo -e "\033[0;32mInstalling OmniState plugin components...\033[0m"
+cp -a . "$targetPluginPath/"
+rm -rf "$targetPluginPath/.git"
+rm -rf "$targetPluginPath/.agent"
+
+# B. Handle Global Workflows (Critical for Slash Commands)
+if [ ! -d "$globalWorkflowsDir" ]; then
+    echo -e "\033[0;33mCreating Antigravity global workflows directory...\033[0m"
+    mkdir -p "$globalWorkflowsDir"
 fi
 
-# Copy everything including hidden folders (.agent), preserving all attributes
-echo -e "\033[0;32mInstalling OmniState to global plugins folder...\033[0m"
-# Create path then copy
-mkdir -p "$targetPath"
-cp -a . "$targetPath/"
-rm -rf "$targetPath/.git"
+echo -e "\033[0;32mInstalling Slash Commands globally...\033[0m"
+if [ -d ".agent/workflows" ]; then
+    cp -a .agent/workflows/* "$globalWorkflowsDir/"
+fi
 
-echo -e "\033[0;32mOmniState successfully installed globally!\033[0m"
+# C. Universal Discovery: Create Knowledge Item (KI)
+echo -e "\033[0;36mRegistering OmniState for Universal Discovery (Knowledge Item)...\033[0m"
+mkdir -p "$targetKnowledgePath/artifacts"
+
+cat <<EOF > "$targetKnowledgePath/metadata.json"
+{
+  "summary": "OmniState: Global Plugin for Persistent Memory and Cost Savings. Provides skills like cost-setup, start-session, and snapshot-session.",
+  "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "references": []
+}
+EOF
+
+cat <<EOF > "$targetKnowledgePath/artifacts/omnistate-info.md"
+# OmniState Global Plugin Guide
+
+OmniState is correctly installed as a global plugin on this machine.
+If you are in a brand-new project and you do NOT see the slash commands (like /cost-setup, /start-session), it means they need to be initialized for THIS workspace.
+
+### How to use:
+1. **Command:** Execute the **cost-setup** skill from the global plugins directory.
+2. **Path:** $targetPluginPath
+3. **Action:** The skill will automatically install the project-specific workflows to activate the slash commands.
+
+*Always mention 'OmniState' or 'cost-setup' to trigger this knowledge.*
+EOF
+
+echo -e "\033[0;32mOmniState successfully installed and registered globally!\033[0m"
+
+# 3. Optional: Inject into project root if provided
+if [ -n "$PROJECT_ROOT" ]; then
+    if [ -d "$PROJECT_ROOT" ]; then
+        echo -e "\033[0;32mInjecting workflows into project: $PROJECT_ROOT\033[0m"
+        targetProjectWf="$PROJECT_ROOT/.agent/workflows"
+        mkdir -p "$targetProjectWf"
+        cp -a .agent/workflows/* "$targetProjectWf/"
+        echo -e "\033[0;32mWorkflows successfully injected!\033[0m"
+    else
+        echo -e "\033[0;31mWarning: Target Project Path not found: $PROJECT_ROOT\033[0m"
+    fi
+fi
 
 echo -e "\n\033[0;36mUpdate and Installation complete! Project is now up to date and active.\033[0m"
-if [ -z "$NON_INTERACTIVE" ]; then
+if [ -z "$NON_INTERACTIVE" ] && [ -z "$PROJECT_ROOT" ]; then
     read -p "Press enter to exit..."
 fi

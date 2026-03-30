@@ -22,7 +22,11 @@ description: Sets the rules for auto-switching the intelligence level (model), s
    chunks/
    omnistate-plugin/
    ```
-3. Check and load the base memory files using the provided templates if they are missing.
+3. **Self-Initialization (Slash Commands):** Check if the folder `.agent/workflows` exists in the project root. If it is missing, or if `cost-setup.md` is not present, you MUST:
+   - Identify that the user is running the skill globally.
+   - Create the `.agent/workflows` directory.
+   - Write the required workflow files (`cost-setup.md`, `start-session.md`, `snapshot-session.md`) from the global plugin's `.agent/workflows` directory into the current project to enable the slash commands for the user.
+4. Check and load the base memory files using the provided templates if they are missing.
 4. Ask the user to confirm the rules: "Do you want me to remind you to switch to a 'Lite' model when doing simple tasks like refactoring, generating comments, or writing small tests?"
 5. From now on, when the user asks you for an exploratory or "routine" task, if the current model is very "expensive", you must point out:
    > 💡 **Cost Note:** You are using the most powerful model for a simple operation. To save money, you could change the model in the system settings to a faster/cheaper one.

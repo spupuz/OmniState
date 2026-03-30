@@ -17,7 +17,14 @@ Since OmniState is a global plugin, you only need to install it once to make it 
    - Synchronize the latest version from GitHub.
    - Install/Update the plugin into the global Antigravity directory (`~/.gemini/antigravity/plugins/omnistate`).
 
-**Done!** Antigravity will now recognize the new skills and slash commands in any project you open.
+## 🌐 Universal Discovery (KI)
+OmniState uses Antigravity's **Knowledge Item (KI)** system. Once installed, every agent session (even in new projects or over SSH) will "know" that OmniState is available globally. If the agent doesn't see the slash commands, just mention **"OmniState"** or **"cost-setup"** to trigger the discovery.
+
+## 💻 SSH / Remote Host One-Liner
+To install OmniState on a remote server instantly:
+```bash
+git clone https://github.com/spupuz/AntiGOptimize.git ~/AntiGOptimize && bash ~/AntiGOptimize/update.sh
+```
 
 ## 🛠️ How to Use in Any Project
 
@@ -47,6 +54,12 @@ The agent will:
 
 ### 4. Automatic Cost Savings
 With the cost-setup active, the agent will monitor your model selection. If you are using an expensive model (like Gemini Pro) for routine tasks (refactoring, documentation), it will gently remind you to switch to a **Lite/Flash** model to save credits.
+
+### 5. Troubleshooting (Commands not found)
+If you type `/cost-setup` and it is not found:
+1. Ensure the plugin is installed globally (run `update.ps1` or `update.sh`).
+2. Ask the agent directly: **"Execute the cost-setup skill"**.
+3. The agent will automatically initialize the local `.agent/workflows` folder for you, and the slash commands will start working!
 
 ---
 *OmniState - Persistent Memory and Efficiency for Antigravity.*
