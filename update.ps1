@@ -1,44 +1,56 @@
-# Update AntiGOptimize from GitHub
-Write-Host "Updating AntiGOptimize from GitHub..." -ForegroundColor Cyan
+# Update and Install AntiGOptimize from GitHub
+Write-Host "Updating and Synchronizing AntiGOptimize..." -ForegroundColor Cyan
 
-# Change directory to the script's folder to ensure we're in the right place
-Set-Location $PSScriptRoot
+# 0. Self-Healing: Fix local folder inconsistencies
+$legacyWorkflows = Join-Path $PSScriptRoot "workflows"
+$newWorkflows = Join-Path $PSScriptRoot ".agent\workflows"
 
-# Check if git is installed
-if (!(Get-Command git -ErrorAction SilentlyContinue)) {
-    Write-Error "Git is not installed or not in the PATH."
-    exit 1
+if (Test-Path $legacyWorkflows) {
+    Write-Host "Self-Healing: Moving legacy workflows to required hidden folder..." -ForegroundColor Yellow
+    if (!(Test-Path $newWorkflows)) {
+        New-Item -ItemType Directory -Path $newWorkflows -Force | Out-Null
+    }
+    Move-Item -Path "$legacyWorkflows\*" -Destination $newWorkflows -Force
+    Remove-Item -Path $legacyWorkflows -Recurse -Force
 }
 
-$repoUrl = "https://github.com/spupuz/AntiGOptimize.git"
-
-# Check if this is a git repository
-if (!(Test-Path ".git")) {
-    Write-Host "Initializing git repository in $PSScriptRoot..." -ForegroundColor Yellow
-    git init
-    git remote add origin $repoUrl
+# 1. Update from GitHub (if applicable)
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    if (Test-Path ".git") {
+        Write-Host "Fetching latest changes from GitHub..." -ForegroundColor Green
+        git pull origin main
+    }
 }
 
-# Ensure the remote is set correctly
-git remote set-url origin $repoUrl
+# 2. Automated Installation to Antigravity
+$pluginName = "omnistate"
+$globalPluginsDir = "$HOME\.gemini\antigravity\plugins"
+$targetPath = Join-Path $globalPluginsDir $pluginName
 
-# Fetch and pull
-Write-Host "Fetching latest changes..." -ForegroundColor Green
-git fetch origin main
+Write-Host "Verifying Global Installation in $globalPluginsDir..." -ForegroundColor Cyan
 
-# Check if we should reset or pull
-# If there are no commits yet (brand new init), we need a reset
-$commitCount = git rev-list --count HEAD 2>$null
-if ($LASTEXITCODE -ne 0 -or $commitCount -eq 0) {
-    Write-Host "Synchronizing project files..." -ForegroundColor Yellow
-    git reset --hard origin/main
-} else {
-    git pull origin main
+# Create plugins directory if it doesn't exist
+if (!(Test-Path $globalPluginsDir)) {
+    Write-Host "Creating Antigravity plugins directory..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $globalPluginsDir -Force | Out-Null
 }
 
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "Update complete! Project is now up to date." -ForegroundColor Green
-} else {
-    Write-Error "Update failed. Please check for merge conflicts or connection issues."
+# Remove existing target completely to ensure fresh installation
+if (Test-Path $targetPath) {
+    Write-Host "Cleaning up old installation..." -ForegroundColor Yellow
+    # Use -Force and -Recurse to remove even hidden/locked items in the target
+    Remove-Item -Path $targetPath -Recurse -Force
 }
-pause
+
+# Create a fresh plugin directory
+New-Item -ItemType Directory -Path $targetPath -Force | Out-Null
+
+# Copy everything including hidden folders (.agent), excluding .git, one by one
+Write-Host "Installing OmniState to global plugins folder..." -ForegroundColor Green
+Get-ChildItem -Path $PSScriptRoot -Force -Exclude ".git" | ForEach-Object {
+    Copy-Item -Path $_.FullName -Destination $targetPath -Recurse -Force
+}
+Write-Host "OmniState successfully installed globally!" -ForegroundColor Green
+
+Write-Host "`nUpdate and Installation complete! Project is now up to date and active." -ForegroundColor Cyan
+if ($args.Count -eq 0) { pause }

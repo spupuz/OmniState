@@ -1,48 +1,56 @@
 #!/bin/bash
 
-# Update AntiGOptimize from GitHub
-echo "Updating AntiGOptimize from GitHub..."
+# Update and Install AntiGOptimize from GitHub
+echo -e "\033[0;36mUpdating and Synchronizing AntiGOptimize...\033[0m"
 
-# Change directory to the script's folder to ensure we're in the right place
-cd "$(dirname "$0")"
-echo "Working directory: $(pwd)"
+# Change directory to the script's folder
+cd "$(dirname "$0")" || exit
 
-# Check if git is installed
-if ! command -v git &> /dev/null
-then
-    echo "Git is not installed or not in the PATH."
-    exit 1
+# 0. Self-Healing: Fix local folder inconsistencies
+if [ -d "workflows" ]; then
+    echo -e "\033[0;33mSelf-Healing: Moving legacy workflows to required hidden folder...\033[0m"
+    mkdir -p .agent/workflows
+    mv workflows/* .agent/workflows/ 2>/dev/null
+    rm -rf workflows
 fi
 
-repoUrl="https://github.com/spupuz/AntiGOptimize.git"
-
-# Check if this is a git repository
-if [ ! -d ".git" ]; then
-    echo "Initializing git repository..."
-    git init
-    git remote add origin $repoUrl
+# 1. Update from GitHub (if applicable)
+if command -v git &> /dev/null; then
+    if [ -d ".git" ]; then
+        echo -e "\033[0;32mFetching latest changes from GitHub...\033[0m"
+        git pull origin main
+    fi
 fi
 
-# Ensure the remote is set correctly
-git remote set-url origin $repoUrl
+# 2. Automated Installation to Antigravity
+pluginName="omnistate"
+globalPluginsDir="$HOME/.gemini/antigravity/plugins"
+targetPath="$globalPluginsDir/$pluginName"
 
-# Fetch latest changes
-echo "Fetching latest changes..."
-git fetch origin main
+echo -e "\033[0;36mVerifying Global Installation in $globalPluginsDir...\033[0m"
 
-# Check if we should reset or pull
-if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
-    echo "Synchronizing project files..."
-    git reset --hard origin/main
-else
-    git pull origin main
+# Create plugins directory if it doesn't exist
+if [ ! -d "$globalPluginsDir" ]; then
+    echo -e "\033[0;33mCreating Antigravity plugins directory...\033[0m"
+    mkdir -p "$globalPluginsDir"
 fi
 
-if [ $? -eq 0 ]; then
-    echo "Update complete! Project is now up to date."
-else
-    echo "Update failed. Please check for merge conflicts or connection issues."
+# Remove existing target to ensure fresh installation
+if [ -L "$targetPath" ] || [ -e "$targetPath" ]; then
+    echo -e "\033[0;33mCleaning up old installation...\033[0m"
+    rm -rf "$targetPath"
 fi
 
-# Optional: keep terminal open
-read -p "Press enter to exit..."
+# Copy everything including hidden folders (.agent), preserving all attributes
+echo -e "\033[0;32mInstalling OmniState to global plugins folder...\033[0m"
+# Create path then copy
+mkdir -p "$targetPath"
+cp -a . "$targetPath/"
+rm -rf "$targetPath/.git"
+
+echo -e "\033[0;32mOmniState successfully installed globally!\033[0m"
+
+echo -e "\n\033[0;36mUpdate and Installation complete! Project is now up to date and active.\033[0m"
+if [ -z "$NON_INTERACTIVE" ]; then
+    read -p "Press enter to exit..."
+fi

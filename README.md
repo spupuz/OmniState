@@ -1,42 +1,52 @@
 # OmniState Plugin for Antigravity
 
-This plugin installs a **Persistent Memory** and **Credit Savings/Model Optimization** system.
-Inspired by the **[Agora-Code](https://github.com/thebnbrkr/agora-code)** project, OmniState adapts and extends those concepts for use as an Antigravity plugin.
+This plugin installs a **Persistent Memory** and **Credit Savings / Model Optimization** system for your AI coding sessions.
+Inspired by the **[Agora-Code](https://github.com/thebnbrkr/agora-code)** project, OmniState adapts and extends those concepts for use as a global Antigravity plugin.
 
-It is designed to limit context window ingestion (reading the whole codebase at the start of a session) and allows you to track your tasks efficiently and affordably.
+It is designed to limit context window ingestion (saving thousands of tokens) by allowing the agent to track your tasks and progress through a dedicated summary.
 
-## How to Install (Globally on Antigravity)
+## 🚀 How to Install (Automated)
 
-Since you specified that this must be applicable to **ALL PROJECTS**, you must ensure Antigravity sees this plugin globally.
+Since OmniState is a global plugin, you only need to install it once to make it available in **ALL YOUR PROJECTS**.
 
-1. **Copy or move** this entire folder (`omnistate-plugin`) inside the Antigravity global plugins directory, generally:
-   - `C:\Users\<YourUser>\.gemini\antigravity\plugins\` on Windows.
-   *(If the plugins folder doesn't exist, you can create it and put it in there)*
+1. **Clone or download** this repository folder into any location on your PC.
+2. Run the automated installer:
+   - **Windows:** Right-click **`update.ps1`** and select *Run with PowerShell*.
+   - **Linux:** Execute **`bash update.sh`** from the terminal.
+3. The script will automatically:
+   - Synchronize the latest version from GitHub.
+   - Install/Update the plugin into the global Antigravity directory (`~/.gemini/antigravity/plugins/omnistate`).
 
-2. Once placed, Antigravity will detect the new Skills for any workspace you open.
+**Done!** Antigravity will now recognize the new skills and slash commands in any project you open.
 
-## How to Use in Any Project
+## 🛠️ How to Use in Any Project
 
-Once installed, follow this basic workflow in your projects:
+Once installed globally, you can interact with OmniState using **Slash Commands** (`/`) or by asking for the specific **Skills**.
 
 ### 1. Initialization (One-time per project)
-In your project run or ask Antigravity:
-> "Execute the `/cost-setup` skill" or copy the files from the `templates/` folder of this plugin into the root of your new project.
+Type this command in any workspace:
+> **/cost-setup**
 This will set up the minimum memory files and update your `.gitignore`:
-- `project-summary.md`
-- `tasks-history.json`
-- `chunks/` (folder)
+- `project-summary.md` (Human-readable summary of the project state)
+- `tasks-history.json` (Structured JSON of open/closed tasks)
+- `chunks/` (Folder containing summarized logs of previous sessions)
 
 ### 2. At the beginning of a new session
-As soon as you open a workspace in Antigravity to continue working, instead of having Antigravity read the entire repo, type or execute:
-> "Execute `/start-session`"
-This will ensure the agent reads **only** the summaries and the tasks left open. You will save thousands of tokens and Antigravity will get into the core of the context much faster.
+Instead of letting Antigravity read the entire repo, type:
+> **/start-session**
+The agent will read only the summaries and open tasks. This ensures you start working instantly with minimal token usage.
 
 ### 3. At the end of a session
-Before logging off or changing branches, execute:
-> "Execute `/snapshot-session`"
-The agent will summarize the actions taken in a chunk file in `chunks/` and update the `project-summary.md` and JSON tasks. This way, your memory will be preserved in the next session!
+Before closing the IDE or changing tasks, type:
+> **/snapshot-session**
+The agent will:
+- Summarize the work done.
+- Create a new "chunk" log.
+- Update `project-summary.md` and the task list.
+- Keep your memory preserved for the next time!
 
-### 4. Automatic Model Switch / Cost Savings
-With the cost-setup option enabled, the agent will try to warn you if you are wasting credits on trivial operations by reminding you to change the model in the IDE settings.
-*(You can set up a Lite or Flash model for basic readings/refactoring)*
+### 4. Automatic Cost Savings
+With the cost-setup active, the agent will monitor your model selection. If you are using an expensive model (like Gemini Pro) for routine tasks (refactoring, documentation), it will gently remind you to switch to a **Lite/Flash** model to save credits.
+
+---
+*OmniState - Persistent Memory and Efficiency for Antigravity.*
