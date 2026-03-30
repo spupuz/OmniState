@@ -77,7 +77,7 @@ if (!(Test-Path $targetKnowledgePath)) {
 }
 
 $kiMetadata = @{
-    summary = "OmniState: Global Plugin for Persistent Memory and Cost Savings. Provides skills like cost-setup, start-session, and snapshot-session."
+    summary = "OmniState Global Plugin: Persistent Memory, Cost Savings, and Model Optimization. Essential for any project to manage tasks, snapshots, and start reduced sessions. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens."
     updatedAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
     references = @()
 } | ConvertTo-Json

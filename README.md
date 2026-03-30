@@ -18,7 +18,11 @@ Since OmniState is a global plugin, you only need to install it once to make it 
    - Install/Update the plugin into the global Antigravity directory (`~/.gemini/antigravity/plugins/omnistate`).
 
 ## 🌐 Universal Discovery (KI)
-OmniState uses Antigravity's **Knowledge Item (KI)** system. Once installed, every agent session (even in new projects or over SSH) will "know" that OmniState is available globally. If the agent doesn't see the slash commands, just mention **"OmniState"** or **"cost-setup"** to trigger the discovery.
+OmniState is integrated with Antigravity's **Knowledge Item (KI)** system to ensure it is always discoverable, even in new or remote projects.
+
+1. **How it works:** Antigravity reads the global KI summaries at the start of every session.
+2. **Automatic Detection:** If you perform any task related to "memory", "cost", or "tokens", the agent will find the OmniState KI and offer to help.
+3. **Success Guaranteed:** If for any reason the slash commands (like `/cost-setup`) are not visible, simply type **"OmniState activation"** or **"cost-setup"**. This forces the agent to read the global KI instructions and initialize the project for you.
 
 ## 💻 SSH / Remote Host One-Liner
 To install OmniState on a remote server instantly:
