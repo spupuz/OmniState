@@ -1,0 +1,9 @@
+.gemini/
+.antigravity/
+antigravity.config.json
+tasks-history.json
+chunks/
+project-summary.md
+node_modules/
+.DS_Store
+*.log

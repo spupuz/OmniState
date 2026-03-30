@@ -1,0 +1,24 @@
+{
+  "name": "omnistate",
+  "version": "1.0.0",
+  "description": "Persistent memory and cost optimizer system for Antigravity. Allows starting reduced sessions, taking textual snapshots of the work done, and optimizing the model via dedicated prompts.",
+  "author": "Antigravity OS",
+  "keywords": ["memory", "cost", "optimization", "omnistate", "snapshot"],
+  "skills": [
+    {
+      "name": "start-session",
+      "path": "skills/start-session",
+      "description": "Loads the reduced memory and open tasks at the beginning of the session to save context."
+    },
+    {
+      "name": "snapshot-session",
+      "path": "skills/snapshot-session",
+      "description": "Creates a snapshot of the current session, closes completed tasks, and updates the persistent memory."
+    },
+    {
+      "name": "cost-setup",
+      "path": "skills/cost-setup",
+      "description": "Initializes the configuration for automatic cost routing."
+    }
+  ]
+}
