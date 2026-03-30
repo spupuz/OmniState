@@ -1,6 +1,9 @@
 # Update AntiGOptimize from GitHub
 Write-Host "Updating AntiGOptimize from GitHub..." -ForegroundColor Cyan
 
+# Change directory to the script's folder to ensure we're in the right place
+Set-Location $PSScriptRoot
+
 # Check if git is installed
 if (!(Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Error "Git is not installed or not in the PATH."
@@ -11,7 +14,7 @@ $repoUrl = "https://github.com/spupuz/AntiGOptimize.git"
 
 # Check if this is a git repository
 if (!(Test-Path ".git")) {
-    Write-Host "Initializing git repository..." -ForegroundColor Yellow
+    Write-Host "Initializing git repository in $PSScriptRoot..." -ForegroundColor Yellow
     git init
     git remote add origin $repoUrl
 }

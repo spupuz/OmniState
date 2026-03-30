@@ -3,6 +3,10 @@
 # Update AntiGOptimize from GitHub
 echo "Updating AntiGOptimize from GitHub..."
 
+# Change directory to the script's folder to ensure we're in the right place
+cd "$(dirname "$0")"
+echo "Working directory: $(pwd)"
+
 # Check if git is installed
 if ! command -v git &> /dev/null
 then
