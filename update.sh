@@ -10,8 +10,29 @@ then
     exit 1
 fi
 
-# Pull changes from main branch
-git pull origin main
+repoUrl="https://github.com/spupuz/AntiGOptimize.git"
+
+# Check if this is a git repository
+if [ ! -d ".git" ]; then
+    echo "Initializing git repository..."
+    git init
+    git remote add origin $repoUrl
+fi
+
+# Ensure the remote is set correctly
+git remote set-url origin $repoUrl
+
+# Fetch latest changes
+echo "Fetching latest changes..."
+git fetch origin main
+
+# Check if we should reset or pull
+if ! git rev-parse --verify HEAD >/dev/null 2>&1; then
+    echo "Synchronizing project files..."
+    git reset --hard origin/main
+else
+    git pull origin main
+fi
 
 if [ $? -eq 0 ]; then
     echo "Update complete! Project is now up to date."
