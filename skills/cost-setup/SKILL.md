@@ -13,19 +13,22 @@ description: Sets the rules for auto-switching the intelligence level (model), s
 ## Instructions for Antigravity:
 
 1. When the user executes `/cost-setup`, you should generate or read the `antigravity.config.json` file in the project root.
-2. **Mandatory Git Protection:** You MUST physically write to or append to the `.gitignore` file in the root of the project to ensure these files are never tracked. Add exactly these lines:
+2. **Mandatory Git Protection:** You MUST physically write to or append to the `.gitignore` file in the root of the project to ensure these files/folders are never tracked. Add exactly these lines:
    ```text
-   # OmniState Tracking
+   # OmniState Protection
    antigravity.config.json
    project-summary.md
    tasks-history.json
    chunks/
    omnistate-plugin/
+   .agent/
+   .agents/
    ```
-3. **Self-Initialization (Slash Commands):** Check if the folder `.agent/workflows` exists in the project root. If it is missing, or if `cost-setup.md` is not present, you MUST:
-   - Identify that the user is running the skill globally.
-   - Create the `.agent/workflows` directory.
-   - Write the required workflow files (`cost-setup.md`, `start-session.md`, `snapshot-session.md`) from the global plugin's `.agent/workflows` directory into the current project to enable the slash commands for the user.
+3. **Self-Initialization (Slash Commands):** If you are running this skill from the **Global Plugin** directory (e.g., `~/.gemini/antigravity/plugins/omnistate`), it means the current workspace is not yet initialized. You MUST:
+   - Identify the global plugin directory where this skill is located.
+   - Create BOTH `.agent/workflows` and `.agents/workflows` directories in the current project root for maximum compatibility.
+   - Copy all workflow files (`cost-setup.md`, `start-session.md`, `snapshot-session.md`) from the global plugin's `.agent/workflows` folder into both project folders.
+   - This activates the slash commands for the user.
 4. Check and load the base memory files using the provided templates if they are missing.
 4. Ask the user to confirm the rules: "Do you want me to remind you to switch to a 'Lite' model when doing simple tasks like refactoring, generating comments, or writing small tests?"
 5. From now on, when the user asks you for an exploratory or "routine" task, if the current model is very "expensive", you must point out:

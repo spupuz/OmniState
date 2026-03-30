@@ -21,21 +21,21 @@ Since OmniState is a global plugin, you only need to install it once to make it 
 OmniState is integrated with Antigravity's **Knowledge Item (KI)** system to ensure it is always discoverable, even in new or remote projects.
 
 1. **How it works:** Antigravity reads the global KI summaries at the start of every session.
-2. **Automatic Detection:** If you perform any task related to "memory", "cost", or "tokens", the agent will find the OmniState KI and offer to help.
-3. **Success Guaranteed:** If for any reason the slash commands (like `/cost-setup`) are not visible, simply type **"OmniState activation"** or **"cost-setup"**. This forces the agent to read the global KI instructions and initialize the project for you.
+2. **Success Guaranteed:** If for any reason the slash commands (like `/cost-setup`) are not visible, simply type **"OmniState activation"**. This forces the agent to read the global KI instructions and initialize the current project for you.
 
 ## 💻 SSH / Remote Host One-Liner
-To install OmniState on a remote server instantly:
+To install OmniState on a remote server instantly (even if already present):
 ```bash
-git clone https://github.com/spupuz/AntiGOptimize.git ~/AntiGOptimize && bash ~/AntiGOptimize/update.sh
+export REPO_DIR=~/AntiGOptimize; [ -d $REPO_DIR ] || git clone https://github.com/spupuz/AntiGOptimize.git $REPO_DIR; cd $REPO_DIR && git pull && bash update.sh
 ```
 
 ## 🛠️ How to Use in Any Project
-
 Once installed globally, you can interact with OmniState using **Slash Commands** (`/`) or by asking for the specific **Skills**.
 
 ### 1. Initialization (One-time per project)
-Type this command in any workspace:
+If the commands are missing from the menu, type:
+> **OmniState activation**
+Otherwise, simply run:
 > **/cost-setup**
 This will set up the minimum memory files and update your `.gitignore`:
 - `project-summary.md` (Human-readable summary of the project state)

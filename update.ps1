@@ -6,28 +6,29 @@ param(
 
 Write-Host "Updating and Synchronizing AntiGOptimize..." -ForegroundColor Cyan
 
-# 0. Self-Healing: Fix local folder inconsistencies
-$legacyWorkflows = Join-Path $PSScriptRoot "workflows"
-$newWorkflows = Join-Path $PSScriptRoot ".agent\workflows"
+# Change directory to the script's folder
+Set-Location $PSScriptRoot
 
-if (Test-Path $legacyWorkflows) {
-    Write-Host "Self-Healing: Moving legacy workflows to required hidden folder..." -ForegroundColor Yellow
-    if (!(Test-Path $newWorkflows)) {
-        New-Item -ItemType Directory -Path $newWorkflows -Force | Out-Null
-    }
-    Move-Item -Path "$legacyWorkflows\*" -Destination $newWorkflows -Force
-    Remove-Item -Path $legacyWorkflows -Recurse -Force
+# 0. Self-Healing: Fix local folder inconsistencies
+$legacyWf = Join-Path $PSScriptRoot "workflows"
+$newWf = Join-Path $PSScriptRoot ".agent\workflows"
+
+if ((Test-Path $legacyWf) -and !(Test-Path $newWf)) {
+    Write-Host "Self-Healing: Moving legacy workflows..." -ForegroundColor Yellow
+    New-Item -ItemType Directory -Path $newWf -Force | Out-Null
+    Copy-Item -Path "$legacyWf\*" -Destination $newWf -Force -Recurse
+    Remove-Item -Path $legacyWf -Recurse -Force
 }
 
 # 1. Update from GitHub (if applicable)
 if (Get-Command git -ErrorAction SilentlyContinue) {
     if (Test-Path ".git") {
         Write-Host "Fetching latest changes from GitHub..." -ForegroundColor Green
-        git pull origin main
+        git pull origin main --quiet
     }
 }
 
-# 2. Automated Installation to Antigravity
+# 2. Automated Installation to Antigravity (Universal Discovery)
 $pluginName = "omnistate"
 $globalBaseDir = "$HOME\.gemini\antigravity"
 $globalPluginsDir = Join-Path $globalBaseDir "plugins"
@@ -36,19 +37,15 @@ $globalKnowledgeDir = Join-Path $globalBaseDir "knowledge"
 $targetPluginPath = Join-Path $globalPluginsDir $pluginName
 $targetKnowledgePath = Join-Path $globalKnowledgeDir $pluginName
 
-Write-Host "Verifying Global Installation in $globalBaseDir..." -ForegroundColor Cyan
+Write-Host "Targeting Global Installation in $globalBaseDir..." -ForegroundColor Cyan
 
-# A. Handle Global Plugins
-if (!(Test-Path $globalPluginsDir)) {
-    Write-Host "Creating Antigravity plugins directory..." -ForegroundColor Yellow
-    New-Item -ItemType Directory -Path $globalPluginsDir -Force | Out-Null
-}
+# Ensure layout exists
+if (!(Test-Path $globalPluginsDir)) { New-Item -ItemType Directory -Path $globalPluginsDir -Force | Out-Null }
+if (!(Test-Path $globalWorkflowsDir)) { New-Item -ItemType Directory -Path $globalWorkflowsDir -Force | Out-Null }
+if (!(Test-Path $globalKnowledgeDir)) { New-Item -ItemType Directory -Path $globalKnowledgeDir -Force | Out-Null }
 
-# Clean up old installation
-if (Test-Path $targetPluginPath) {
-    Write-Host "Cleaning up old global plugin..." -ForegroundColor Yellow
-    Remove-Item -Path $targetPluginPath -Recurse -Force
-}
+# Clean up and Install Plugin
+if (Test-Path $targetPluginPath) { Remove-Item -Path $targetPluginPath -Recurse -Force }
 New-Item -ItemType Directory -Path $targetPluginPath -Force | Out-Null
 
 # Copy everything EXCEPT .git and .agent to the plugin folder
@@ -57,64 +54,66 @@ Get-ChildItem -Path $PSScriptRoot -Force -Exclude ".git", ".agent" | ForEach-Obj
     Copy-Item -Path $_.FullName -Destination $targetPluginPath -Recurse -Force
 }
 
-# B. Handle Global Workflows (Critical for Slash Commands)
-if (!(Test-Path $globalWorkflowsDir)) {
-    Write-Host "Creating Antigravity global workflows directory..." -ForegroundColor Yellow
-    New-Item -ItemType Directory -Path $globalWorkflowsDir -Force | Out-Null
-}
-
+# Install Slash Commands globally
 Write-Host "Installing Slash Commands globally..." -ForegroundColor Green
 $wfSource = Join-Path $PSScriptRoot ".agent\workflows"
-if (Test-Path $wfSource) {
-    Copy-Item -Path "$wfSource\*" -Destination $globalWorkflowsDir -Force
-}
+if (Test-Path $wfSource) { Copy-Item -Path "$wfSource\*" -Destination $globalWorkflowsDir -Force }
 
 # C. Universal Discovery: Create Knowledge Item (KI)
-Write-Host "Registering OmniState for Universal Discovery (Knowledge Item)..." -ForegroundColor Cyan
+Write-Host "Registering OmniState for Universal Discovery..." -ForegroundColor Cyan
 if (!(Test-Path $targetKnowledgePath)) {
     New-Item -ItemType Directory -Path $targetKnowledgePath -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $targetKnowledgePath "artifacts") -Force | Out-Null
 }
 
 $kiMetadata = @{
-    summary = "OmniState Global Plugin: Persistent Memory, Cost Savings, and Model Optimization. Essential for any project to manage tasks, snapshots, and start reduced sessions. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens."
-    updatedAt = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-    references = @()
+    summary = "OmniState Global Plugin (v1.0.1): Persistent Memory, Cost Savings, and Model Optimization. Found at $targetPluginPath. Essential for any project. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens."
+    updatedAt = (Get-Date -uformat "%Y-%m-%dT%H:%M:%SZ")
+    references = @($targetPluginPath)
 } | ConvertTo-Json
 
 $kiInfo = @"
 # OmniState Global Plugin Guide
 
 OmniState is correctly installed as a global plugin on this machine.
-If you are in a brand-new project and you do NOT see the slash commands (like /cost-setup, /start-session), it means they need to be initialized for THIS workspace.
+If slash commands (like /cost-setup) are not visible in the UI, it's because the project isn't initialized yet.
 
-### How to use:
-1. **Command:** Execute the **cost-setup** skill from the global plugins directory.
-2. **Path:** $targetPluginPath
-3. **Action:** The skill will automatically install the project-specific workflows to activate the slash commands.
+### CRITICAL ACTIVATION:
+To activate OmniState in THIS workspace, the agent MUST:
+1. Locate the **cost-setup** skill in: $targetPluginPath
+2. **Action:** Execute the skill 'cost-setup' using the `run_skill` or `view_file` on its SKILL.md.
+3. The skill will automatically install the project-specific workflows to activate the slash commands.
 
 *Always mention 'OmniState' or 'cost-setup' to trigger this knowledge.*
 "@
 
-$kiMetadata | Out-File -FilePath (Join-Path $targetKnowledgePath "metadata.json") -Encoding UTF-8
-$kiInfo | Out-File -FilePath (Join-Path $targetKnowledgePath "artifacts/omnistate-info.md") -Encoding UTF-8
+$kiMetadata | Out-File -FilePath (Join-Path $targetKnowledgePath "metadata.json") -Encoding UTF8 -Force
+$kiInfo | Out-File -FilePath (Join-Path $targetKnowledgePath "artifacts/omnistate-info.md") -Encoding UTF8 -Force
 
 Write-Host "OmniState successfully installed and registered globally!" -ForegroundColor Green
 
 # 3. Optional: Inject into project root if provided
-if ($ProjectRoot -ne "") {
-    if (Test-Path $ProjectRoot) {
-        Write-Host "Injecting workflows into project: $ProjectRoot" -ForegroundColor Green
-        $targetProjectWf = Join-Path $ProjectRoot ".agent\workflows"
-        if (!(Test-Path $targetProjectWf)) {
-            New-Item -ItemType Directory -Path $targetProjectWf -Force | Out-Null
-        }
+if (($ProjectRoot -ne "") -and (Test-Path $ProjectRoot)) {
+    Write-Host "Injecting workflows into project: $ProjectRoot" -ForegroundColor Green
+    $wfSource = Join-Path $PSScriptRoot ".agent\workflows"
+    $wfDirs = @(".agent", ".agents")
+    foreach ($wfDir in $wfDirs) {
+        $targetProjectWf = Join-Path $ProjectRoot "$wfDir\workflows"
+        if (!(Test-Path $targetProjectWf)) { New-Item -ItemType Directory -Path $targetProjectWf -Force | Out-Null }
         Copy-Item -Path "$wfSource\*" -Destination $targetProjectWf -Force
-        Write-Host "Workflows successfully injected!" -ForegroundColor Green
-    } else {
-        Write-Warning "Target ProjectRoot not found: $ProjectRoot"
+        
+        # Git Protection: Ensure folder is hidden
+        $gitignoreFile = Join-Path $ProjectRoot ".gitignore"
+        if (Test-Path $gitignoreFile) {
+            $content = Get-Content $gitignoreFile -Raw
+            if ($content -notmatch "\n$wfDir/") {
+                Add-Content -Path $gitignoreFile -Value "`n# Antigravity Workflows`n$wfDir/" -Encoding UTF8
+            }
+        }
     }
+    Write-Host "Workflows successfully injected and hidden from Git!" -ForegroundColor Green
 }
 
-Write-Host "`nUpdate and Installation complete! Project is now up to date and active." -ForegroundColor Cyan
-if ($args.Count -eq 0 -and $ProjectRoot -eq "") { pause }
+Write-Host "`nUpdate and Installation complete! Type 'OmniState activation' if slash commands are missing." -ForegroundColor Cyan
+if ($args.Count -eq 0 -and $ProjectRoot -eq "" -and $Host.Name -eq "ConsoleHost") { pause }
+# End of AntiGOptimize update script
