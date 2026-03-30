@@ -1,6 +1,7 @@
 # OmniState Plugin for Antigravity
 
 This plugin installs a **Persistent Memory** and **Credit Savings/Model Optimization** system.
+Inspired by the **[Agora-Code](https://github.com/thebnbrkr/agora-code)** project, OmniState adapts and extends those concepts for use as an Antigravity plugin.
 
 It is designed to limit context window ingestion (reading the whole codebase at the start of a session) and allows you to track your tasks efficiently and affordably.
 
