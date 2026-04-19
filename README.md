@@ -1,11 +1,19 @@
-# OmniState Plugin for Antigravity
+# OmniState Plugin for Antigravity (v1.1.0)
 
 This plugin installs a **Persistent Memory** and **Credit Savings / Model Optimization** system for your AI coding sessions.
 Inspired by the **[Agora-Code](https://github.com/thebnbrkr/agora-code)** project, OmniState adapts and extends those concepts for use as a global Antigravity plugin.
 
-It is designed to limit context window ingestion (saving thousands of tokens) by allowing the agent to track your tasks and progress through a dedicated summary.
+It is designed to limit context window ingestion (saving thousands of tokens) by allowing the agent to track your tasks and progress through a dedicated summary and automated background optimizations.
 
-## 🚀 How to Install (Automated)
+## 🚀 Key Features (v1.1.0 Evolution)
+
+- **Automatic Background Sync**: OmniState now self-updates from GitHub and synchronizes workflows across all your projects automatically.
+- **Visual Dashboard (UI)**: An elegant, high-fidelity local dashboard (`/dashboard`) to visualize project state and token savings.
+- **Intelligent Memory Archiving**: Automatically moves completed tasks to an archive to keep your active context as lean as possible.
+- **Context Purge**: Forcefully cleans the AI's context window on startup to prevent "hallucinations" or distractions from previous files.
+- **Dense Instructions**: Optimized skill logic to minimize token overhead during every interaction.
+
+## 📦 How to Install (Automated)
 
 Since OmniState is a global plugin, you only need to install it once to make it available in **ALL YOUR PROJECTS**.
 
@@ -17,53 +25,49 @@ Since OmniState is a global plugin, you only need to install it once to make it 
    - Synchronize the latest version from GitHub.
    - Install/Update the plugin into the global Antigravity directory (`~/.gemini/antigravity/plugins/omnistate`).
 
-## 🌐 Universal Discovery (KI)
-OmniState is integrated with Antigravity's **Knowledge Item (KI)** system to ensure it is always discoverable, even in new or remote projects.
+## 🛠️ How to Use in Any Project
 
-1. **How it works:** Antigravity reads the global KI summaries at the start of every session.
-2. **Success Guaranteed:** If for any reason the slash commands (like `/cost-setup`) are not visible, simply type **"OmniState activation"**. This forces the agent to read the global KI instructions and initialize the current project for you.
+Once installed globally, you can interact with OmniState using **Slash Commands** (`/`) or by asking for the specific **Skills**.
+
+### 1. Initialization
+Run:
+> **/cost-setup**
+
+This will set up the memory files and update your `.gitignore` to protect them from GitHub:
+- `project-summary.md` (Architecture & State Index)
+- `tasks-history.json` (Active tasks)
+- `tasks-archive.json` (Legacy tasks - **New in v1.1.0**)
+- `antigravity.config.json` (Configuration - **New in v1.1.0**)
+
+### 2. At the start of a session
+> **/start-session**
+
+The agent performs a **Context Purge** and loads only the essential summaries. It also checks for updates in the background.
+
+### 3. During or at the end of a session
+> **/snapshot-session**
+
+The agent:
+- Creates a compacted "session chunk".
+- **Auto-Archives** older completed tasks.
+- Updates the **Distilled Summary** in your project summary file.
+- Triggers a **Dashboard Refresh**.
+
+### 4. Visual Dashboard
+> **/dashboard**
+
+Generates a premium HTML dashboard (`omnistate-dashboard.html`) in your project root. Open it in a browser to see:
+- Real-time task progress.
+- Visual timeline of snapshots.
+- **Estimated Token Savings** counter.
+
+## 🌐 Universal Discovery (KI)
+OmniState is integrated with Antigravity's **Knowledge Item (KI)** system. If slash commands are not visible, type **"OmniState activation"** to force initialization.
 
 ## 💻 SSH / Remote Host One-Liner
-To install OmniState on a remote server instantly (even if already present):
 ```bash
 export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/spupuz/OmniState.git $REPO_DIR; cd $REPO_DIR && git pull && bash update.sh
 ```
 
-## 🛠️ How to Use in Any Project
-Once installed globally, you can interact with OmniState using **Slash Commands** (`/`) or by asking for the specific **Skills**.
-
-### 1. Initialization (One-time per project)
-If the commands are missing from the menu, type:
-> **OmniState activation**
-Otherwise, simply run:
-> **/cost-setup**
-This will set up the minimum memory files and update your `.gitignore`:
-- `project-summary.md` (Human-readable summary of the project state)
-- `tasks-history.json` (Structured JSON of open/closed tasks)
-- `chunks/` (Folder containing summarized logs of previous sessions)
-
-### 2. At the beginning of a new session
-Instead of letting Antigravity read the entire repo, type:
-> **/start-session**
-The agent will read only the summaries and open tasks. This ensures you start working instantly with minimal token usage.
-
-### 3. At the end of a session
-Before closing the IDE or changing tasks, type:
-> **/snapshot-session**
-The agent will:
-- Summarize the work done.
-- Create a new "chunk" log.
-- Update `project-summary.md` and the task list.
-- Keep your memory preserved for the next time!
-
-### 4. Automatic Cost Savings
-With the cost-setup active, the agent will monitor your model selection. If you are using an expensive model (like Gemini Pro) for routine tasks (refactoring, documentation), it will gently remind you to switch to a **Lite/Flash** model to save credits.
-
-### 5. Troubleshooting (Commands not found)
-If you type `/cost-setup` and it is not found:
-1. Ensure the plugin is installed globally (run `update.ps1` or `update.sh`).
-2. Ask the agent directly: **"Execute the cost-setup skill"**.
-3. The agent will automatically initialize the local `.agent/workflows` folder for you, and the slash commands will start working!
-
 ---
-*OmniState - Persistent Memory and Efficiency for Antigravity.*
+*OmniState - Engineered for Persistent Memory and Token-Efficient Development.*
