@@ -8,7 +8,7 @@ It is designed to limit context window ingestion (saving thousands of tokens) by
 ## 🚀 Key Features (v1.1.0 Evolution)
 
 - **Automatic Background Sync**: OmniState now self-updates from GitHub and synchronizes workflows across all your projects automatically.
-- **Visual Dashboard (UI)**: An elegant, high-fidelity local dashboard (`/dashboard`) to visualize project state and token savings.
+- **Visual Dashboard (UI)**: An elegant, high-fidelity local dashboard (`/dashboard-omnistate`) to visualize project state and token savings.
 - **Intelligent Memory Archiving**: Automatically moves completed tasks to an archive to keep your active context as lean as possible.
 - **Context Purge**: Forcefully cleans the AI's context window on startup to prevent "hallucinations" or distractions from previous files.
 - **Dense Instructions**: Optimized skill logic to minimize token overhead during every interaction.
@@ -54,7 +54,7 @@ The agent:
 - Triggers a **Dashboard Refresh**.
 
 ### 4. Visual Dashboard
-> **/dashboard**
+> **/dashboard-omnistate**
 
 Generates a premium HTML dashboard (`omnistate-dashboard.html`) in your project root. Open it in a browser to see:
 - Real-time task progress.

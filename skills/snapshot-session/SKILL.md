@@ -22,5 +22,5 @@ description: Snapshot creation with automatic task archiving and summary distill
    - Create `chunks/session-YYYYMMDD-HHMM.md`.
    - Content: Bullet points of technical changes ONLY.
 6. **Dashboard Update (Automatic):**
-   - If `omnistate-dashboard.html` exists in the root, run the **dashboard** skill immediately to refresh the data.
+   - If `omnistate-dashboard.html` exists in the root, run the **dashboard-omnistate** skill immediately to refresh the data.
 7. **Report:** "✅ Snapshot saved. [N] tasks archived. Memory optimized. ✅ Dashboard updated."

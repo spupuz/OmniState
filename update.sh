@@ -45,26 +45,38 @@ log() {
 # 3. Helpers
 sync_workflows() {
     local target_project="$1"
-    local source_wf="$TARGET_PLUGIN_PATH/.agent/workflows"
+    local source_wf="$TARGET_PLUGIN_PATH/dist/workflows"
+    local source_templates="$TARGET_PLUGIN_PATH/templates"
     
-    if [ ! -d "$source_wf" ]; then
-        source_wf="$SCRIPT_DIR/.agent/workflows"
-    fi
+    if [ ! -d "$source_wf" ]; then source_wf="$SCRIPT_DIR/dist/workflows"; fi
+    if [ ! -d "$source_templates" ]; then source_templates="$SCRIPT_DIR/templates"; fi
 
-    if [ -d "$target_project" ] && [ -d "$source_wf" ]; then
-        log "\033[0;36mSynchronizing OmniState workflows to $target_project...\033[0m"
+    if [ -d "$target_project" ]; then
+        log "\033[0;36mSynchronizing OmniState components to $target_project...\033[0m"
+        
         for wfDir in ".agent" ".agents"; do
-            mkdir -p "$target_project/$wfDir/workflows"
-            cp -a "$source_wf/"* "$target_project/$wfDir/workflows/"
+            # Sync Workflows
+            if [ -d "$source_wf" ]; then
+                mkdir -p "$target_project/$wfDir/workflows"
+                cp -a "$source_wf/"* "$target_project/$wfDir/workflows/"
+            fi
             
-            # Git Protection
+            # Sync Templates (Local availability)
+            if [ -d "$source_templates" ]; then
+                mkdir -p "$target_project/$wfDir/templates"
+                cp -a "$source_templates/"* "$target_project/$wfDir/templates/"
+            fi
+            
+            # TOTAL GIT PROTECTION
             if [ -f "$target_project/.gitignore" ]; then
-                if ! grep -q "^$wfDir/" "$target_project/.gitignore"; then
-                    echo -e "\n# OmniState Workflows\n$wfDir/" >> "$target_project/.gitignore"
-                fi
+                for pattern in "$wfDir/" "/omnistate-dashboard.html" "project-summary.md" "tasks-history.json" "tasks-archive.json" "antigravity.config.json" "chunks/"; do
+                    if ! grep -q "^$pattern" "$target_project/.gitignore"; then
+                        echo "$pattern" >> "$target_project/.gitignore"
+                    fi
+                done
             fi
         done
-        log "\033[0;32mWorkflows synchronized successfully.\033[0m"
+        log "\033[0;32mComponents synchronized and Git Protection enforced.\033[0m"
     fi
 }
 
@@ -156,8 +168,8 @@ cat <<EOF > "$GLOBAL_KNOWLEDGE_DIR/$PLUGIN_NAME/metadata.json"
 EOF
 
 # Global Workflows
-if [ -d "$SCRIPT_DIR/.agent/workflows" ]; then
-    cp -a "$SCRIPT_DIR/.agent/workflows/"* "$GLOBAL_WORKFLOWS_DIR/"
+if [ -d "$SCRIPT_DIR/dist/workflows" ]; then
+    cp -a "$SCRIPT_DIR/dist/workflows/"* "$GLOBAL_WORKFLOWS_DIR/"
 fi
 
 log "\033[0;32mOmniState v$VERSION successfully installed globally!\033[0m"

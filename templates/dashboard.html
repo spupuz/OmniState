@@ -9,36 +9,39 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-dark: #0a0f1a;
-            --card-bg: rgba(30, 41, 59, 0.5);
+            --bg-dark: #070b14;
+            --card-bg: rgba(15, 23, 42, 0.6);
             --accent: #3b82f6;
-            --accent-glow: rgba(59, 130, 246, 0.5);
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --success: #10b981;
         }
         body {
             background-color: var(--bg-dark);
-            color: #e2e8f0;
+            color: #f1f5f9;
             font-family: 'Inter', sans-serif;
             background-image: 
-                radial-gradient(circle at 0% 0%, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-                radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
             min-height: 100vh;
         }
         h1, h2, h3 { font-family: 'Outfit', sans-serif; }
         .glass {
             background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             border-radius: 1.5rem;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
         }
         .stat-card {
-            transition: transform 0.3s ease, border-color 0.3s ease;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px);
             border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
         }
         .glow-text {
-            text-shadow: 0 0 15px var(--accent-glow);
+            text-shadow: 0 0 20px var(--accent-glow);
         }
         .timeline-item::before {
             content: '';
@@ -49,86 +52,102 @@
             height: 0.75rem;
             border-radius: 50%;
             background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
+            box-shadow: 0 0 15px var(--accent);
         }
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .pulse { animation: pulse-subtle 3s infinite ease-in-out; }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: var(--bg-dark); }
         ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #334155; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
     </style>
 </head>
 <body class="p-6 md:p-12">
     <div class="max-w-7xl mx-auto">
         <!-- Header -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-4">
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
             <div>
-                <div class="flex items-center gap-3 mb-2">
-                    <span class="px-3 py-1 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-full border border-blue-600/30">OMNISTATE v1.1.0</span>
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="px-4 py-1.5 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-full border border-blue-600/30 tracking-wider">OMNISTATE v1.1.0</span>
+                    <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-widest pulse">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                        Operational
+                    </span>
                 </div>
-                <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="project-name">Project Dashboard</h1>
-                <p class="text-slate-400 mt-2" id="project-description">Intelligence & token optimization overview</p>
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight glow-text" id="project-name">Project Dashboard</h1>
+                <p class="text-slate-400 mt-3 text-lg font-light" id="project-description">Intelligence & token optimization overview</p>
             </div>
-            <div class="text-right">
-                <p class="text-xs font-semibold text-slate-500 uppercase tracking-widest">Last Synced</p>
-                <p class="text-xl font-bold text-slate-200" id="last-updated">--/--/----</p>
+            <div class="text-left md:text-right glass px-6 py-4">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Snapshot Integrity</p>
+                <p class="text-2xl font-black text-slate-100" id="last-updated">--/--/----</p>
             </div>
         </header>
 
         <!-- Stats Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <div class="glass p-6 stat-card">
-                <p class="text-slate-400 text-sm font-medium mb-1">Active Tasks</p>
-                <h3 class="text-3xl font-bold" id="active-tasks">0</h3>
-                <div class="mt-4 w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+            <div class="glass p-8 stat-card group">
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-blue-400 transition-colors">Active Tasks</p>
+                <h3 class="text-4xl font-black" id="active-tasks">0</h3>
+                <div class="mt-6 w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
                     <div id="task-progress" class="bg-blue-500 h-full w-0 transition-all duration-1000"></div>
                 </div>
             </div>
-            <div class="glass p-6 stat-card">
-                <p class="text-slate-400 text-sm font-medium mb-1">Archived Tasks</p>
-                <h3 class="text-3xl font-bold" id="archived-tasks">0</h3>
-                <p class="text-xs text-green-400 mt-2">↑ Efficiency improved</p>
+            <div class="glass p-8 stat-card group">
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-emerald-400 transition-colors">Archived Tasks</p>
+                <h3 class="text-4xl font-black" id="archived-tasks">0</h3>
+                <p class="text-xs text-emerald-400 mt-3 font-semibold tracking-tight tracking-wide">Efficiency optimized</p>
             </div>
-            <div class="glass p-6 stat-card">
-                <p class="text-slate-400 text-sm font-medium mb-1">Total Snapshots</p>
-                <h3 class="text-3xl font-bold" id="total-snapshots">0</h3>
-                <p class="text-xs text-slate-500 mt-2">Session history deep</p>
+            <div class="glass p-8 stat-card group">
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-purple-400 transition-colors">Session Depth</p>
+                <h3 class="text-4xl font-black" id="total-snapshots">0</h3>
+                <p class="text-xs text-slate-500 mt-3 italic">Persistent memory log</p>
             </div>
-            <div class="glass p-6 border-blue-500/50 bg-blue-500/5 stat-card">
-                <p class="text-blue-400 text-sm font-bold mb-1 uppercase tracking-tighter">Token Savings</p>
-                <h3 class="text-3xl font-black text-white" id="token-savings">~0k</h3>
-                <p class="text-xs text-blue-300/70 mt-2">Estimated credits saved</p>
+            <div class="glass p-8 border-blue-500/30 bg-blue-500/5 stat-card group overflow-hidden relative">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+                <p class="text-blue-400 text-xs font-black uppercase tracking-widest mb-2">Token Savings</p>
+                <h3 class="text-4xl font-black text-white" id="token-savings">~0k</h3>
+                <p class="text-xs text-blue-300/60 mt-3 font-medium">Estimated credits saved</p>
             </div>
         </div>
 
         <!-- Main Content -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left: Savings Chart -->
-            <div class="lg:col-span-2 glass p-8">
-                <h2 class="text-2xl font-bold mb-8">Optimization Performance</h2>
+            <!-- Left: Performance -->
+            <div class="lg:col-span-2 glass p-10">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-2xl font-bold">Optimization Curve</h2>
+                    <span class="text-xs text-slate-500 font-mono">Cumulative Token Savings (k)</span>
+                </div>
                 <div class="h-80 w-full">
                     <canvas id="savingsChart"></canvas>
                 </div>
             </div>
 
             <!-- Right: Timeline -->
-            <div class="glass p-8 overflow-hidden flex flex-col">
-                <h2 class="text-2xl font-bold mb-8">Recent History</h2>
-                <div class="relative ml-6 border-l border-slate-700 pl-8 space-y-12 overflow-y-auto max-h-[400px] pr-4" id="timeline-container">
+            <div class="glass p-10 flex flex-col">
+                <h2 class="text-2xl font-bold mb-10">Memory Chunks</h2>
+                <div class="relative ml-6 border-l border-slate-800 pl-8 space-y-12 overflow-y-auto max-h-[420px] pr-4 custom-scroll" id="timeline-container">
                     <!-- Timeline items will be injected here -->
                 </div>
             </div>
         </div>
 
-        <!-- Architecture Index -->
-        <div class="mt-12 glass p-8">
-            <h2 class="text-2xl font-bold mb-6">Architecture Key Index</h2>
+        <!-- Tech Stack / Architecture -->
+        <div class="mt-12 glass p-10">
+            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+                Architecture Roadmap
+                <span class="h-px flex-1 bg-slate-800"></span>
+            </h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="architecture-grid">
                 <!-- Modules will be injected here -->
             </div>
         </div>
 
-        <footer class="mt-16 text-center text-slate-600 text-sm italic">
-            Engineered by Antigravity OS | Keep your context window lean.
+        <footer class="mt-20 py-8 text-center">
+            <p class="text-slate-600 text-[10px] uppercase tracking-[0.4em] font-bold">Engineered by Antigravity OS | Zero-Context Overhead Vision</p>
         </footer>
     </div>
 
@@ -138,40 +157,37 @@
     </script>
 
     <script>
-        // Initialization and Data Binding
         document.addEventListener('DOMContentLoaded', () => {
             let data = {};
             try {
                 const dataRaw = document.getElementById('omnistate-data').textContent.trim();
-                if (dataRaw === '{{DA' + 'TA}}' || !dataRaw) {
-                    // Placeholder fallback for demo
+                if (dataRaw.includes('{{DA' + 'TA}}') || !dataRaw) {
                     data = {
-                        projectName: "Demo Project",
+                        projectName: "OmniState System",
                         version: "1.1.0",
-                        activeTasks: 5,
-                        totalTasks: 12,
-                        archivedTasks: 7,
-                        snapshots: 15,
-                        tokenSavings: "125k",
+                        activeTasks: 4,
+                        totalTasks: 10,
+                        archivedTasks: 6,
+                        snapshots: 8,
+                        tokenSavings: "142k",
                         lastUpdate: new Date().toLocaleDateString(),
                         timeline: [
-                            { date: "2024-04-19", label: "Initial Setup", text: "Project initialized with OmniState" },
-                            { date: "2024-04-20", label: "Refactor", text: "Optimized core modules" }
+                            { date: "APR 19", label: "Core Sync", text: "Global update service initialized" },
+                            { date: "APR 20", label: "UI Refactor", text: "Premium glassmorphic dashboard deployment" }
                         ],
                         architecture: [
-                            { role: "Backend", text: "Go Microservices" },
-                            { role: "Frontend", text: "Next.js Dashboard" }
+                            { role: "Logic", text: "Task-based persistent state" },
+                            { role: "UI", text: "Real-time visual monitoring" },
+                            { role: "Sync", text: "Cross-project workflow alignment" }
                         ],
-                        chartData: [10, 25, 45, 80, 110, 125]
+                        chartData: [20, 35, 60, 85, 110, 142]
                     };
                 } else {
                     data = JSON.parse(dataRaw);
                 }
-            } catch (e) {
-                console.error("Failed to parse OmniState data", e);
-            }
+            } catch (e) { console.error("Data parse error", e); }
 
-            // Update UI
+            // UI Binding
             document.getElementById('project-name').textContent = data.projectName || "Unknown Project";
             document.getElementById('active-tasks').textContent = data.activeTasks || 0;
             document.getElementById('archived-tasks').textContent = data.archivedTasks || 0;
@@ -179,51 +195,54 @@
             document.getElementById('token-savings').textContent = "~" + (data.tokenSavings || "0k");
             document.getElementById('last-updated').textContent = data.lastUpdate || "N/A";
 
-            // Task Progress
             const progress = data.totalTasks > 0 ? (data.archivedTasks / data.totalTasks) * 100 : 0;
             document.getElementById('task-progress').style.width = progress + "%";
 
-            // Inject Timeline
             const timelineContainer = document.getElementById('timeline-container');
             (data.timeline || []).forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'timeline-item relative';
+                div.className = 'timeline-item relative group cursor-default';
                 div.innerHTML = `
-                    <p class="text-xs font-bold text-slate-500 uppercase">${item.date}</p>
-                    <h4 class="text-lg font-semibold text-slate-200 mt-1">${item.label}</h4>
-                    <p class="text-sm text-slate-400 mt-1">${item.text}</p>
+                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-400 transition-colors">${item.date}</p>
+                    <h4 class="text-lg font-bold text-slate-200 mt-1">${item.label}</h4>
+                    <p class="text-sm text-slate-400 mt-1 font-light leading-relaxed">${item.text}</p>
                 `;
                 timelineContainer.appendChild(div);
             });
 
-            // Inject Architecture
             const archGrid = document.getElementById('architecture-grid');
             (data.architecture || []).forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'p-4 rounded-xl bg-slate-900/50 border border-slate-800';
+                div.className = 'p-6 rounded-2xl bg-slate-900/40 border border-slate-800/50 hover:border-blue-500/30 transition-all';
                 div.innerHTML = `
-                    <p class="text-blue-400 font-bold text-xs uppercase mb-1">${item.role}</p>
-                    <p class="text-slate-300 font-medium text-sm">${item.text}</p>
+                    <p class="text-blue-400 font-black text-[10px] uppercase tracking-widest mb-2">${item.role}</p>
+                    <p class="text-slate-300 font-semibold text-base">${item.text}</p>
                 `;
                 archGrid.appendChild(div);
             });
 
-            // Chart
+            // Chart setup
             const ctx = document.getElementById('savingsChart').getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
             new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: (data.chartData || []).map((_, i) => 'Sess ' + (i+1)),
+                    labels: (data.chartData || []).map((_, i) => 'Snap ' + (i+1)),
                     datasets: [{
-                        label: 'Estimated Token Savings (k)',
                         data: data.chartData || [],
                         borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        borderWidth: 3,
+                        backgroundColor: gradient,
+                        borderWidth: 4,
                         fill: true,
                         tension: 0.4,
                         pointBackgroundColor: '#3b82f6',
-                        pointRadius: 4
+                        pointBorderColor: '#070b14',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
                     }]
                 },
                 options: {
@@ -233,12 +252,12 @@
                     scales: {
                         y: { 
                             beginAtZero: true, 
-                            grid: { color: 'rgba(255,255,255,0.05)' },
-                            ticks: { color: '#64748b' }
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: { color: '#475569', font: { size: 10, weight: 'bold' } }
                         },
                         x: { 
                             grid: { display: false },
-                            ticks: { color: '#64748b' }
+                            ticks: { color: '#475569', font: { size: 10, weight: 'bold' } }
                         }
                     }
                 }

@@ -13,3 +13,6 @@ node_modules/
 
 # OmniState Workflows
 .agents/
+omnistate-dashboard.html
+/omnistate-dashboard.html
+tasks-archive.json

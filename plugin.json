@@ -21,8 +21,8 @@
       "description": "Initializes the configuration for automatic cost routing."
     },
     {
-      "name": "dashboard",
-      "path": "skills/dashboard",
+      "name": "dashboard-omnistate",
+      "path": "skills/dashboard-omnistate",
       "description": "Generates the visual dashboard for project metrics."
     }
   ]
