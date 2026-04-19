@@ -1,0 +1,20 @@
+{
+  "project": "ProjectName",
+  "updated_at": "2024-XX-XXT00:00:00Z",
+  "tasks": [
+    {
+      "id": "T-1",
+      "title": "Initialize repository",
+      "status": "done",
+      "requested_by": "user",
+      "timestamp": "2024-XX-XX"
+    },
+    {
+      "id": "T-2",
+      "title": "Start core development",
+      "status": "todo",
+      "requested_by": "user",
+      "timestamp": "2024-XX-XX"
+    }
+  ]
+}

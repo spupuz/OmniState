@@ -1,9 +1,9 @@
 .gemini/
 .antigravity/
-antigravity.config.json
-tasks-history.json
-chunks/
-project-summary.md
+/antigravity.config.json
+/tasks-history.json
+/chunks/
+/project-summary.md
 node_modules/
 .DS_Store
 *.log
@@ -15,4 +15,4 @@ node_modules/
 .agents/
 omnistate-dashboard.html
 /omnistate-dashboard.html
-tasks-archive.json
+/tasks-archive.json
