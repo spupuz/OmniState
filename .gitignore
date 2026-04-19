@@ -7,3 +7,9 @@ project-summary.md
 node_modules/
 .DS_Store
 *.log
+
+# OmniState Workflows
+.agent/
+
+# OmniState Workflows
+.agents/

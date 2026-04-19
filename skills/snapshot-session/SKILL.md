@@ -1,25 +1,26 @@
 ---
 name: snapshot-session
-description: At the end of a session, creates a chunk summary, updates project-summary.md, and updates tasks for future sessions.
+description: Snapshot creation with automatic task archiving and summary distillation.
 ---
-# Snapshot Session
+# Snapshot Session (Economy v1.1.0)
 
-**SKILL GOAL:** Save the work done in long-term memory to avoid having to recalculate or re-contextualize it in future sessions.
+**SKILL GOAL:** Persist work state and optimize memory for future sessions.
 
-**GLOBAL RULES:**
-- All written files, chunks and JSON tracking MUST ALWAYS be strictly in English.
+**INSTRUCTIONS:**
 
-## Instructions for Antigravity:
-
-1. **Analyze the delta of changes:** Look at the files that have been modified during the session.
-2. **Update project-summary.md:**
-   - Append/update the current state of the architecture if there have been significant changes.
-   - Do not replace it entirely, but update any changelog or list of decisions made. All in English.
-3. **Update tasks-history.json:**
-   - Mark completed tasks as "done".
-   - Add any new tasks generated during the conversation as "open" or "todo". All notes in English.
-4. **Create a Session Chunk:**
-   - Create a file in the `chunks/` folder (make sure it exists). E.g. `chunks/session-YYYYMMDD-HHMM.md`.
-   - Inside the chunk, write compactly what has been added/modified in English.
-5. **Communicate completion:**
-   - "Snapshot saved successfully. Summary and Tasks updated. You are ready to close or switch branches!"
+1. **State Sync:** Run `bash ~/.gemini/antigravity/plugins/omnistate/update.sh --auto .`
+2. **Task Archiving:**
+   - Scan `tasks-history.json` for `status: done`.
+   - If `done` tasks count > 10 OR (archive_threshold from config met):
+     - Append them to `tasks-archive.json` with timestamp.
+     - Remove them from `tasks-history.json`.
+3. **Summary Distillation:**
+   - Detect session changes.
+   - Update `project-summary.md` section "Latest Progress":
+     - Write a max 3-line distilled summary (keywords + core result).
+4. **Session Chunk:**
+   - Create `chunks/session-YYYYMMDD-HHMM.md`.
+   - Content: Bullet points of technical changes ONLY.
+6. **Dashboard Update (Automatic):**
+   - If `omnistate-dashboard.html` exists in the root, run the **dashboard** skill immediately to refresh the data.
+7. **Report:** "✅ Snapshot saved. [N] tasks archived. Memory optimized. ✅ Dashboard updated."

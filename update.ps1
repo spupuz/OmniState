@@ -1,119 +1,155 @@
-# Update and Install OmniState from GitHub
+# OmniState Update & Sync Script (v1.1.0)
+# PowerShell version for Windows and cross-platform compatibility
 
 param(
-    [string]$ProjectRoot = ""
+    [string]$ProjectRoot = "",
+    [switch]$SyncOnly,
+    [switch]$Auto,
+    [switch]$Check,
+    [switch]$Silent
 )
 
-Write-Host "Updating and Synchronizing OmniState..." -ForegroundColor Cyan
+# 1. Configuration & Paths
+$scriptDir = $PSScriptRoot
+$versionFile = Join-Path $scriptDir "VERSION.txt"
+$version = if (Test-Path $versionFile) { Get-Content $versionFile -Raw } else { "1.1.0" }
+$pluginName = "omnistate"
 
-# Change directory to the script's folder
-Set-Location $PSScriptRoot
+# Detect global directories
+$globalBaseDir = Join-Path $HOME ".gemini\antigravity"
+$globalPluginsDir = Join-Path $globalBaseDir "plugins"
+$globalWorkflowsDir = Join-Path $globalBaseDir "workflows"
+$globalKnowledgeDir = Join-Path $globalBaseDir "knowledge"
+$targetPluginPath = Join-Path $globalPluginsDir $pluginName
 
-# 0. Self-Healing: Fix local folder inconsistencies
-$legacyWf = Join-Path $PSScriptRoot "workflows"
-$newWf = Join-Path $PSScriptRoot ".agent\workflows"
+function Write-Log($message, $color = "White") {
+    if (!$Silent) {
+        Write-Host $message -ForegroundColor $color
+    }
+}
 
+# 2. Helpers
+function Sync-Workflows($targetProject) {
+    $sourceWf = Join-Path $targetPluginPath ".agent\workflows"
+    if (!(Test-Path $sourceWf)) {
+        $sourceWf = Join-Path $scriptDir ".agent\workflows"
+    }
+
+    if ((Test-Path $targetProject) -and (Test-Path $sourceWf)) {
+        Write-Log "Synchronizing OmniState workflows to $targetProject..." "Cyan"
+        $wfDirs = @(".agent", ".agents")
+        foreach ($wfDir in $wfDirs) {
+            $destWf = Join-Path $targetProject "$wfDir\workflows"
+            if (!(Test-Path $destWf)) { New-Item -ItemType Directory -Path $destWf -Force | Out-Null }
+            Copy-Item -Path "$sourceWf\*" -Destination $destWf -Force
+            
+            # Git Protection
+            $gitignore = Join-Path $targetProject ".gitignore"
+            if (Test-Path $gitignore) {
+                $content = Get-Content $gitignore -Raw
+                if ($content -notmatch "\n$wfDir/") {
+                    Add-Content -Path $gitignore -Value "`n# OmniState Workflows`n$wfDir/" -Encoding UTF8
+                }
+            }
+        }
+        Write-Log "Workflows synchronized successfully." "Green"
+    }
+}
+
+function Check-GitHubUpdate {
+    $gitPath = Join-Path $targetPluginPath ".git"
+    if (Test-Path $gitPath) {
+        Set-Location $targetPluginPath
+        if (Get-Command git -ErrorAction SilentlyContinue) {
+            $remoteHash = (git ls-remote origin -h refs/heads/main).Split("`t")[0]
+            $localHash = (git rev-parse HEAD)
+            if ($remoteHash -ne $localHash) { return $false } # Update available
+        }
+    }
+    return $true # Up to date
+}
+
+# 3. Actions Logic
+if ($Check) {
+    if (Check-GitHubUpdate) { exit 0 } else { exit 1 }
+}
+
+if ($Auto) {
+    $lastCheckFile = Join-Path $targetPluginPath ".last_update_check"
+    $now = [DateTimeOffset]::Now.ToUnixTimeSeconds()
+    $lastCheck = if (Test-Path $lastCheckFile) { Get-Content $lastCheckFile } else { 0 }
+    
+    if ($now - $lastCheck -gt 86400) {
+        Write-Log "Checking for OmniState global updates..." "Yellow"
+        if (!(Check-GitHubUpdate)) {
+            Write-Log "New version detected! Updating global OmniState..." "Green"
+            Set-Location $targetPluginPath
+            git pull origin main --quiet
+            Set-Content -Path $lastCheckFile -Value $now
+            # Re-run install
+            powershell -File (Join-Path $targetPluginPath "update.ps1") -Silent
+        } else {
+            Set-Content -Path $lastCheckFile -Value $now
+        }
+    }
+    if ($ProjectRoot -ne "") {
+        Sync-Workflows $ProjectRoot
+    }
+    exit 0
+}
+
+if ($SyncOnly) {
+    Sync-Workflows $ProjectRoot
+    exit 0
+}
+
+# 4. Default Install Logic
+Write-Log "Installing/Updating OmniState Globale (v$version)..." "Cyan"
+
+# Self-Healing
+$legacyWf = Join-Path $scriptDir "workflows"
+$newWf = Join-Path $scriptDir ".agent\workflows"
 if ((Test-Path $legacyWf) -and !(Test-Path $newWf)) {
-    Write-Host "Self-Healing: Moving legacy workflows..." -ForegroundColor Yellow
     New-Item -ItemType Directory -Path $newWf -Force | Out-Null
     Copy-Item -Path "$legacyWf\*" -Destination $newWf -Force -Recurse
     Remove-Item -Path $legacyWf -Recurse -Force
 }
 
-# 1. Update from GitHub (if applicable)
-if (Get-Command git -ErrorAction SilentlyContinue) {
-    if (Test-Path ".git") {
-        Write-Host "Fetching latest changes from GitHub..." -ForegroundColor Green
-        git pull origin main --quiet
-    }
+# Update from Git if in the source repo
+if ((Test-Path (Join-Path $scriptDir ".git")) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Log "Fetching latest changes..." "Green"
+    git pull origin main --quiet
 }
 
-# 2. Automated Installation to Antigravity (Universal Discovery)
-$pluginName = "omnistate"
-$globalBaseDir = "$HOME\.gemini\antigravity"
-$globalPluginsDir = Join-Path $globalBaseDir "plugins"
-$globalWorkflowsDir = Join-Path $globalBaseDir "workflows"
-$globalKnowledgeDir = Join-Path $globalBaseDir "knowledge"
-$targetPluginPath = Join-Path $globalPluginsDir $pluginName
-$targetKnowledgePath = Join-Path $globalKnowledgeDir $pluginName
-
-Write-Host "Targeting Global Installation in $globalBaseDir..." -ForegroundColor Cyan
-
-# Ensure layout exists
+# Ensure global layout
 if (!(Test-Path $globalPluginsDir)) { New-Item -ItemType Directory -Path $globalPluginsDir -Force | Out-Null }
 if (!(Test-Path $globalWorkflowsDir)) { New-Item -ItemType Directory -Path $globalWorkflowsDir -Force | Out-Null }
 if (!(Test-Path $globalKnowledgeDir)) { New-Item -ItemType Directory -Path $globalKnowledgeDir -Force | Out-Null }
 
-# Clean up and Install Plugin
+# Install Plugin
 if (Test-Path $targetPluginPath) { Remove-Item -Path $targetPluginPath -Recurse -Force }
 New-Item -ItemType Directory -Path $targetPluginPath -Force | Out-Null
+Copy-Item -Path "$scriptDir\*" -Destination $targetPluginPath -Recurse -Exclude ".git"
 
-# Copy everything EXCEPT .git and .agent to the plugin folder
-Write-Host "Installing OmniState plugin components..." -ForegroundColor Green
-Get-ChildItem -Path $PSScriptRoot -Force -Exclude ".git", ".agent" | ForEach-Object {
-    Copy-Item -Path $_.FullName -Destination $targetPluginPath -Recurse -Force
-}
-
-# Install Slash Commands globally
-Write-Host "Installing Slash Commands globally..." -ForegroundColor Green
-$wfSource = Join-Path $PSScriptRoot ".agent\workflows"
-if (Test-Path $wfSource) { Copy-Item -Path "$wfSource\*" -Destination $globalWorkflowsDir -Force }
-
-# C. Universal Discovery: Create Knowledge Item (KI)
-Write-Host "Registering OmniState for Universal Discovery..." -ForegroundColor Cyan
-if (!(Test-Path $targetKnowledgePath)) {
-    New-Item -ItemType Directory -Path $targetKnowledgePath -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $targetKnowledgePath "artifacts") -Force | Out-Null
-}
-
+# Register Knowledge Item
+$targetKnowledgePath = Join-Path $globalKnowledgeDir $pluginName
+if (!(Test-Path $targetKnowledgePath)) { New-Item -ItemType Directory -Path $targetKnowledgePath -Force | Out-Null }
 $kiMetadata = @{
-    summary = "OmniState Global Plugin (v1.0.1): Persistent Memory, Cost Savings, and Model Optimization. Found at $targetPluginPath. Essential for any project. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens."
+    summary = "OmniState Global Plugin (v$version): Persistent Memory, Cost Savings, and Model Optimization. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens."
     updatedAt = (Get-Date -uformat "%Y-%m-%dT%H:%M:%SZ")
     references = @($targetPluginPath)
 } | ConvertTo-Json
-
-$kiInfo = @"
-# OmniState Global Plugin Guide
-
-OmniState is correctly installed as a global plugin on this machine.
-If slash commands (like /cost-setup) are not visible in the UI, it's because the project isn't initialized yet.
-
-### CRITICAL ACTIVATION:
-To activate OmniState in THIS workspace, the agent MUST:
-1. Locate the **cost-setup** skill in: $targetPluginPath
-2. **Action:** Execute the skill 'cost-setup' using the `run_skill` or `view_file` on its SKILL.md.
-3. The skill will automatically install the project-specific workflows to activate the slash commands.
-
-*Always mention 'OmniState' or 'cost-setup' to trigger this knowledge.*
-"@
-
 $kiMetadata | Out-File -FilePath (Join-Path $targetKnowledgePath "metadata.json") -Encoding UTF8 -Force
-$kiInfo | Out-File -FilePath (Join-Path $targetKnowledgePath "artifacts/omnistate-info.md") -Encoding UTF8 -Force
 
-Write-Host "OmniState successfully installed and registered globally!" -ForegroundColor Green
+# Global Workflows
+$wfSource = Join-Path $scriptDir ".agent\workflows"
+if (Test-Path $wfSource) { Copy-Item -Path "$wfSource\*" -Destination $globalWorkflowsDir -Force }
 
-# 3. Optional: Inject into project root if provided
-if (($ProjectRoot -ne "") -and (Test-Path $ProjectRoot)) {
-    Write-Host "Injecting workflows into project: $ProjectRoot" -ForegroundColor Green
-    $wfSource = Join-Path $PSScriptRoot ".agent\workflows"
-    $wfDirs = @(".agent", ".agents")
-    foreach ($wfDir in $wfDirs) {
-        $targetProjectWf = Join-Path $ProjectRoot "$wfDir\workflows"
-        if (!(Test-Path $targetProjectWf)) { New-Item -ItemType Directory -Path $targetProjectWf -Force | Out-Null }
-        Copy-Item -Path "$wfSource\*" -Destination $targetProjectWf -Force
-        
-        # Git Protection: Ensure folder is hidden
-        $gitignoreFile = Join-Path $ProjectRoot ".gitignore"
-        if (Test-Path $gitignoreFile) {
-            $content = Get-Content $gitignoreFile -Raw
-            if ($content -notmatch "\n$wfDir/") {
-                Add-Content -Path $gitignoreFile -Value "`n# Antigravity Workflows`n$wfDir/" -Encoding UTF8
-            }
-        }
-    }
-    Write-Host "Workflows successfully injected and hidden from Git!" -ForegroundColor Green
+Write-Log "OmniState v$version successfully installed globally!" "Green"
+
+if ($ProjectRoot -ne "") {
+    Sync-Workflows $ProjectRoot
 }
 
-Write-Host "`nUpdate and Installation complete! Type 'OmniState activation' if slash commands are missing." -ForegroundColor Cyan
+Write-Log "`nAll set! Type 'OmniState activation' if slash commands are missing." "Cyan"
 if ($args.Count -eq 0 -and $ProjectRoot -eq "" -and $Host.Name -eq "ConsoleHost") { pause }
-# End of OmniState update script

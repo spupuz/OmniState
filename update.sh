@@ -1,123 +1,172 @@
 #!/bin/bash
 
-# Optional: Target Project Path
-PROJECT_ROOT="$1"
+# OmniState Update & Sync Script (v1.1.0)
+# This script manages global installation and local project synchronization.
 
-# Update and Install OmniState from GitHub
-echo -e "\033[0;36mUpdating and Synchronizing OmniState...\033[0m"
-
-# Change directory to the script's folder
+# 1. Configuration & Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR" || exit
+VERSION_FILE="$SCRIPT_DIR/VERSION.txt"
+VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "1.1.0")
+PLUGIN_NAME="omnistate"
 
-# 0. Self-Healing: Fix local folder inconsistencies
-if [ -d "workflows" ] && [ ! -d ".agent/workflows" ]; then
-    echo -e "\033[0;33mSelf-Healing: Moving legacy workflows to required hidden folder...\033[0m"
-    mkdir -p .agent/workflows
-    mv workflows/* .agent/workflows/ 2>/dev/null
-    rm -rf workflows
-fi
-
-# 1. Update from GitHub (if applicable)
-if command -v git &> /dev/null; then
-    if [ -d ".git" ]; then
-        echo -e "\033[0;32mFetching latest changes from GitHub...\033[0m"
-        git pull origin main --quiet
-    fi
-fi
-
-# 2. Automated Installation to Antigravity (Universal Discovery)
-pluginName="omnistate"
-
-# Detect possible global directories (standard or root)
-globalBaseDir="$HOME/.gemini/antigravity"
+# Detect global directories
+GLOBAL_BASE_DIR="$HOME/.gemini/antigravity"
 if [ "$EUID" -eq 0 ] && [ "$HOME" == "/root" ]; then
-    # Standard for root
-    globalBaseDir="/root/.gemini/antigravity"
+    GLOBAL_BASE_DIR="/root/.gemini/antigravity"
 fi
 
-globalPluginsDir="$globalBaseDir/plugins"
-globalWorkflowsDir="$globalBaseDir/workflows"
-globalKnowledgeDir="$globalBaseDir/knowledge"
-targetPluginPath="$globalPluginsDir/$pluginName"
-targetKnowledgePath="$globalKnowledgeDir/$pluginName"
+GLOBAL_PLUGINS_DIR="$GLOBAL_BASE_DIR/plugins"
+GLOBAL_WORKFLOWS_DIR="$GLOBAL_BASE_DIR/workflows"
+GLOBAL_KNOWLEDGE_DIR="$GLOBAL_BASE_DIR/knowledge"
+TARGET_PLUGIN_PATH="$GLOBAL_PLUGINS_DIR/$PLUGIN_NAME"
 
-echo -e "\033[0;36mTargeting Global Installation in $globalBaseDir...\033[0m"
+# 2. Argument Parsing
+ACTION="install"
+PROJECT_ROOT=""
+SILENT=false
 
-# Ensure layout exists
-mkdir -p "$globalPluginsDir"
-mkdir -p "$globalWorkflowsDir"
-mkdir -p "$globalKnowledgeDir"
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        --sync-only) ACTION="sync"; PROJECT_ROOT="$2"; shift ;;
+        --auto) ACTION="auto"; PROJECT_ROOT="$2"; shift ;;
+        --check) ACTION="check" ;;
+        --silent) SILENT=true ;;
+        *) PROJECT_ROOT="$1" ;;
+    esac
+    shift
+done
 
-# Clean up and Install Plugin
-if [ -e "$targetPluginPath" ]; then
-    rm -rf "$targetPluginPath"
-fi
-mkdir -p "$targetPluginPath"
-
-echo -e "\033[0;32mInstalling OmniState plugin components...\033[0m"
-cp -a "$SCRIPT_DIR/." "$targetPluginPath/"
-rm -rf "$targetPluginPath/.git"
-rm -rf "$targetPluginPath/.agent"
-
-# Install Slash Commands globally
-echo -e "\033[0;32mInstalling Slash Commands globally...\033[0m"
-if [ -d "$SCRIPT_DIR/.agent/workflows" ]; then
-    cp -a "$SCRIPT_DIR/.agent/workflows/"* "$globalWorkflowsDir/"
-    chmod +x "$globalWorkflowsDir"/*.md 2>/dev/null
-fi
-
-# C. Universal Discovery: Create Knowledge Item (KI)
-echo -e "\033[0;36mRegistering OmniState for Universal Discovery (Knowledge Item)...\033[0m"
-mkdir -p "$targetKnowledgePath/artifacts"
-
-cat <<EOF > "$targetKnowledgePath/metadata.json"
-{
-  "summary": "OmniState Global Plugin (v1.0.1): Persistent Memory, Cost Savings, and Model Optimization. Found at $targetPluginPath. Essential for any project. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens.",
-  "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "references": ["$targetPluginPath"]
+log() {
+    if [ "$SILENT" = false ]; then
+        echo -e "$1"
+    fi
 }
-EOF
 
-cat <<EOF > "$targetKnowledgePath/artifacts/omnistate-info.md"
-# OmniState Global Plugin Guide
+# 3. Helpers
+sync_workflows() {
+    local target_project="$1"
+    local source_wf="$TARGET_PLUGIN_PATH/.agent/workflows"
+    
+    if [ ! -d "$source_wf" ]; then
+        source_wf="$SCRIPT_DIR/.agent/workflows"
+    fi
 
-OmniState is correctly installed as a global plugin on this machine.
-If slash commands (like /cost-setup) are not visible in the UI, it's because the project isn't initialized yet.
-
-### CRITICAL ACTIVATION:
-To activate OmniState in THIS workspace, the agent MUST:
-1. Locate the **cost-setup** skill in: $targetPluginPath
-2. **Action:** Execute the skill 'cost-setup' using the `run_skill` or `view_file` on its SKILL.md.
-3. The skill will automatically install the project-specific workflows to activate the slash commands.
-
-*Always mention 'OmniState' or 'cost-setup' to trigger this knowledge.*
-EOF
-
-echo -e "\033[0;32mOmniState successfully installed and registered globally!\033[0m"
-
-# 3. Optional: Inject into project root if provided
-if [ -n "$PROJECT_ROOT" ]; then
-    if [ -d "$PROJECT_ROOT" ]; then
-        echo -e "\033[0;32mInjecting workflows into project: $PROJECT_ROOT\033[0m"
-        # Support both singular and plural for maximum compatibility
+    if [ -d "$target_project" ] && [ -d "$source_wf" ]; then
+        log "\033[0;36mSynchronizing OmniState workflows to $target_project...\033[0m"
         for wfDir in ".agent" ".agents"; do
-            targetProjectWf="$PROJECT_ROOT/$wfDir/workflows"
-            mkdir -p "$targetProjectWf"
-            cp -a "$SCRIPT_DIR/.agent/workflows/"* "$targetProjectWf/"
+            mkdir -p "$target_project/$wfDir/workflows"
+            cp -a "$source_wf/"* "$target_project/$wfDir/workflows/"
             
-            # Ensure folder is hidden from GitHub (Git Protection)
-            if [ -f "$PROJECT_ROOT/.gitignore" ]; then
-                if ! grep -q "^$wfDir/" "$PROJECT_ROOT/.gitignore"; then
-                    echo -e "\n# Antigravity Workflows\n$wfDir/" >> "$PROJECT_ROOT/.gitignore"
+            # Git Protection
+            if [ -f "$target_project/.gitignore" ]; then
+                if ! grep -q "^$wfDir/" "$target_project/.gitignore"; then
+                    echo -e "\n# OmniState Workflows\n$wfDir/" >> "$target_project/.gitignore"
                 fi
             fi
         done
-        echo -e "\033[0;32mWorkflows successfully injected and hidden from Git!\033[0m"
+        log "\033[0;32mWorkflows synchronized successfully.\033[0m"
     fi
+}
+
+check_github_update() {
+    if [ -d "$TARGET_PLUGIN_PATH/.git" ]; then
+        cd "$TARGET_PLUGIN_PATH" || return
+        
+        # Fast check using ls-remote (no fetch of objects)
+        REMOTE_HASH=$(git ls-remote origin -h refs/heads/main | awk '{print $1}')
+        LOCAL_HASH=$(git rev-parse HEAD)
+        
+        if [ "$REMOTE_HASH" != "$LOCAL_HASH" ]; then
+            return 1 # Update available
+        fi
+    fi
+    return 0 # Up to date
+}
+
+# 4. Actions Logic
+if [ "$ACTION" == "check" ]; then
+    check_github_update
+    exit $?
 fi
 
-echo -e "\n\033[0;36mUpdate and Installation complete! Type 'OmniState activation' if slash commands are missing.\033[0m"
+if [ "$ACTION" == "auto" ]; then
+    # 24h Throttle for GitHub check
+    LAST_CHECK_FILE="$TARGET_PLUGIN_PATH/.last_update_check"
+    NOW=$(date +%s)
+    LAST_CHECK=0
+    if [ -f "$LAST_CHECK_FILE" ]; then LAST_CHECK=$(cat "$LAST_CHECK_FILE"); fi
+    
+    if (( NOW - LAST_CHECK > 86400 )); then
+        log "\033[0;33mChecking for OmniState global updates...\033[0m"
+        if ! check_github_update; then
+            log "\033[0;32mNew version detected! Updating global OmniState...\033[0m"
+            cd "$TARGET_PLUGIN_PATH" && git pull origin main --quiet
+            echo "$NOW" > "$LAST_CHECK_FILE"
+            # Re-run install to update global workflows/metadata
+            bash "$TARGET_PLUGIN_PATH/update.sh" --silent
+        else
+            echo "$NOW" > "$LAST_CHECK_FILE"
+        fi
+    fi
+    # Always sync local project if provided
+    if [ -n "$PROJECT_ROOT" ]; then
+        sync_workflows "$PROJECT_ROOT"
+    fi
+    exit 0
+fi
+
+if [ "$ACTION" == "sync" ]; then
+    sync_workflows "$PROJECT_ROOT"
+    exit 0
+fi
+
+# 5. Default Install Logic (original behavior with improvements)
+log "\033[0;36mInstalling/Updating OmniState Globale (v$VERSION)...\033[0m"
+
+# Self-Healing
+if [ -d "$SCRIPT_DIR/workflows" ] && [ ! -d "$SCRIPT_DIR/.agent/workflows" ]; then
+    mkdir -p "$SCRIPT_DIR/.agent/workflows"
+    mv "$SCRIPT_DIR/workflows/"* "$SCRIPT_DIR/.agent/workflows/" 2>/dev/null
+    rm -rf "$SCRIPT_DIR/workflows"
+fi
+
+# Update from Git if in the source repo
+if [ -d "$SCRIPT_DIR/.git" ] && command -v git &> /dev/null; then
+    log "\033[0;32mFetching latest changes...\033[0m"
+    git pull origin main --quiet
+fi
+
+# Ensure global layout
+mkdir -p "$GLOBAL_PLUGINS_DIR" "$GLOBAL_WORKFLOWS_DIR" "$GLOBAL_KNOWLEDGE_DIR"
+
+# Install Plugin
+rm -rf "$TARGET_PLUGIN_PATH"
+mkdir -p "$TARGET_PLUGIN_PATH"
+cp -a "$SCRIPT_DIR/." "$TARGET_PLUGIN_PATH/"
+rm -rf "$TARGET_PLUGIN_PATH/.git" # Remove git from the installed copy to keep it a flat plugin unless user specifically wants dev mode
+
+# Register Knowledge Item
+mkdir -p "$GLOBAL_KNOWLEDGE_DIR/$PLUGIN_NAME/artifacts"
+cat <<EOF > "$GLOBAL_KNOWLEDGE_DIR/$PLUGIN_NAME/metadata.json"
+{
+  "summary": "OmniState Global Plugin (v$VERSION): Persistent Memory, Cost Savings, and Model Optimization. Keywords: cost-setup, start-session, snapshot-session, project-summary, tokens.",
+  "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "references": ["$TARGET_PLUGIN_PATH"]
+}
+EOF
+
+# Global Workflows
+if [ -d "$SCRIPT_DIR/.agent/workflows" ]; then
+    cp -a "$SCRIPT_DIR/.agent/workflows/"* "$GLOBAL_WORKFLOWS_DIR/"
+fi
+
+log "\033[0;32mOmniState v$VERSION successfully installed globally!\033[0m"
+
+if [ -n "$PROJECT_ROOT" ]; then
+    sync_workflows "$PROJECT_ROOT"
+fi
+
+echo -e "\n\033[0;36mAll set! Type 'OmniState activation' if slash commands are missing.\033[0m"
 if [ -z "$NON_INTERACTIVE" ] && [ -z "$PROJECT_ROOT" ] && [[ $- == *i* ]]; then
     read -p "Press enter to exit..."
 fi
