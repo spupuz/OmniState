@@ -12,7 +12,7 @@ param(
 # 1. Configuration & Paths
 $scriptDir = $PSScriptRoot
 $versionFile = Join-Path $scriptDir "VERSION.txt"
-$version = if (Test-Path $versionFile) { Get-Content $versionFile -Raw } else { "1.1.0" }
+$version = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "1.1.0" }
 $pluginName = "omnistate"
 
 # Detect global directories
@@ -77,7 +77,7 @@ if ($Check) {
 if ($Auto) {
     $lastCheckFile = Join-Path $targetPluginPath ".last_update_check"
     $now = [DateTimeOffset]::Now.ToUnixTimeSeconds()
-    $lastCheck = if (Test-Path $lastCheckFile) { Get-Content $lastCheckFile } else { 0 }
+    $lastCheck = if (Test-Path $lastCheckFile) { (Get-Content $lastCheckFile).Trim() } else { 0 }
     
     if ($now - $lastCheck -gt 86400) {
         Write-Log "Checking for OmniState global updates..." "Yellow"
