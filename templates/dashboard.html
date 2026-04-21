@@ -202,11 +202,23 @@
             (data.timeline || []).forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'timeline-item relative group cursor-default';
-                div.innerHTML = `
-                    <p class="text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-400 transition-colors">${item.date}</p>
-                    <h4 class="text-lg font-bold text-slate-200 mt-1">${item.label}</h4>
-                    <p class="text-sm text-slate-400 mt-1 font-light leading-relaxed">${item.text}</p>
-                `;
+
+                const pDate = document.createElement('p');
+                pDate.className = 'text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-400 transition-colors';
+                pDate.textContent = item.date;
+
+                const h4Label = document.createElement('h4');
+                h4Label.className = 'text-lg font-bold text-slate-200 mt-1';
+                h4Label.textContent = item.label;
+
+                const pText = document.createElement('p');
+                pText.className = 'text-sm text-slate-400 mt-1 font-light leading-relaxed';
+                pText.textContent = item.text;
+
+                div.appendChild(pDate);
+                div.appendChild(h4Label);
+                div.appendChild(pText);
+
                 timelineContainer.appendChild(div);
             });
 
@@ -214,10 +226,18 @@
             (data.architecture || []).forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'p-6 rounded-2xl bg-slate-900/40 border border-slate-800/50 hover:border-blue-500/30 transition-all';
-                div.innerHTML = `
-                    <p class="text-blue-400 font-black text-[10px] uppercase tracking-widest mb-2">${item.role}</p>
-                    <p class="text-slate-300 font-semibold text-base">${item.text}</p>
-                `;
+
+                const pRole = document.createElement('p');
+                pRole.className = 'text-blue-400 font-black text-[10px] uppercase tracking-widest mb-2';
+                pRole.textContent = item.role;
+
+                const pText = document.createElement('p');
+                pText.className = 'text-slate-300 font-semibold text-base';
+                pText.textContent = item.text;
+
+                div.appendChild(pRole);
+                div.appendChild(pText);
+
                 archGrid.appendChild(div);
             });
 
