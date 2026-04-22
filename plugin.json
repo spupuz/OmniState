@@ -1,6 +1,6 @@
 {
   "name": "omnistate",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Persistent memory and cost optimizer system for Antigravity. Allows starting reduced sessions, taking textual snapshots of the work done, and optimizing the model via dedicated prompts.",
   "author": "Antigravity OS",
   "keywords": ["memory", "cost", "optimization", "omnistate", "snapshot"],

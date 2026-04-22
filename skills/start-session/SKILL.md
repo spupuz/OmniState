@@ -2,7 +2,7 @@
 name: start-session
 description: Optimized session startup with context purge and state restoration.
 ---
-# Start Session (Economy v1.1.0)
+# Start Session (Economy v1.1.1)
 
 **SKILL GOAL:** Restore session state while minimizing the context window to maximize performance and save tokens.
 

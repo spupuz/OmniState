@@ -2,7 +2,7 @@
 name: cost-setup
 description: Optimized setup for persistent memory, auto-archiving, and cost-routing rules.
 ---
-# Cost Setup (Economy v1.1.0)
+# Cost Setup (Economy v1.1.1)
 
 **SKILL GOAL:** Initialize project memory with token-saving configurations and enforce total git protection.
 

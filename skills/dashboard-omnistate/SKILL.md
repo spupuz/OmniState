@@ -2,7 +2,7 @@
 name: dashboard-omnistate
 description: Generates or updates the interactive Visual Dashboard for the project.
 ---
-# Dashboard Generator (v1.1.0)
+# Dashboard Generator (v1.1.1)
 
 **SKILL GOAL:** Extract project metrics and status to generate a premium-looking Visual Dashboard.
 

@@ -2,7 +2,7 @@
 name: snapshot-session
 description: Snapshot creation with automatic task archiving and summary distillation.
 ---
-# Snapshot Session (Economy v1.1.0)
+# Snapshot Session (Economy v1.1.1)
 
 **SKILL GOAL:** Persist work state and optimize memory for future sessions.
 

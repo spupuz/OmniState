@@ -16,3 +16,8 @@ node_modules/
 omnistate-dashboard.html
 /omnistate-dashboard.html
 /tasks-archive.json
+project-summary.md
+tasks-history.json
+tasks-archive.json
+antigravity.config.json
+chunks/
