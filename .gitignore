@@ -1,6 +1,6 @@
 .gemini/
 .antigravity/
-/antigravity.config.json
+# ant
 /tasks-history.json
 /chunks/
 /project-summary.md
@@ -8,11 +8,14 @@ node_modules/
 .DS_Store
 *.log
 
-# OmniState Workflows
+# OmniState runtime folders
 .agent/
-
-# OmniState Workflows
 .agents/
+.omnistate/
+.kilo/
+# sync-workflows.sh  # this is tracked in dist/sync/sync-workflows.sh
+
+# Kilo configuration files that should not be tracked globally
 omnistate-dashboard.html
 /omnistate-dashboard.html
 /tasks-archive.json

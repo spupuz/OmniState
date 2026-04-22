@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OmniState | Visual Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #070b14;
+            --card-bg: rgba(15, 23, 42, 0.6);
+            --accent: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.4);
+            --success: #10b981;
+        }
+        body {
+            background-color: var(--bg-dark);
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+            min-height: 100vh;
+        }
+        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+        .glass {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+        .stat-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stat-card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent);
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+        .glow-text {
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -1.75rem;
+            top: 0.5rem;
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 0 15px var(--accent);
+        }
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .pulse { animation: pulse-subtle 3s infinite ease-in-out; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+    </style>
+</head>
+<body class="p-6 md:p-12">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
+            <div>
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="px-4 py-1.5 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-full border border-blue-600/30 tracking-wider">OMNISTATE v1.1.1</span>
+                    <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-widest pulse">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></span>
+                        Operational
+                    </span>
+                </div>
+                <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight glow-text" id="project-name">Project Dashboard</h1>
+                <p class="text-slate-400 mt-3 text-lg font-light" id="project-description">Intelligence & token optimization overview</p>
+            </div>
+            <div class="text-left md:text-right glass px-6 py-4">
+                <p class="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em] mb-1">Snapshot Integrity</p>
+                <p class="text-2xl font-black text-slate-100" id="last-updated">--/--/----</p>
+            </div>
+        </header>
+
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+            <div class="glass p-8 stat-card group">
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-blue-400 transition-colors">Active Tasks</p>
+                <h3 class="text-4xl font-black" id="active-tasks">0</h3>
+                <div class="mt-6 w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                    <div id="task-progress" class="bg-blue-500 h-full w-0 transition-all duration-1000"></div>
+                </div>
+            </div>
+            <div class="glass p-8 stat-card group">
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-emerald-400 transition-colors">Archived Tasks</p>
+                <h3 class="text-4xl font-black" id="archived-tasks">0</h3>
+                <p class="text-xs text-emerald-400 mt-3 font-semibold tracking-tight tracking-wide">Efficiency optimized</p>
+            </div>
+            <div class="glass p-8 stat-card group">
+                <p class="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-purple-400 transition-colors">Session Depth</p>
+                <h3 class="text-4xl font-black" id="total-snapshots">0</h3>
+                <p class="text-xs text-slate-500 mt-3 italic">Persistent memory log</p>
+            </div>
+            <div class="glass p-8 border-blue-500/30 bg-blue-500/5 stat-card group overflow-hidden relative">
+                <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+                <p class="text-blue-400 text-xs font-black uppercase tracking-widest mb-2">Token Savings</p>
+                <h3 class="text-4xl font-black text-white" id="token-savings">~0k</h3>
+                <p class="text-xs text-blue-300/60 mt-3 font-medium">Estimated credits saved</p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left: Performance -->
+            <div class="lg:col-span-2 glass p-10">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-2xl font-bold">Optimization Curve</h2>
+                    <span class="text-xs text-slate-500 font-mono">Cumulative Token Savings (k)</span>
+                </div>
+                <div class="h-80 w-full">
+                    <canvas id="savingsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Right: Timeline -->
+            <div class="glass p-10 flex flex-col">
+                <h2 class="text-2xl font-bold mb-10">Memory Chunks</h2>
+                <div class="relative ml-6 border-l border-slate-800 pl-8 space-y-12 overflow-y-auto max-h-[420px] pr-4 custom-scroll" id="timeline-container">
+                    <!-- Timeline items will be injected here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech Stack / Architecture -->
+        <div class="mt-12 glass p-10">
+            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+                Architecture Roadmap
+                <span class="h-px flex-1 bg-slate-800"></span>
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="architecture-grid">
+                <!-- Modules will be injected here -->
+            </div>
+        </div>
+
+        <footer class="mt-20 py-8 text-center">
+            <p class="text-slate-600 text-[10px] uppercase tracking-[0.4em] font-bold">Engineered by Antigravity OS | Zero-Context Overhead Vision</p>
+        </footer>
+    </div>
+
+    <!-- DATA INJECTION -->
+    <script id="omnistate-data" type="application/json">
+        {{DATA}}
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let data = {};
+            try {
+                const dataRaw = document.getElementById('omnistate-data').textContent.trim();
+                if (dataRaw.includes('{{DA' + 'TA}}') || !dataRaw) {
+                    data = {
+                        projectName: "OmniState System",
+                        version: "1.1.1",
+                        activeTasks: 4,
+                        totalTasks: 10,
+                        archivedTasks: 6,
+                        snapshots: 8,
+                        tokenSavings: "142k",
+                        lastUpdate: new Date().toLocaleDateString(),
+                        timeline: [
+                            { date: "APR 19", label: "Core Sync", text: "Global update service initialized" },
+                            { date: "APR 20", label: "UI Refactor", text: "Premium glassmorphic dashboard deployment" }
+                        ],
+                        architecture: [
+                            { role: "Logic", text: "Task-based persistent state" },
+                            { role: "UI", text: "Real-time visual monitoring" },
+                            { role: "Sync", text: "Cross-project workflow alignment" }
+                        ],
+                        chartData: [20, 35, 60, 85, 110, 142]
+                    };
+                } else {
+                    data = JSON.parse(dataRaw);
+                }
+            } catch (e) { console.error("Data parse error", e); }
+
+            // UI Binding
+            document.getElementById('project-name').textContent = data.projectName || "Unknown Project";
+            document.getElementById('active-tasks').textContent = data.activeTasks || 0;
+            document.getElementById('archived-tasks').textContent = data.archivedTasks || 0;
+            document.getElementById('total-snapshots').textContent = data.snapshots || 0;
+            document.getElementById('token-savings').textContent = "~" + (data.tokenSavings || "0k");
+            document.getElementById('last-updated').textContent = data.lastUpdate || "N/A";
+
+            const progress = data.totalTasks > 0 ? (data.archivedTasks / data.totalTasks) * 100 : 0;
+            document.getElementById('task-progress').style.width = progress + "%";
+
+            const timelineContainer = document.getElementById('timeline-container');
+            const timelineFragment = document.createDocumentFragment();
+            (data.timeline || []).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'timeline-item relative group cursor-default';
+
+                const pDate = document.createElement('p');
+                pDate.className = 'text-[10px] font-black text-slate-500 uppercase tracking-widest group-hover:text-blue-400 transition-colors';
+                pDate.textContent = item.date;
+
+                const h4Label = document.createElement('h4');
+                h4Label.className = 'text-lg font-bold text-slate-200 mt-1';
+                h4Label.textContent = item.label;
+
+                const pText = document.createElement('p');
+                pText.className = 'text-sm text-slate-400 mt-1 font-light leading-relaxed';
+                pText.textContent = item.text;
+
+                div.appendChild(pDate);
+                div.appendChild(h4Label);
+                div.appendChild(pText);
+
+                timelineFragment.appendChild(div);
+            });
+            timelineContainer.appendChild(timelineFragment);
+
+            const archGrid = document.getElementById('architecture-grid');
+            const archFragment = document.createDocumentFragment();
+            (data.architecture || []).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'p-6 rounded-2xl bg-slate-900/40 border border-slate-800/50 hover:border-blue-500/30 transition-all';
+
+                const pRole = document.createElement('p');
+                pRole.className = 'text-blue-400 font-black text-[10px] uppercase tracking-widest mb-2';
+                pRole.textContent = item.role;
+
+                const pText = document.createElement('p');
+                pText.className = 'text-slate-300 font-semibold text-base';
+                pText.textContent = item.text;
+
+                div.appendChild(pRole);
+                div.appendChild(pText);
+
+                archFragment.appendChild(div);
+            });
+            archGrid.appendChild(archFragment);
+
+            // Chart setup
+            const ctx = document.getElementById('savingsChart').getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
+            gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: (data.chartData || []).map((_, i) => 'Snap ' + (i+1)),
+                    datasets: [{
+                        data: data.chartData || [],
+                        borderColor: '#3b82f6',
+                        backgroundColor: gradient,
+                        borderWidth: 4,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#3b82f6',
+                        pointBorderColor: '#070b14',
+                        pointBorderWidth: 2,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { 
+                            beginAtZero: true, 
+                            grid: { color: 'rgba(255,255,255,0.03)' },
+                            ticks: { color: '#475569', font: { size: 10, weight: 'bold' } }
+                        },
+                        x: { 
+                            grid: { display: false },
+                            ticks: { color: '#475569', font: { size: 10, weight: 'bold' } }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
