@@ -16,7 +16,7 @@ description: Optimized setup for persistent memory, auto-archiving, and cost-rou
    - Identify global OmniState path: `~/.gemini/antigravity/plugins/omnistate`.
    - Action: Run `bash [path]/update.sh --auto .` (or powershell equivalent on Windows) to align workflows.
 2. **Memory Setup:**
-   - Create `antigravity.config.json`, `project-summary.md`, and `tasks-history.json` from templates if missing.
+   - Create `antigravity.config.json`, `project-summary.md`, `tasks-history.json`, `AGENTS.md`, `AI_POLICY.md`, and `CONTEXT.md` from templates if missing.
    - Initialize `tasks-archive.json`.
 3. **Total Git Protection:**
    - Ensure the following are in `.gitignore`: 
@@ -25,6 +25,9 @@ description: Optimized setup for persistent memory, auto-archiving, and cost-rou
      project-summary.md
      tasks-history.json
      tasks-archive.json
+     AGENTS.md
+     AI_POLICY.md
+     CONTEXT.md
      omnistate-dashboard.html
      /omnistate-dashboard.html
      chunks/
