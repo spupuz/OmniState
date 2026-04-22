@@ -199,6 +199,7 @@
             document.getElementById('task-progress').style.width = progress + "%";
 
             const timelineContainer = document.getElementById('timeline-container');
+            const timelineFragment = document.createDocumentFragment();
             (data.timeline || []).forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'timeline-item relative group cursor-default';
@@ -219,10 +220,12 @@
                 div.appendChild(h4Label);
                 div.appendChild(pText);
 
-                timelineContainer.appendChild(div);
+                timelineFragment.appendChild(div);
             });
+            timelineContainer.appendChild(timelineFragment);
 
             const archGrid = document.getElementById('architecture-grid');
+            const archFragment = document.createDocumentFragment();
             (data.architecture || []).forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'p-6 rounded-2xl bg-slate-900/40 border border-slate-800/50 hover:border-blue-500/30 transition-all';
@@ -238,8 +241,9 @@
                 div.appendChild(pRole);
                 div.appendChild(pText);
 
-                archGrid.appendChild(div);
+                archFragment.appendChild(div);
             });
+            archGrid.appendChild(archFragment);
 
             // Chart setup
             const ctx = document.getElementById('savingsChart').getContext('2d');
