@@ -13,6 +13,7 @@ node_modules/
 .agents/
 .omnistate/
 .kilo/
+.kilo/plans/
 # sync-workflows.sh  # this is tracked in dist/sync/sync-workflows.sh
 
 # Kilo configuration files that should not be tracked globally
