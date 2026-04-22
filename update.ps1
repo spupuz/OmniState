@@ -1,4 +1,4 @@
-# OmniState Update & Sync Script (v1.1.0)
+# OmniState Update & Sync Script (v1.1.1)
 # PowerShell version for Windows and cross-platform compatibility
 
 param(
@@ -12,7 +12,7 @@ param(
 # 1. Configuration & Paths
 $scriptDir = $PSScriptRoot
 $versionFile = Join-Path $scriptDir "VERSION.txt"
-$version = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "1.1.0" }
+$version = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "1.1.1" }
 $pluginName = "omnistate"
 
 # Detect global directories

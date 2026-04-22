@@ -1,11 +1,11 @@
-# OmniState Plugin for Antigravity (v1.1.0)
+# OmniState Plugin for Antigravity (v1.1.1)
 
 This plugin installs a **Persistent Memory** and **Credit Savings / Model Optimization** system for your AI coding sessions.
 Inspired by the **[Agora-Code](https://github.com/thebnbrkr/agora-code)** project, OmniState adapts and extends those concepts for use as a global Antigravity plugin.
 
 It is designed to limit context window ingestion (saving thousands of tokens) by allowing the agent to track your tasks and progress through a dedicated summary and automated background optimizations.
 
-## 🚀 Key Features (v1.1.0 Evolution)
+## 🚀 Key Features (v1.1.1 Evolution)
 
 - **Automatic Background Sync**: OmniState now self-updates from GitHub and synchronizes workflows across all your projects automatically.
 - **Visual Dashboard (UI)**: An elegant, high-fidelity local dashboard (`/dashboard-omnistate`) to visualize project state and token savings.
@@ -36,8 +36,8 @@ Run:
 This will set up the memory files and update your `.gitignore` to protect them from GitHub:
 - `project-summary.md` (Architecture & State Index)
 - `tasks-history.json` (Active tasks)
-- `tasks-archive.json` (Legacy tasks - **New in v1.1.0**)
-- `antigravity.config.json` (Configuration - **New in v1.1.0**)
+- `tasks-archive.json` (Legacy tasks - **New in v1.1.1**)
+- `antigravity.config.json` (Configuration - **New in v1.1.1**)
 
 ### 2. At the start of a session
 > **/start-session**
@@ -71,3 +71,7 @@ export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/sp
 
 ---
 *OmniState - Engineered for Persistent Memory and Token-Efficient Development.*
+# Estensioni di compatibilità multi-IDEA
+1. VSCode - Supporto per Kilocode
+1.1. Supporto per i workflow Kilocode in Vscode
+1.2. Comandi condivisi tra Antigravity e Kilocode

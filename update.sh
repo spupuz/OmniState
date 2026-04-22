@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# OmniState Update & Sync Script (v1.1.0)
+# OmniState Update & Sync Script (v1.1.1)
 # This script manages global installation and local project synchronization.
 
 # 1. Configuration & Paths
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 VERSION_FILE="$SCRIPT_DIR/VERSION.txt"
-VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "1.1.0")
+VERSION=$(cat "$VERSION_FILE" 2>/dev/null || echo "1.1.1")
 PLUGIN_NAME="omnistate"
 
 # Detect global directories
