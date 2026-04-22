@@ -34,5 +34,10 @@ if [ ! -f "$REPO_DIR/dist/scripts/skills.md" ]; then
   echo "# Skills Definition" > "$REPO_DIR/dist/scripts/skills.md"
 fi
 
+## Proactive Documentation
+Analyze the project structure, technology stack, and existing documentation.
+Populate `CONTEXT.md`, `AGENTS.md`, and `AI_POLICY.md` with relevant information if they are new or contain placeholders.
+Ensure they reflect the current state of the repository.
+
 ## Execute Session Skill
 Execute the **start-session** skill.

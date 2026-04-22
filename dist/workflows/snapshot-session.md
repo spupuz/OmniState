@@ -34,5 +34,9 @@ if [ ! -f "$REPO_DIR/dist/scripts/skills.md" ]; then
   echo "# Skills Definition" > "$REPO_DIR/dist/scripts/skills.md"
 fi
 
+## Documentation Update
+Review the changes made during this session.
+Update `CONTEXT.md` (architecture), `AGENTS.md` (roles), and `AI_POLICY.md` (rules) if the work performed has impacted these areas.
+
 ## Execute Session Skill
 Execute the **snapshot-session** skill.

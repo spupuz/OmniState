@@ -21,6 +21,11 @@ description: Snapshot creation with automatic task archiving and summary distill
 4. **Session Chunk:**
    - Create `chunks/session-YYYYMMDD-HHMM.md`.
    - Content: Bullet points of technical changes ONLY.
+5. **Documentation Maintenance:**
+   - Review changes made during the session.
+   - If architectural changes occurred, update `CONTEXT.md`.
+   - If new tools or agent roles were introduced, update `AGENTS.md`.
+   - If project rules or AI guidelines changed, update `AI_POLICY.md`.
 6. **Dashboard Update (Automatic):**
    - If `omnistate-dashboard.html` exists in the root, run the **dashboard-omnistate** skill immediately to refresh the data.
 7. **Report:** "✅ Snapshot saved. [N] tasks archived. Memory optimized. ✅ Dashboard updated."

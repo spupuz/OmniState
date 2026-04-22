@@ -14,6 +14,8 @@ description: Optimized session startup with context purge and state restoration.
    - Read `antigravity.config.json` (settings).
    - Read `project-summary.md` (architecture).
    - Read `tasks-history.json` (active tasks).
+   - Read `AGENTS.md`, `AI_POLICY.md`, and `CONTEXT.md`.
+   - **Proactive Population**: If any of these files contain placeholders or are incomplete, perform a shallow scan of the repository to populate them with relevant project context.
 4. **Summary (Strictly English & Concise):**
    - Display: "✅ OmniState v[version] active."
    - Display: "📂 Core architecture loaded."
