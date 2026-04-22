@@ -7,22 +7,22 @@
   "skills": [
     {
       "name": "start-session",
-      "path": "skills/start-session",
+      "path": "dist/skills/start-session",
       "description": "Loads the reduced memory and open tasks at the beginning of the session to save context."
     },
     {
       "name": "snapshot-session",
-      "path": "skills/snapshot-session",
+      "path": "dist/skills/snapshot-session",
       "description": "Creates a snapshot of the current session, closes completed tasks, and updates the persistent memory."
     },
     {
       "name": "cost-setup",
-      "path": "skills/cost-setup",
+      "path": "dist/skills/cost-setup",
       "description": "Initializes the configuration for automatic cost routing."
     },
     {
       "name": "dashboard-omnistate",
-      "path": "skills/dashboard-omnistate",
+      "path": "dist/skills/dashboard-omnistate",
       "description": "Generates the visual dashboard for project metrics."
     }
   ]

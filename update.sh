@@ -46,10 +46,10 @@ log() {
 sync_workflows() {
     local target_project="$1"
     local source_wf="$TARGET_PLUGIN_PATH/dist/workflows"
-    local source_templates="$TARGET_PLUGIN_PATH/templates"
+    local source_templates="$TARGET_PLUGIN_PATH/dist/templates"
     
     if [ ! -d "$source_wf" ]; then source_wf="$SCRIPT_DIR/dist/workflows"; fi
-    if [ ! -d "$source_templates" ]; then source_templates="$SCRIPT_DIR/templates"; fi
+    if [ ! -d "$source_templates" ]; then source_templates="$SCRIPT_DIR/dist/templates"; fi
 
     if [ -d "$target_project" ]; then
         log "\033[0;36mSynchronizing OmniState components to $target_project...\033[0m"

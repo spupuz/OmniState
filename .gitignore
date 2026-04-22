@@ -16,3 +16,13 @@ node_modules/
 .kilo/plans/
 # sync-workflows.sh  # this is tracked in dist/sync/sync-workflows.sh
 
+# Kilo configuration files that should not be tracked globally
+omnistate-dashboard.html
+/omnistate-dashboard.html
+/tasks-archive.json
+project-summary.md
+tasks-history.json
+tasks-archive.json
+antigravity.config.json
+chunks/
+

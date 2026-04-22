@@ -30,29 +30,40 @@ function Write-Log($message, $color = "White") {
 
 # 2. Helpers
 function Sync-Workflows($targetProject) {
-    $sourceWf = Join-Path $targetPluginPath ".agent\workflows"
-    if (!(Test-Path $sourceWf)) {
-        $sourceWf = Join-Path $scriptDir ".agent\workflows"
-    }
+    $sourceWf = Join-Path $targetPluginPath "dist\workflows"
+    if (!(Test-Path $sourceWf)) { $sourceWf = Join-Path $scriptDir "dist\workflows" }
+    
+    $sourceTemplates = Join-Path $targetPluginPath "dist\templates"
+    if (!(Test-Path $sourceTemplates)) { $sourceTemplates = Join-Path $scriptDir "dist\templates" }
 
     if ((Test-Path $targetProject) -and (Test-Path $sourceWf)) {
-        Write-Log "Synchronizing OmniState workflows to $targetProject..." "Cyan"
+        Write-Log "Synchronizing OmniState components to $targetProject..." "Cyan"
         $wfDirs = @(".agent", ".agents")
         foreach ($wfDir in $wfDirs) {
+            # Sync Workflows
             $destWf = Join-Path $targetProject "$wfDir\workflows"
             if (!(Test-Path $destWf)) { New-Item -ItemType Directory -Path $destWf -Force | Out-Null }
             Copy-Item -Path "$sourceWf\*" -Destination $destWf -Force
             
+            # Sync Templates
+            if (Test-Path $sourceTemplates) {
+                $destTemplates = Join-Path $targetProject "$wfDir\templates"
+                if (!(Test-Path $destTemplates)) { New-Item -ItemType Directory -Path $destTemplates -Force | Out-Null }
+                Copy-Item -Path "$sourceTemplates\*" -Destination $destTemplates -Force
+            }
+
             # Git Protection
             $gitignore = Join-Path $targetProject ".gitignore"
             if (Test-Path $gitignore) {
                 $content = Get-Content $gitignore -Raw
-                if ($content -notmatch "\n$wfDir/") {
-                    Add-Content -Path $gitignore -Value "`n# OmniState Workflows`n$wfDir/" -Encoding UTF8
+                foreach ($pattern in @("$wfDir/", "/omnistate-dashboard.html", "project-summary.md", "tasks-history.json", "tasks-archive.json", "antigravity.config.json", "chunks/")) {
+                    if ($content -notmatch [regex]::Escape($pattern)) {
+                        Add-Content -Path $gitignore -Value "$pattern" -Encoding UTF8
+                    }
                 }
             }
         }
-        Write-Log "Workflows synchronized successfully." "Green"
+        Write-Log "Components synchronized and Git Protection enforced." "Green"
     }
 }
 
