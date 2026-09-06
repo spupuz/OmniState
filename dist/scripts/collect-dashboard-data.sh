@@ -151,6 +151,8 @@ if [ "$SNAPSHOTS" -gt 0 ]; then
         LABEL="${CHUNK_LABELS[$i]}"
         [ -z "$DATE" ] && DATE="N/A"
         [ -z "$LABEL" ] && LABEL="Session $((i+1))"
+        DATE="${DATE//\\/\\\\}"; DATE="${DATE//\"/\\\"}"
+        LABEL="${LABEL//\\/\\\\}"; LABEL="${LABEL//\"/\\\"}"
         ITEM="{\"date\":\"$DATE\",\"label\":\"$LABEL\",\"text\":\"Session chunk captured\"}"
         [ -z "$TIMELINE_ITEMS" ] && TIMELINE_ITEMS="$ITEM" || TIMELINE_ITEMS="$TIMELINE_ITEMS,$ITEM"
     done
@@ -189,6 +191,8 @@ if [ -f "$PROJECT_SUMMARY" ]; then
             role = substr(role, 1, 20)
             text = substr(text, 1, 80)
 
+            gsub(/\\/, "&&", role)
+            gsub(/\\/, "&&", text)
             gsub(/"/, "\\\"", role)
             gsub(/"/, "\\\"", text)
 
@@ -204,6 +208,8 @@ if [ -f "$PROJECT_SUMMARY" ]; then
         printf "]\n"
     }' "$PROJECT_SUMMARY" 2>/dev/null || echo "[{\"role\":\"Project\",\"text\":\"See project-summary.md\"}]")
 fi
+
+PROJECT_NAME="${PROJECT_NAME//\\/\\\\}"; PROJECT_NAME="${PROJECT_NAME//\"/\\\"}"
 
 # --- Build output JSON ---
 # SECURE: escape '<' to prevent XSS vulnerability when injected into an HTML script block
