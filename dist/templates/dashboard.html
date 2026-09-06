@@ -90,25 +90,25 @@
         </header>
 
         <!-- Stats Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            <div class="glass p-8 stat-card group">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12" role="list" aria-label="Key Metrics">
+            <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-blue-400 transition-colors">Active Tasks</p>
                 <h3 class="text-4xl font-black" id="active-tasks">0</h3>
                 <div id="task-progress-container" role="progressbar" aria-label="Task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="mt-6 w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
                     <div id="task-progress" class="bg-blue-500 h-full w-0 transition-all duration-1000"></div>
                 </div>
             </div>
-            <div class="glass p-8 stat-card group">
+            <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-emerald-400 transition-colors">Archived Tasks</p>
                 <h3 class="text-4xl font-black" id="archived-tasks">0</h3>
                 <p class="text-xs text-emerald-400 mt-3 font-semibold tracking-wide">Efficiency optimized</p>
             </div>
-            <div class="glass p-8 stat-card group">
+            <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-purple-400 transition-colors">Session Depth</p>
                 <h3 class="text-4xl font-black" id="total-snapshots">0</h3>
                 <p class="text-xs text-slate-400 mt-3 italic">Persistent memory log</p>
             </div>
-            <div class="glass p-8 border-blue-500/30 bg-blue-500/5 stat-card group overflow-hidden relative">
+            <div class="glass p-8 border-blue-500/30 bg-blue-500/5 stat-card group overflow-hidden relative" role="listitem">
                 <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
                 <p class="text-blue-400 text-xs font-black uppercase tracking-widest mb-2">Token Savings</p>
                 <h3 class="text-4xl font-black text-white" id="token-savings">~0k</h3>
@@ -140,11 +140,11 @@
 
         <!-- Tech Stack / Architecture -->
         <div class="mt-12 glass p-10">
-            <h2 class="text-2xl font-bold mb-8 flex items-center gap-3">
+            <h2 id="architecture-heading" class="text-2xl font-bold mb-8 flex items-center gap-3">
                 Architecture Roadmap
                 <span class="h-px flex-1 bg-slate-800"></span>
             </h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="architecture-grid" role="list">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="architecture-grid" role="list" aria-labelledby="architecture-heading">
                 <!-- Modules will be injected here -->
             </div>
         </div>
@@ -235,6 +235,7 @@
 
                 const emptyDiv = document.createElement('div');
                 emptyDiv.className = 'p-8 text-center rounded-xl border border-dashed border-slate-700/50 bg-slate-900/20';
+                emptyDiv.setAttribute('role', 'listitem');
 
                 const emptyP = document.createElement('p');
                 emptyP.className = 'text-slate-300 text-sm font-medium mb-1';
@@ -282,6 +283,7 @@
             if (archData.length === 0) {
                 const emptyDiv = document.createElement('div');
                 emptyDiv.className = 'p-8 text-center rounded-xl border border-dashed border-slate-700/50 bg-slate-900/20 md:col-span-3';
+                emptyDiv.setAttribute('role', 'listitem');
 
                 const emptyP = document.createElement('p');
                 emptyP.className = 'text-slate-300 text-sm font-medium mb-1';

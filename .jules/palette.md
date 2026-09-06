@@ -1,0 +1,3 @@
+## 2024-09-06 - Improve screen reader semantics for metrics and empty states
+**Learning:** Dynamically generated content blocks (like timelines and grids) are often announced as unstructured text by screen readers when native list tags are not used.
+**Action:** Explicitly add `role="list"` to the static container and `role="listitem"` to the dynamically created child elements, including empty states, to restore expected semantic structure.
