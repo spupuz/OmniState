@@ -26,15 +26,20 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
         except Exception:
             return {}
 
-    def count_words(path):
+    def get_chunk_metrics(path, is_chunk=False):
         try:
             count = 0
+            label = "Session"
             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
+                for i, line in enumerate(f):
                     count += len(line.split())
-            return count
+                    if is_chunk and i < 3 and label == "Session":
+                        m = re.match(r'^#\s+(.+)', line)
+                        if m:
+                            label = m.group(1).strip()[:40]
+            return {"words": count, "label": label}
         except Exception:
-            return 0
+            return {"words": 0, "label": "Session"}
 
     # BOLT OPTIMIZATION: Cache config JSON load to prevent redundant disk reads later in script
     cfg = load_json(config_file)
@@ -79,10 +84,10 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
     snapshots = len(chunks)
 
     # 4. Token savings
-    # Cache word counts per chunk to avoid redundant disk reads when building chart data in section 5
-    chunk_word_counts = {f: count_words(f) for f in chunks}
-    total_words = sum(chunk_word_counts.values())
-    total_words += count_words(tasks_archive)
+    # Cache metrics per chunk to avoid redundant disk reads when building chart data and timeline later
+    chunk_metrics = {f: get_chunk_metrics(f, True) for f in chunks}
+    total_words = sum(m["words"] for m in chunk_metrics.values())
+    total_words += get_chunk_metrics(tasks_archive)["words"]
     token_saved = int(total_words * 1.3) + (snapshots * 4000)
     token_saved_k = max(token_saved // 1000, 1 if token_saved > 0 else 0)
 
@@ -90,10 +95,10 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
     chart_data = []
     cumulative = 0
     for f in reversed(chunks[:5]):
-        words = chunk_word_counts.get(f)
-        if words is None:
-            words = count_words(f)
-        cumulative += int(words * 1.3) + 4000
+        metrics = chunk_metrics.get(f)
+        if metrics is None:
+            metrics = get_chunk_metrics(f, True)
+        cumulative += int(metrics["words"] * 1.3) + 4000
         chart_data.append(cumulative // 1000)
 
     # 6. Timeline
@@ -101,17 +106,8 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
     for f in chunks[:5]:
         mtime = datetime.fromtimestamp(f.stat().st_mtime)
         date_str = mtime.strftime("%b %d")
-        label = "Session"
-        try:
-            with open(f, 'r', encoding='utf-8', errors='ignore') as file_obj:
-                for i, line in enumerate(file_obj):
-                    if i >= 3: break
-                    m = re.match(r'^#\s+(.+)', line)
-                    if m:
-                        label = m.group(1).strip()[:40]
-                        break
-        except Exception:
-            pass
+        metrics = chunk_metrics.get(f)
+        label = metrics["label"] if metrics else "Session"
         timeline.append({"date": date_str, "label": label, "text": "Session chunk captured"})
 
     # 7. Cost data
