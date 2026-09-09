@@ -139,9 +139,39 @@ test_sync_shared_config_empty() {
     rm -rf "${PROJECT_ROOT}/.test_omnistate_empty"
 }
 
+test_sync_shared_config_injection() {
+    echo "▶️  Testing sync_shared_config with JSON injection characters..."
+
+    # Setup test environment
+    export AGENT_WORKFLOWS="${PROJECT_ROOT}/.test_agents_inj/workflows"
+    export KILO_COMMANDS="${PROJECT_ROOT}/.test_kilo_inj/commands"
+    export SHARED_CONFIG="${PROJECT_ROOT}/.test_omnistate_inj/shared-workflow.json"
+
+    mkdir -p "$AGENT_WORKFLOWS"
+    mkdir -p "$KILO_COMMANDS"
+    mkdir -p "$(dirname "$SHARED_CONFIG")"
+
+    # Create dummy workflow files with injection characters
+    touch "$AGENT_WORKFLOWS/test\"quote\".sh"
+    touch "$AGENT_WORKFLOWS/test\\slash.sh"
+
+    # Run the function under test
+    local output
+    output=$(sync_shared_config)
+
+    # Assertions
+    assert_json_valid "Injected SHARED_CONFIG is valid JSON" "$SHARED_CONFIG"
+
+    # Teardown
+    rm -rf "${PROJECT_ROOT}/.test_agents_inj"
+    rm -rf "${PROJECT_ROOT}/.test_kilo_inj"
+    rm -rf "${PROJECT_ROOT}/.test_omnistate_inj"
+}
+
 # Run tests
 test_sync_shared_config
 test_sync_shared_config_empty
+test_sync_shared_config_injection
 
 # Exit with appropriate code
 if [[ $EXIT_CODE -eq 0 ]]; then

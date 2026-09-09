@@ -93,7 +93,11 @@ function sync_shared_config() {
     for file in "${candidates[@]}"; do
         # If the file path is not in the ignored string exactly
         if [[ "$ignored_str" != *$'\n'"$file"$'\n'* ]]; then
-            workflow_files+=("${file##*/}")
+            # SECURITY: escape backslashes and double quotes to prevent JSON injection
+            local filename="${file##*/}"
+            filename="${filename//\\/\\\\}"
+            filename="${filename//\"/\\\"}"
+            workflow_files+=("$filename")
         fi
     done
     
