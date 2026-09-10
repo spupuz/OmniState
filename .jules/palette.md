@@ -1,3 +1,0 @@
-## 2024-09-09 - Accessible Focus States on Data Cards
-**Learning:** Adding `tabindex="0"` to non-interactive elements (like static data cards) to trigger visual hover effects is an accessibility anti-pattern. Keyboard navigation should be reserved strictly for actionable elements; otherwise, it creates confusing "dead stops" for keyboard/screen-reader users. Additionally, text opacity modifications (like `text-blue-300/60`) often cause WCAG contrast failures against dark backgrounds.
-**Action:** Never use `tabindex="0"` on elements that do not perform actions when activated. Avoid transparency on small text when placed on dark background elements.
