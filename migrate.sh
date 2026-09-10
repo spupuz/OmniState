@@ -53,7 +53,20 @@ migrate_project() {
     local timestamp
     timestamp=$(date +%Y%m%d-%H%M)
     local backup_file="$backup_dir/antigravity.config.json.$timestamp.bak"
-    cp -a "$old_config" "$backup_file"
+    # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
+    local tmp_backup
+    tmp_backup=$(mktemp "$(dirname "$backup_file")/.tmp.XXXXXX")
+    cat "$old_config" > "$tmp_backup"
+    # Securely preserve original file attributes without following symlinks
+    if chmod --help 2>&1 | grep -q "\-\-reference"; then
+        chmod --reference="$old_config" "$tmp_backup" 2>/dev/null || true
+        chown --reference="$old_config" "$tmp_backup" 2>/dev/null || true
+    elif command -v stat &>/dev/null; then
+        chmod "$(stat -f "%A" "$old_config" 2>/dev/null)" "$tmp_backup" 2>/dev/null || true
+        chown "$(stat -f "%u:%g" "$old_config" 2>/dev/null)" "$tmp_backup" 2>/dev/null || true
+    fi
+    touch -r "$old_config" "$tmp_backup" 2>/dev/null || true
+    mv "$tmp_backup" "$backup_file"
     ok "Backup created: $backup_file"
 
     # Migrate schema
@@ -72,14 +85,28 @@ migrate_project() {
             # Update version
             .omnistate_version = $version
         ' "$old_config" > "$tmp_file"
-        chmod 644 "$tmp_file"
+        if chmod --help 2>&1 | grep -q "\-\-reference"; then
+            chmod --reference="$old_config" "$tmp_file" 2>/dev/null || true
+            chown --reference="$old_config" "$tmp_file" 2>/dev/null || true
+        elif command -v stat &>/dev/null; then
+            chmod "$(stat -f "%A" "$old_config" 2>/dev/null)" "$tmp_file" 2>/dev/null || true
+            chown "$(stat -f "%u:%g" "$old_config" 2>/dev/null)" "$tmp_file" 2>/dev/null || true
+        fi
+        touch -r "$old_config" "$tmp_file" 2>/dev/null || true
         mv "$tmp_file" "$new_config"
     else
         # Fallback: copy and warn about manual cleanup
         # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
         tmp_file=$(mktemp "$(dirname "$new_config")/.tmp.XXXXXX")
         cat "$old_config" > "$tmp_file"
-        chmod 644 "$tmp_file"
+        if chmod --help 2>&1 | grep -q "\-\-reference"; then
+            chmod --reference="$old_config" "$tmp_file" 2>/dev/null || true
+            chown --reference="$old_config" "$tmp_file" 2>/dev/null || true
+        elif command -v stat &>/dev/null; then
+            chmod "$(stat -f "%A" "$old_config" 2>/dev/null)" "$tmp_file" 2>/dev/null || true
+            chown "$(stat -f "%u:%g" "$old_config" 2>/dev/null)" "$tmp_file" 2>/dev/null || true
+        fi
+        touch -r "$old_config" "$tmp_file" 2>/dev/null || true
         mv "$tmp_file" "$new_config"
         warn "jq not found - copied as-is. Manual cleanup needed:"
         warn "  - Remove 'compression_level' from optimization"
