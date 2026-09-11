@@ -44,16 +44,37 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
     # BOLT OPTIMIZATION: Cache config JSON load to prevent redundant disk reads later in script
     cfg = load_json(config_file)
 
-    # 1. Project name
+    # 1. Project name & Architecture (single pass cache)
     project_name = "Unknown Project"
+    architecture = []
     if project_summary.exists():
+        in_modules = False
+        modules_done = False
         try:
             with open(project_summary, 'r', encoding='utf-8', errors='ignore') as f:
                 for i, line in enumerate(f):
-                    if i >= 5: break
-                    m = re.match(r'^#\s+(.+)', line)
-                    if m:
-                        project_name = m.group(1).strip()
+                    if i < 5 and project_name == "Unknown Project":
+                        m = re.match(r'^#\s+(.+)', line)
+                        if m:
+                            project_name = m.group(1).strip()
+
+                    if not modules_done:
+                        if "odule" in line:
+                            in_modules = True
+                            continue
+                        if in_modules:
+                            m = re.match(r'^\s*-\s*`([^`]+)`\s*:\s*(.*)', line.strip())
+                            if m:
+                                architecture.append({
+                                    "role": m.group(1).split("/")[-1][:20],
+                                    "text": m.group(2).strip()[:80]
+                                })
+                            elif line.strip() and not line.startswith(" ") and not line.startswith("-"):
+                                in_modules = False
+                                modules_done = True
+
+                    # Optimize: exit early if we've found both parts we need
+                    if i >= 4 and modules_done:
                         break
         except Exception:
             pass
@@ -115,27 +136,7 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
     cost_total = cost.get("total_cost", "0.00")
     cost_by_model = cost.get("by_model", {})
 
-    # 8. Architecture
-    architecture = []
-    if project_summary.exists():
-        in_modules = False
-        try:
-            with open(project_summary, 'r', encoding='utf-8', errors='ignore') as f:
-                for line in f:
-                    if "odule" in line:
-                        in_modules = True
-                        continue
-                    if in_modules:
-                        m = re.match(r'^\s*-\s*`([^`]+)`\s*:\s*(.*)', line.strip())
-                        if m:
-                            architecture.append({
-                                "role": m.group(1).split("/")[-1][:20],
-                                "text": m.group(2).strip()[:80]
-                            })
-                        elif line.strip() and not line.startswith(" ") and not line.startswith("-"):
-                            break
-        except Exception:
-            pass
+    # 8. Architecture (cached from single pass)
     if not architecture:
         architecture = [{"role": "Project", "text": "See project-summary.md"}]
 
