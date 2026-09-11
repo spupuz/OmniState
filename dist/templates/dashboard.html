@@ -197,15 +197,23 @@
 
             // UI Binding
             document.getElementById('project-name').textContent = data.projectName || "Unknown Project";
-            document.getElementById('active-tasks').textContent = data.activeTasks || 0;
-            document.getElementById('archived-tasks').textContent = data.archivedTasks || 0;
-            document.getElementById('total-snapshots').textContent = data.snapshots || 0;
+            document.getElementById('active-tasks').textContent = (data.activeTasks || 0).toLocaleString();
+            document.getElementById('archived-tasks').textContent = (data.archivedTasks || 0).toLocaleString();
+            document.getElementById('total-snapshots').textContent = (data.snapshots || 0).toLocaleString();
             document.getElementById('token-savings').textContent = "~" + (data.tokenSavings || "0k");
+            if (data.tokenSavingsRaw !== undefined) {
+                const tsEl = document.getElementById('token-savings');
+                tsEl.title = `${data.tokenSavingsRaw.toLocaleString()} exact tokens`;
+                tsEl.classList.add('cursor-help');
+            }
             document.getElementById('last-updated').textContent = data.lastUpdate || "N/A";
 
             const progress = data.totalTasks > 0 ? (data.archivedTasks / data.totalTasks) * 100 : 0;
             document.getElementById('task-progress').style.width = progress + "%";
-            document.getElementById('task-progress-container').setAttribute('aria-valuenow', Math.round(progress));
+            const tpContainer = document.getElementById('task-progress-container');
+            tpContainer.setAttribute('aria-valuenow', Math.round(progress));
+            tpContainer.title = `${Math.round(progress)}% complete`;
+            tpContainer.classList.add('cursor-help');
 
             const timelineContainer = document.getElementById('timeline-container');
             const timelineFragment = document.createDocumentFragment();
