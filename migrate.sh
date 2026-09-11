@@ -56,7 +56,12 @@ migrate_project() {
     # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
     local tmp_backup
     tmp_backup=$(mktemp "$(dirname "$backup_file")/.tmp.XXXXXX")
-    cat "$old_config" > "$tmp_backup"
+    if [ -L "$old_config" ]; then
+        rm -f "$tmp_backup"
+        cp -a "$old_config" "$tmp_backup"
+    else
+        cat "$old_config" > "$tmp_backup"
+    fi
     # Securely preserve original file attributes without following symlinks
     if chmod --help 2>&1 | grep -q "\-\-reference"; then
         chmod --reference="$old_config" "$tmp_backup" 2>/dev/null || true
@@ -98,7 +103,12 @@ migrate_project() {
         # Fallback: copy and warn about manual cleanup
         # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
         tmp_file=$(mktemp "$(dirname "$new_config")/.tmp.XXXXXX")
-        cat "$old_config" > "$tmp_file"
+        if [ -L "$old_config" ]; then
+            rm -f "$tmp_file"
+            cp -a "$old_config" "$tmp_file"
+        else
+            cat "$old_config" > "$tmp_file"
+        fi
         if chmod --help 2>&1 | grep -q "\-\-reference"; then
             chmod --reference="$old_config" "$tmp_file" 2>/dev/null || true
             chown --reference="$old_config" "$tmp_file" 2>/dev/null || true

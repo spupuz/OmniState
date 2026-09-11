@@ -1,0 +1,4 @@
+## 2024-09-11 - Arbitrary File Read via symlink traversal in backup script
+**Vulnerability:** When creating backups of configuration files, the script used `cat` to copy contents. If the source file was a symlink, `cat` would follow it and read the target file's content into the backup, leading to an Arbitrary File Read vulnerability if the backup directory is readable.
+**Learning:** When mitigating symlink traversal vulnerabilities using mktemp, use cat "$src" > "$tmp" to copy standard file contents safely. However, if the source file might be a symlink (e.g., a configuration file backup), using cat is an anti-pattern that introduces an Arbitrary File Read vulnerability by following the symlink to read the target's contents. In such backup scenarios, use cp -a to safely copy the symlink as a symlink.
+**Prevention:** Check if the file is a symlink (`[ -L "$file" ]`) and use `cp -a` to copy it as a symlink instead of using `cat` to read its contents.
