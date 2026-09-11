@@ -1,3 +1,0 @@
-## 2026-09-10 - Python Single-Pass File Parsing
-**Learning:** In Python scripts that need to extract multiple unrelated pieces of information from the same file, performing multiple separate reads over the file (O(N) operations) creates unnecessary disk I/O overhead. This is especially true when reading large markdown or text files line-by-line using `enumerate`.
-**Action:** Consolidate file reading into a single pass. Cache the extracted data into variables or dictionaries, and use control flags (like `modules_done`) to track state and allow early exits (`break`) as soon as all necessary data has been found, preventing the script from pointlessly parsing the rest of the document.
