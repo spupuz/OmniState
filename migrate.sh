@@ -54,19 +54,20 @@ migrate_project() {
     timestamp=$(date +%Y%m%d-%H%M)
     local backup_file="$backup_dir/antigravity.config.json.$timestamp.bak"
     # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
-    local tmp_backup
-    tmp_backup=$(mktemp "$(dirname "$backup_file")/.tmp.XXXXXX")
-    cat "$old_config" > "$tmp_backup"
+    local tmp_backup_dir
+    tmp_backup_dir=$(mktemp -d "$(dirname "$backup_file")/.tmp.XXXXXX")
+    cp -a "$old_config" "$tmp_backup_dir/backup"
     # Securely preserve original file attributes without following symlinks
     if chmod --help 2>&1 | grep -q "\-\-reference"; then
-        chmod --reference="$old_config" "$tmp_backup" 2>/dev/null || true
-        chown --reference="$old_config" "$tmp_backup" 2>/dev/null || true
+        chmod --reference="$old_config" "$tmp_backup_dir/backup" 2>/dev/null || true
+        chown --reference="$old_config" "$tmp_backup_dir/backup" 2>/dev/null || true
     elif command -v stat &>/dev/null; then
-        chmod "$(stat -f "%A" "$old_config" 2>/dev/null)" "$tmp_backup" 2>/dev/null || true
-        chown "$(stat -f "%u:%g" "$old_config" 2>/dev/null)" "$tmp_backup" 2>/dev/null || true
+        chmod "$(stat -f "%A" "$old_config" 2>/dev/null)" "$tmp_backup_dir/backup" 2>/dev/null || true
+        chown "$(stat -f "%u:%g" "$old_config" 2>/dev/null)" "$tmp_backup_dir/backup" 2>/dev/null || true
     fi
-    touch -r "$old_config" "$tmp_backup" 2>/dev/null || true
-    mv "$tmp_backup" "$backup_file"
+    touch -r "$old_config" "$tmp_backup_dir/backup" 2>/dev/null || true
+    mv "$tmp_backup_dir/backup" "$backup_file"
+    rmdir "$tmp_backup_dir"
     ok "Backup created: $backup_file"
 
     # Migrate schema
