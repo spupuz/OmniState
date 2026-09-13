@@ -215,10 +215,18 @@ fi
 # SECURE: escape '<' to prevent XSS vulnerability when injected into an HTML script block
 # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
 TMP_FILE=$(mktemp "$(dirname "$OUTPUT_FILE")/.tmp.XXXXXX")
-PROJECT_NAME_ESCAPED=$(jq -n --arg pn "$PROJECT_NAME" '$pn' 2>/dev/null || echo "\"$PROJECT_NAME\"")
+
 VERSION_STR="$(json_val "$CONFIG_FILE" "omnistate_version" "1.5.0")"
-VERSION_ESCAPED=$(jq -n --arg v "$VERSION_STR" '$v' 2>/dev/null || echo "\"$VERSION_STR\"")
-COST_TOTAL_ESCAPED=$(jq -n --arg ct "$COST_TOTAL" '$ct' 2>/dev/null || echo "\"$COST_TOTAL\"")
+# Optimization: Batch jq variable escaping into a single call to prevent N+1 process spawning overhead
+mapfile -t escaped_vars < <(jq -n --arg pn "$PROJECT_NAME" --arg v "$VERSION_STR" --arg ct "$COST_TOTAL" '$pn, $v, $ct' 2>/dev/null)
+PROJECT_NAME_ESCAPED="${escaped_vars[0]:-\"\"}"
+VERSION_ESCAPED="${escaped_vars[1]:-\"\"}"
+COST_TOTAL_ESCAPED="${escaped_vars[2]:-\"\"}"
+if [ -z "${escaped_vars[0]:-}" ]; then
+    PROJECT_NAME_ESCAPED="\"$PROJECT_NAME\""
+    VERSION_ESCAPED="\"$VERSION_STR\""
+    COST_TOTAL_ESCAPED="\"$COST_TOTAL\""
+fi
 
 cat << ENDJSON | sed 's/</\\u003c/g; s/>/\\u003e/g' > "$TMP_FILE"
 {
