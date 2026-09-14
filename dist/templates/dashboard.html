@@ -26,7 +26,7 @@
                 radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
             min-height: 100vh;
         }
-        h1, h2, h3 { font-family: 'Outfit', sans-serif; }
+        h1, h2, h3, .font-outfit { font-family: 'Outfit', sans-serif; }
         .glass {
             background: var(--card-bg);
             backdrop-filter: blur(16px);
@@ -93,25 +93,25 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12" role="list" aria-label="Key Metrics">
             <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-blue-400 transition-colors">Active Tasks</p>
-                <p class="text-4xl font-black" id="active-tasks">0</p>
+<p class="text-4xl font-black font-outfit" id="active-tasks">0</p>
                 <div id="task-progress-container" role="progressbar" aria-label="Task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="mt-6 w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
                     <div id="task-progress" class="bg-blue-500 h-full w-0 transition-all duration-1000"></div>
                 </div>
             </div>
             <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-emerald-400 transition-colors">Archived Tasks</p>
-                <p class="text-4xl font-black" id="archived-tasks">0</p>
+<p class="text-4xl font-black font-outfit" id="archived-tasks">0</p>
                 <p class="text-xs text-emerald-400 mt-3 font-semibold tracking-wide">Efficiency optimized</p>
             </div>
             <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-purple-400 transition-colors">Session Depth</p>
-                <p class="text-4xl font-black" id="total-snapshots">0</p>
+<p class="text-4xl font-black font-outfit" id="total-snapshots">0</p>
                 <p class="text-xs text-slate-400 mt-3 italic">Persistent memory log</p>
             </div>
             <div class="glass p-8 border-blue-500/30 bg-blue-500/5 stat-card group overflow-hidden relative" role="listitem">
                 <div class="absolute -right-4 -top-4 w-20 h-20 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
                 <p class="text-blue-400 text-xs font-black uppercase tracking-widest mb-2">Token Savings</p>
-                <p class="text-4xl font-black text-white" id="token-savings">~0k</p>
+<p class="text-4xl font-black text-white font-outfit" id="token-savings">~0k</p>
                 <p class="text-xs text-blue-300 mt-3 font-medium">Estimated credits saved</p>
             </div>
         </div>
