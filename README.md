@@ -1,4 +1,4 @@
-# OmniState v1.14.0
+# OmniState v1.15.0
 
 **Universal Persistent Memory** for any AI coding tool.
 Works with opencode, Antigravity, Kilocode, Roo Code, Claude Code, and more.
@@ -207,7 +207,13 @@ export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/sp
 
 ## Changelog
 
-### v1.14.0 (current)
+### v1.15.0 (current)
+- **Security**: Fix arbitrary file read via symlink backup in `migrate.sh` with `mktemp -d` + `cp -a` for atomic, symlink-preserving backups (TOCTOU-safe)
+- **Security**: Fix [HIGH] arbitrary file read / symlink destruction in `migrate.sh` backup and fallback copy paths by preserving symlinks with `cp -a`
+- **Performance**: Batch jq string escaping into a single call in `collect-dashboard-data.sh` to eliminate N+1 subprocess spawning
+- **Accessibility**: Improve screen reader semantics in dashboard — replace `<h3>` with `<p>` for numerical stats, fix heading nesting (`h3` under `h2`), keep `tabindex="0"` on scrollable timeline, and remove redundant `title` attributes
+
+### v1.14.0
 - **Security**: Fix symlink traversal bypass in `migrate.sh` by replacing `cp -a` with `mktemp` + `cat` + `mv` for atomic, symlink-safe file writes and preserving file attributes
 - **Performance**: Consolidate `collect-dashboard-data.py` file reads into a single pass with early exit to prevent redundant disk I/O
 - **UX**: Enhance dashboard metrics with exact token tooltips and number formatting
