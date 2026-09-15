@@ -1,4 +1,0 @@
-## 2026-09-14 - Prevent JSON injection in bash fallback logic
-**Vulnerability:** A fallback bash string injection payload was used when `jq` is absent, improperly embedding external project variables in JSON which allowed arbitrary JSON injection via unescaped double quotes and backslashes.
-**Learning:** Even fallback logic for edge-case environments needs strict escaping validation; standard Bash parameter expansion is effective at mitigating this in the absence of `jq`.
-**Prevention:** Always escape double quotes and backslashes using native bash expansion (`${VAR//\\/\\\\}`, `${VAR//\"/\\\"}`) before writing variables to raw JSON payload strings if `jq` is not available.
