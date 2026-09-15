@@ -177,7 +177,8 @@
 
             if (!hasRealData) {
                 document.body.textContent = '';
-                const container = document.createElement('div');
+                const container = document.createElement('main');
+                container.id = 'main-content';
                 container.style.cssText = 'display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Inter,sans-serif;';
 
                 const innerDiv = document.createElement('div');
@@ -216,6 +217,7 @@
             document.getElementById('task-progress').style.width = progress + "%";
             const tpContainer = document.getElementById('task-progress-container');
             tpContainer.setAttribute('aria-valuenow', Math.round(progress));
+            tpContainer.setAttribute('aria-valuetext', `${Math.round(progress)}% complete`);
             tpContainer.title = `${Math.round(progress)}% complete`;
             tpContainer.classList.add('cursor-help');
 
@@ -225,6 +227,7 @@
 
             if (timelineData.length === 0) {
                 timelineContainer.classList.remove('border-l', 'pl-8', 'ml-6');
+                timelineContainer.removeAttribute('tabindex');
 
                 const emptyDiv = document.createElement('div');
                 emptyDiv.className = 'p-8 text-center rounded-xl border border-dashed border-slate-700/50 bg-slate-900/20';
