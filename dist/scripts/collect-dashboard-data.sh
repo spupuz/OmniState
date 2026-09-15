@@ -223,9 +223,12 @@ PROJECT_NAME_ESCAPED="${escaped_vars[0]:-\"\"}"
 VERSION_ESCAPED="${escaped_vars[1]:-\"\"}"
 COST_TOTAL_ESCAPED="${escaped_vars[2]:-\"\"}"
 if [ -z "${escaped_vars[0]:-}" ]; then
-    PROJECT_NAME_ESCAPED="\"$PROJECT_NAME\""
-    VERSION_ESCAPED="\"$VERSION_STR\""
-    COST_TOTAL_ESCAPED="\"$COST_TOTAL\""
+    tmp_pn="${PROJECT_NAME//\\/\\\\}"; tmp_pn="${tmp_pn//\"/\\\"}"
+    tmp_v="${VERSION_STR//\\/\\\\}"; tmp_v="${tmp_v//\"/\\\"}"
+    tmp_ct="${COST_TOTAL//\\/\\\\}"; tmp_ct="${tmp_ct//\"/\\\"}"
+    PROJECT_NAME_ESCAPED="\"$tmp_pn\""
+    VERSION_ESCAPED="\"$tmp_v\""
+    COST_TOTAL_ESCAPED="\"$tmp_ct\""
 fi
 
 cat << ENDJSON | sed 's/</\\u003c/g; s/>/\\u003e/g' > "$TMP_FILE"
