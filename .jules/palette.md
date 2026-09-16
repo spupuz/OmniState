@@ -1,0 +1,3 @@
+## 2024-09-17 - Fix Empty State and Progress Bar Accessibility
+**Learning:** Global empty states replacing the document body must use a <main> tag so screen readers can locate the primary content. Additionally, tabindex="0" should be dynamically removed from empty scrollable containers to prevent confusing focus stops, and aria-valuetext is required for progress bars to provide contextual meaning beyond a raw number.
+**Action:** Always wrap global empty state injections in <main id="main-content">, explicitly removeAttribute('tabindex') on empty UI states, and pair aria-valuenow with aria-valuetext when units like "% complete" are necessary.
