@@ -1,4 +1,4 @@
-# OmniState v1.15.1
+# OmniState v1.16.0
 
 **Universal Persistent Memory** for any AI coding tool.
 Works with opencode, Antigravity, Kilocode, Roo Code, Claude Code, and more.
@@ -206,6 +206,11 @@ export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/sp
 ---
 
 ## Changelog
+
+### v1.16.0 (current)
+- **Security**: Fix [HIGH] arbitrary file read / permission manipulation in `sync-workflows.sh` by skipping symlinks entirely in the sync loop
+- **Performance**: Optimize task counting and session word/file-reading overhead in `collect-dashboard-data.py` (single-pass line reads, native list counting)
+- **Accessibility**: Wrap global empty-state injections in `<main id="main-content">`, remove `tabindex="0"` from non-scrollable empty containers, and pair `aria-valuetext` with `aria-valuenow` on the progress bar
 
 ### v1.15.1 (current)
 - **Security**: Fix [HIGH] JSON injection in `collect-dashboard-data.sh` bash fallback logic by escaping backslashes and double quotes with native `bash` parameter expansion when `jq` is unavailable
