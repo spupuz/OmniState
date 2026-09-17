@@ -24,6 +24,10 @@ function sync_workflows() {
     
     # Sync only files that are not in gitignore
     for file in "$source_dir"/*; do
+        # SECURITY: Skip symlinks to prevent arbitrary file read / permission manipulation
+        if [[ -L "$file" ]]; then
+            continue
+        fi
         if [[ -f "$file" ]]; then
             filename="${file##*/}"
             
