@@ -205,11 +205,16 @@
             document.getElementById('active-tasks').textContent = (data.activeTasks || 0).toLocaleString();
             document.getElementById('archived-tasks').textContent = (data.archivedTasks || 0).toLocaleString();
             document.getElementById('total-snapshots').textContent = (data.snapshots || 0).toLocaleString();
-            document.getElementById('token-savings').textContent = "~" + (data.tokenSavings || "0k");
+            const tsEl = document.getElementById('token-savings');
+            tsEl.textContent = "~" + (data.tokenSavings || "0k");
             if (data.tokenSavingsRaw !== undefined) {
-                const tsEl = document.getElementById('token-savings');
                 tsEl.title = `${data.tokenSavingsRaw.toLocaleString()} exact tokens`;
                 tsEl.classList.add('cursor-help');
+
+                const srSpan = document.createElement('span');
+                srSpan.className = 'sr-only';
+                srSpan.textContent = ` (${data.tokenSavingsRaw.toLocaleString()} exact tokens saved)`;
+                tsEl.appendChild(srSpan);
             }
             document.getElementById('last-updated').textContent = data.lastUpdate || "N/A";
 
@@ -335,7 +340,13 @@
                 emptyDiv.appendChild(emptySubP);
                 chartContainer.appendChild(emptyDiv);
             } else {
-                const ctx = document.getElementById('savingsChart').getContext('2d');
+                const chartCanvas = document.getElementById('savingsChart');
+                const maxSavings = Math.max(...chartData);
+                const firstSavings = chartData[0];
+                const lastSavings = chartData[chartData.length - 1];
+                chartCanvas.setAttribute('aria-label', `Optimization Curve Chart showing token savings growing from ${firstSavings}k to ${lastSavings}k over ${chartData.length} snapshots. Peak savings: ${maxSavings}k.`);
+
+                const ctx = chartCanvas.getContext('2d');
                 const gradient = ctx.createLinearGradient(0, 0, 0, 400);
                 gradient.addColorStop(0, 'rgba(59, 130, 246, 0.2)');
                 gradient.addColorStop(1, 'rgba(59, 130, 246, 0)');
