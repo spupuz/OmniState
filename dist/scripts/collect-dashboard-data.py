@@ -31,12 +31,17 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
             count = 0
             label = "Session"
             with open(path, 'r', encoding='utf-8', errors='ignore') as f:
-                for i, line in enumerate(f):
-                    count += len(line.split())
-                    if is_chunk and i < 3 and label == "Session":
-                        m = re.match(r'^#\s+(.+)', line)
-                        if m:
-                            label = m.group(1).strip()[:40]
+                if is_chunk:
+                    for _ in range(3):
+                        line = f.readline()
+                        if not line:
+                            break
+                        count += len(line.split())
+                        if label == "Session":
+                            m = re.match(r'^#\s+(.+)', line)
+                            if m:
+                                label = m.group(1).strip()[:40]
+                count += sum(len(line.split()) for line in f)
             return {"words": count, "label": label}
         except Exception:
             return {"words": 0, "label": "Session"}
@@ -86,14 +91,9 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
     tasks = history.get("tasks", [])
     total_tasks = len(tasks)
 
-    active_tasks = 0
-    done_tasks = 0
-    for t in tasks:
-        s = t.get("status")
-        if s == "todo":
-            active_tasks += 1
-        elif s == "done":
-            done_tasks += 1
+    statuses = [t.get("status") for t in tasks]
+    active_tasks = statuses.count("todo")
+    done_tasks = statuses.count("done")
 
     archive = load_json(tasks_archive)
     archived_tasks = len(archive.get("tasks", []))
