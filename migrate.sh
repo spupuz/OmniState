@@ -26,6 +26,12 @@ migrate_project() {
     local new_config="$target/omnistate.config.json"
     local backup_dir="$target/.omnistate/backups"
 
+    # SECURITY: Skip symlinks to prevent arbitrary file read / permission manipulation
+    if [ -L "$old_config" ]; then
+        warn "Legacy config is a symlink. Skipping migration."
+        return 0
+    fi
+
     # Skip if no old config exists
     if [ ! -f "$old_config" ]; then
         return 0
@@ -99,12 +105,7 @@ local tmp_backup_dir
         # Fallback: copy and warn about manual cleanup
         # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
         tmp_file=$(mktemp "$(dirname "$new_config")/.tmp.XXXXXX")
-        if [ -L "$old_config" ]; then
-            rm -f "$tmp_file"
-            cp -a "$old_config" "$tmp_file"
-        else
-            cat "$old_config" > "$tmp_file"
-        fi
+        cat "$old_config" > "$tmp_file"
         if chmod --help 2>&1 | grep -q "\-\-reference"; then
             chmod --reference="$old_config" "$tmp_file" 2>/dev/null || true
             chown --reference="$old_config" "$tmp_file" 2>/dev/null || true

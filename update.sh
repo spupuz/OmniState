@@ -265,6 +265,10 @@ sync_to_project() {
         done
 
         if [ ${#additions[@]} -gt 0 ]; then
+            if [ -L "$target/.gitignore" ]; then
+                warn "Symlink detected for .gitignore. Skipping git protection to prevent arbitrary file read."
+                return 0
+            fi
             # SECURITY: use mktemp and mv to prevent symlink traversal and ensure atomic updates
             local tmp_file
             tmp_file=$(mktemp "$(dirname "$target/.gitignore")/.tmp.XXXXXX")
