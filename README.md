@@ -1,4 +1,4 @@
-# OmniState v1.16.0
+# OmniState v1.17.0
 
 **Universal Persistent Memory** for any AI coding tool.
 Works with opencode, Antigravity, Kilocode, Roo Code, Claude Code, and more.
@@ -207,7 +207,12 @@ export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/sp
 
 ## Changelog
 
-### v1.16.0 (current)
+### v1.17.0 (current)
+- **Security**: Fix [HIGH] arbitrary file read / permission manipulation via symlinks in `migrate.sh` and `update.sh` by skipping symlinked configs and `.gitignore`, and removing the `cp -a` symlink copy fallback
+- **Performance**: Optimize chunk label parsing in `collect-dashboard-data.py` — parse labels only for the 5 most recent chunks; use fast word-count path for older chunks
+- **Accessibility**: Add dynamic ARIA labels to saved-token stats and Chart.js canvas in the dashboard for screen reader users
+
+### v1.16.0
 - **Security**: Fix [HIGH] arbitrary file read / permission manipulation in `sync-workflows.sh` by skipping symlinks entirely in the sync loop
 - **Performance**: Optimize task counting and session word/file-reading overhead in `collect-dashboard-data.py` (single-pass line reads, native list counting)
 - **Accessibility**: Wrap global empty-state injections in `<main id="main-content">`, remove `tabindex="0"` from non-scrollable empty containers, and pair `aria-valuetext` with `aria-valuenow` on the progress bar

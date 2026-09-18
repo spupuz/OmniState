@@ -1,6 +1,6 @@
 {
   "name": "omnistate",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "Universal persistent memory and token optimization for any AI coding tool. Tracks tasks, archives progress, and minimizes context window usage.",
   "author": "spupuz",
   "keywords": ["memory", "cost", "optimization", "omnistate", "snapshot", "tokens", "context"],
