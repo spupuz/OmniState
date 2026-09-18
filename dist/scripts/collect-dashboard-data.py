@@ -106,9 +106,15 @@ def collect(project_dir: str = ".", output_file: str = "dashboard-data.json"):
 
     # 4. Token savings
     # Cache metrics per chunk to avoid redundant disk reads when building chart data and timeline later
-    chunk_metrics = {f: get_chunk_metrics(f, True) for f in chunks}
+    # BOLT OPTIMIZATION: Cache metrics and parse labels only for the 5 most recent chunks used in charts/timeline
+    chunk_metrics = {f: get_chunk_metrics(f, True) for f in chunks[:5]}
     total_words = sum(m["words"] for m in chunk_metrics.values())
-    total_words += get_chunk_metrics(tasks_archive)["words"]
+
+    # Older chunks don't need label parsing for the UI, use fast path via get_chunk_metrics
+    for f in chunks[5:]:
+        total_words += get_chunk_metrics(f, False)["words"]
+
+    total_words += get_chunk_metrics(tasks_archive, False)["words"]
     token_saved = int(total_words * 1.3) + (snapshots * 4000)
     token_saved_k = max(token_saved // 1000, 1 if token_saved > 0 else 0)
 
