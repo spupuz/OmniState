@@ -97,7 +97,11 @@
             <div class="glass p-8 stat-card group" role="listitem">
                 <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 group-hover:text-blue-400 transition-colors">Active Tasks</p>
                 <p class="text-4xl font-black font-outfit" id="active-tasks">0</p>
-                <div id="task-progress-container" role="progressbar" aria-label="Task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="mt-6 w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                <div class="flex justify-between items-end mt-4 mb-1.5">
+                    <span class="text-xs text-slate-400 font-medium">Completion rate</span>
+                    <span id="task-progress-text" class="text-xs font-bold text-blue-400">0%</span>
+                </div>
+                <div id="task-progress-container" role="progressbar" aria-label="Task progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" class="w-full bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
                     <div id="task-progress" class="bg-blue-500 h-full w-0 transition-all duration-1000"></div>
                 </div>
             </div>
@@ -223,8 +227,11 @@
             const tpContainer = document.getElementById('task-progress-container');
             tpContainer.setAttribute('aria-valuenow', Math.round(progress));
             tpContainer.setAttribute('aria-valuetext', `${Math.round(progress)}% complete`);
-            tpContainer.title = `${Math.round(progress)}% complete`;
-            tpContainer.classList.add('cursor-help');
+
+            const tpText = document.getElementById('task-progress-text');
+            if (tpText) {
+                tpText.textContent = `${Math.round(progress)}%`;
+            }
 
             const timelineContainer = document.getElementById('timeline-container');
             const timelineFragment = document.createDocumentFragment();
