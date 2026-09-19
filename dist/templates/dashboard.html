@@ -208,13 +208,10 @@
             const tsEl = document.getElementById('token-savings');
             tsEl.textContent = "~" + (data.tokenSavings || "0k");
             if (data.tokenSavingsRaw !== undefined) {
-                tsEl.title = `${data.tokenSavingsRaw.toLocaleString()} exact tokens`;
-                tsEl.classList.add('cursor-help');
-
-                const srSpan = document.createElement('span');
-                srSpan.className = 'sr-only';
-                srSpan.textContent = ` (${data.tokenSavingsRaw.toLocaleString()} exact tokens saved)`;
-                tsEl.appendChild(srSpan);
+                const subText = tsEl.nextElementSibling;
+                if (subText && subText.tagName === 'P') {
+                    subText.textContent = `${data.tokenSavingsRaw.toLocaleString()} exact tokens saved`;
+                }
             }
             document.getElementById('last-updated').textContent = data.lastUpdate || "N/A";
 
@@ -223,8 +220,11 @@
             const tpContainer = document.getElementById('task-progress-container');
             tpContainer.setAttribute('aria-valuenow', Math.round(progress));
             tpContainer.setAttribute('aria-valuetext', `${Math.round(progress)}% complete`);
-            tpContainer.title = `${Math.round(progress)}% complete`;
-            tpContainer.classList.add('cursor-help');
+
+            const progressText = document.createElement('p');
+            progressText.className = 'text-xs text-slate-400 mt-2 font-medium text-right';
+            progressText.textContent = `${Math.round(progress)}% complete`;
+            tpContainer.parentNode.insertBefore(progressText, tpContainer.nextSibling);
 
             const timelineContainer = document.getElementById('timeline-container');
             const timelineFragment = document.createDocumentFragment();
