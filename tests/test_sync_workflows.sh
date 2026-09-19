@@ -142,9 +142,9 @@ test_sync_shared_config_empty() {
 test_sync_shared_config_injection() {
     echo "▶️  Testing sync_shared_config with JSON injection characters..."
 
-    # Setup test environment
-    export AGENT_WORKFLOWS="${PROJECT_ROOT}/.test_agents_inj/workflows"
-    export KILO_COMMANDS="${PROJECT_ROOT}/.test_kilo_inj/commands"
+    # Setup test environment with paths containing injection characters
+    export AGENT_WORKFLOWS="${PROJECT_ROOT}/.test_agents_inj\"quote\\slash/workflows"
+    export KILO_COMMANDS="${PROJECT_ROOT}/.test_kilo_inj\\slash\"quote/commands"
     export SHARED_CONFIG="${PROJECT_ROOT}/.test_omnistate_inj/shared-workflow.json"
 
     mkdir -p "$AGENT_WORKFLOWS"

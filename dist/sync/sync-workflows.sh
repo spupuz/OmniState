@@ -111,6 +111,17 @@ function sync_shared_config() {
         json_files=$(printf '        "%s",\n' "${workflow_files[@]}" | sed '$ s/,$//')
     fi
 
+    # SECURITY: Pre-escape paths to prevent JSON injection if directories contain quotes or backslashes
+    mapfile -t escaped_paths < <(jq -n --arg aw "$AGENT_WORKFLOWS" --arg kc "$KILO_COMMANDS" '$aw, $kc' 2>/dev/null)
+    AGENT_WORKFLOWS_ESCAPED="${escaped_paths[0]:-\"\"}"
+    KILO_COMMANDS_ESCAPED="${escaped_paths[1]:-\"\"}"
+    if [ -z "${escaped_paths[0]:-}" ]; then
+        tmp_aw="${AGENT_WORKFLOWS//\\/\\\\}"; tmp_aw="${tmp_aw//\"/\\\"}"
+        tmp_kc="${KILO_COMMANDS//\\/\\\\}"; tmp_kc="${tmp_kc//\"/\\\"}"
+        AGENT_WORKFLOWS_ESCAPED="\"$tmp_aw\""
+        KILO_COMMANDS_ESCAPED="\"$tmp_kc\""
+    fi
+
     # Create JSON configuration
     tmp_file=$(mktemp "$(dirname "$SHARED_CONFIG")/.tmp.XXXXXX")
     cat > "$tmp_file" << EOF
@@ -120,8 +131,8 @@ function sync_shared_config() {
     "workflow_files": [
 $json_files
     ],
-    "agent_workflows": "$AGENT_WORKFLOWS",
-    "kilo_commands": "$KILO_COMMANDS"
+    "agent_workflows": $AGENT_WORKFLOWS_ESCAPED,
+    "kilo_commands": $KILO_COMMANDS_ESCAPED
 }
 EOF
     chmod 644 "$tmp_file"

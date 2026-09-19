@@ -1,0 +1,4 @@
+## 2024-06-12 - [Critical] JSON Injection via Unescaped Variables in Bash Heredocs
+**Vulnerability:** Found a JSON injection vulnerability in `dist/sync/sync-workflows.sh` where `AGENT_WORKFLOWS` and `KILO_COMMANDS` path variables were directly interpolated into a JSON heredoc without escaping, which could allow arbitrary JSON injection if a user created a directory containing a quote (`"`) or backslash (`\`).
+**Learning:** Bash heredocs (`<< EOF`) evaluate string variables natively, which can easily inject unescaped quote strings directly into JSON generation, causing syntax errors or JSON injection payloads in configuration files.
+**Prevention:** Pre-escape all string variables before interpolating them into a bash JSON heredoc using `jq -n --arg name "$VAR" '$name'`, and then inject the unquoted escaped variable into the heredoc (e.g. `$NAME_ESCAPED`).
