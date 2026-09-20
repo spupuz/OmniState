@@ -279,27 +279,24 @@ class Store:
         total = self.one(
             "SELECT COUNT(*) AS c FROM memory WHERE project_id = ?", (project_id,)
         )["c"]
-        tasks = self.q("SELECT content FROM memory WHERE project_id = ? AND kind = 'task'", (project_id,))
-        active = 0
-        done = 0
-        for t in tasks:
-            try:
-                meta = json.loads(t["content"])
-                status = meta.get("status", "todo")
-            except Exception:
-                status = "todo"
-            if status == "done":
-                done += 1
-            else:
-                active += 1
-        chunks = self.one(
-            "SELECT COUNT(*) AS c FROM memory WHERE project_id = ? AND kind = 'chunk'", (project_id,)
-        )["c"]
+
+        row = self.one("""
+            SELECT
+                SUM(CASE WHEN kind = 'task' AND json_valid(content) AND COALESCE(json_extract(content, '$.status'), 'todo') = 'done' THEN 1 ELSE 0 END) as done_tasks,
+                SUM(CASE WHEN kind = 'task' AND (NOT json_valid(content) OR COALESCE(json_extract(content, '$.status'), 'todo') != 'done') THEN 1 ELSE 0 END) as active_tasks,
+                SUM(CASE WHEN kind = 'chunk' THEN 1 ELSE 0 END) as chunks
+            FROM memory
+            WHERE project_id = ? AND kind IN ('task', 'chunk')
+        """, (project_id,))
+
+        done = row["done_tasks"] or 0
+        active = row["active_tasks"] or 0
+        chunks = row["chunks"] or 0
+
         words = 0
-        for row in self.q(
-            "SELECT content FROM memory WHERE project_id = ? AND kind IN ('chunk','task')", (project_id,)
-        ):
-            words += len(row["content"].split())
+        for r in self.q("SELECT content FROM memory WHERE project_id = ? AND kind IN ('chunk','task')", (project_id,)):
+            words += len(r["content"].split())
+
         token_saved = int(words * 1.3) + (chunks * 4000)
         return {
             "activeTasks": active,
@@ -396,10 +393,14 @@ class Store:
         projects = self.one("SELECT COUNT(*) AS c FROM projects WHERE status='active'")["c"]
         memory = self.one("SELECT COUNT(*) AS c FROM memory")["c"]
         scans = self.one("SELECT COUNT(*) AS c FROM gh_scans")["c"]
+
         token = 0
-        for row in self.q("SELECT content FROM memory WHERE kind IN ('chunk','task')"):
+        chunks = 0
+        for row in self.q("SELECT kind, content FROM memory WHERE kind IN ('chunk','task')"):
             token += len(row["content"].split())
-        chunks = self.one("SELECT COUNT(*) AS c FROM memory WHERE kind='chunk'")["c"]
+            if row["kind"] == "chunk":
+                chunks += 1
+
         return {
             "projects": projects,
             "memoryEntries": memory,
