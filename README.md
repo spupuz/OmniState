@@ -285,6 +285,7 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ### v2.2.0 (current)
 - **Features**: Added "Only with open PRs" filter in GitHub PR Health dashboard (persisted via shared memory).
+- **Performance**: Optimized metrics queries in store for task/chunk counting and token savings calculation (single-pass SQL aggregation).
 
 ### v2.1.0
 - **Features**: project lifecycle in the dashboard — Projects tab grouped into aligned Active / Archived / Deleted sections; Overview shows only active projects and its cards now drill down into the project detail.
