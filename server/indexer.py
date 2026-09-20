@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,50 @@ def discover_projects(cfg: Config) -> list[Path]:
     return found
 
 
+_GH_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_REMOTE_URL_RE = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*://)?(?:[^/@]*@)?([^/:]+)(?::\d+)?[:/](.+)$")
+
+
+def parse_remote_url(url: str) -> str | None:
+    """Extract 'owner/repo' from a git remote URL. Only github.com remotes qualify.
+
+    Handles https://, ssh:// and scp-like git@github.com:owner/repo forms.
+    Credentials/userinfo in the URL are never kept: the host must be exactly
+    github.com (not a path trick like evil.com/github.com) and the path must be
+    a plain owner/repo slug.
+    """
+    url = (url or "").strip().strip('"')
+    m = _REMOTE_URL_RE.match(url)
+    if not m:
+        return None
+    host, path = m.group(1).lower(), (m.group(2) or "").strip()
+    if host != "github.com":
+        return None
+    if path.endswith(".git"):
+        path = path[:-4]
+    if ".." in path or any(c in path for c in "@\\?# \t"):
+        return None
+    return path if _GH_PATH_RE.match(path) else None
+
+
+def read_gh_repo(container_path: str) -> str | None:
+    """Read the `origin` remote of a local git repo and map it to 'owner/repo'."""
+    try:
+        text = (Path(container_path) / ".git" / "config").read_text(encoding="utf-8", errors="ignore")[:20000]
+    except (OSError, ValueError):
+        return None
+    in_origin = False
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("["):
+            in_origin = s.replace(" ", "").lower().startswith('[remote"origin"]')
+            continue
+        if in_origin and s.lower().startswith("url"):
+            _, _, val = s.partition("=")
+            return parse_remote_url(val)
+    return None
+
+
 def register_project(cfg: Config, store: Store, container_path: str) -> dict[str, Any] | None:
     """Register a project given its container path. Returns project row or None."""
     root = None
@@ -77,7 +122,7 @@ def register_project(cfg: Config, store: Store, container_path: str) -> dict[str
         return None
     host_path = root.container_to_host(container_path) or container_path
     name = Path(container_path).name or "root"
-    pid = store.upsert_project(name, host_path, container_path)
+    pid = store.upsert_project(name, host_path, container_path, gh_repo=read_gh_repo(container_path))
     return store.get_project(name)
 
 

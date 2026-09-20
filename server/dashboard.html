@@ -54,6 +54,7 @@
   th, td { text-align: left; padding: .6rem .8rem; font-size: .82rem; border-bottom: 1px solid rgba(255,255,255,.05); }
   th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; }
   td.num, th.num { text-align: right; }
+  .section-row td { text-transform: uppercase; font-size: .68rem; letter-spacing: .1em; font-weight: 700; color: #94a3b8; background: rgba(255,255,255,.035); padding-top: 1rem; padding-bottom: .4rem; border-bottom: 1px solid rgba(255,255,255,.09); }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: .3rem .7rem; border-radius: 9999px; font-size: .75rem; background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25); margin: .2rem; }
   input, select { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #f1f5f9; border-radius: .6rem; padding: .5rem .8rem; font-size: .85rem; outline: none; }
   input:focus, select:focus { border-color: var(--accent); }
@@ -225,9 +226,9 @@ async function loadOverview() {
         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p>
         <p class="text-4xl font-black font-outfit ${c.c}">${c.v}</p>
       </div>`).join('');
-    const projects = await api('/api/projects');
+    const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     $('overview-projects').innerHTML = projects.length ? projects.map(p => `
-      <div class="glass p-5 stat-card">
+      <div class="glass p-5 stat-card cursor-pointer" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details">
         <p class="font-bold mb-1 truncate">${esc(p.name)}</p>
         <p class="text-xs text-slate-400 mb-3 truncate" title="${esc(p.host_path)}">${esc(p.host_path)}</p>
         <div class="flex gap-4 text-xs">
@@ -235,30 +236,48 @@ async function loadOverview() {
           <span class="text-emerald-300">${fmt(p.doneTasks)} done</span>
           <span class="text-purple-300">${fmt(p.snapshots)} snap</span>
         </div>
-      </div>`).join('') : '<p class="text-slate-400 text-sm">No projects registered. Use the Projects tab or the MCP project_register tool.</p>';
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No active projects. Check the Projects tab for archived/deleted ones.</p>';
   } catch (e) { console.error(e); }
 }
 
+async function openProject(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'projects'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  $('tab-projects').classList.remove('hidden');
+  await loadProjects();
+  await showProject(name);
+}
+
 // ---------- Projects ----------
+const PROJECT_SECTIONS = [
+  { key: 'active', label: 'Active' },
+  { key: 'archived', label: 'Archived' },
+  { key: 'deleted', label: 'Deleted' },
+];
+
 async function loadProjects() {
   try {
     const projects = await api('/api/projects');
     backToProjects();
     if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects.</p>'; return; }
+    const rows = (list) => list.map(p => `
+      <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
+        <td class="font-semibold">${esc(p.name)}</td>
+        <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
+        <td class="num text-purple-300">${fmt(p.snapshots)}</td>
+        <td class="num">~${fmt(Math.round(p.tokenSavings/1000))}k</td>
+        <td class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
+      </tr>`).join('');
     $('projects-table-wrap').innerHTML = `
       <table><thead><tr>
-        <th>Project</th><th class="num">Active</th><th class="num">Done</th>
+        <th>Project</th><th class="num">Done</th>
         <th class="num">Snapshots</th><th class="num">Token savings</th><th>Path</th>
       </tr></thead><tbody>
-      ${projects.map(p => `
-        <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
-          <td class="font-semibold">${esc(p.name)}</td>
-          <td class="num text-blue-300">${fmt(p.activeTasks)}</td>
-          <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
-          <td class="num text-purple-300">${fmt(p.snapshots)}</td>
-          <td class="num">~${fmt(Math.round(p.tokenSavings/1000))}k</td>
-          <td class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
-        </tr>`).join('')}
+      ${PROJECT_SECTIONS.map(s => {
+        const list = projects.filter(p => (p.category || 'active') === s.key);
+        if (!list.length) return '';
+        return `<tr class="section-row"><td colspan="5">${s.label} <span class="text-slate-500 font-normal">(${list.length})</span></td></tr>${rows(list)}`;
+      }).join('')}
       </tbody></table>`;
   } catch (e) { console.error(e); }
 }
@@ -275,6 +294,7 @@ async function showProject(name) {
       <div class="flex items-center gap-3 mb-5 flex-wrap">
         <button class="btn ghost" onclick="backToProjects()">← Back</button>
         <h2 class="text-xl font-bold">${esc(name)}</h2>
+        <span class="chip">${esc(d.category || 'active')}</span>
         <span class="text-xs text-slate-500 truncate max-w-[280px]" title="${esc(d.project.host_path)}">${esc(d.project.host_path)}</span>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -346,7 +366,10 @@ async function loadShared() {
       <div class="glass p-4 mb-3">
         <div class="flex justify-between gap-4">
           <p class="font-semibold">${esc(m.title)}</p>
-          <span class="text-xs text-slate-500">${esc(m.created_at)}</span>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs text-slate-500">${fmtDate(m.created_at)}</span>
+            <button class="btn ghost small" onclick="deleteShared(${m.id})" title="Delete entry" aria-label="Delete entry">✕</button>
+          </div>
         </div>
         <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content)}</p>
         ${m.tags ? `<div class="mt-2">${JSON.parse(m.tags).map(t => `<span class="chip">#${esc(t)}</span>`).join('')}</div>` : ''}
@@ -361,6 +384,14 @@ async function addShared() {
   try {
     await api('/api/shared', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text, tags}) });
     $('shared-text').value = ''; $('shared-tags').value = '';
+    loadShared();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteShared(id) {
+  if (!confirm('Delete this shared memory entry?')) return;
+  try {
+    await api('/api/shared/' + id, { method: 'DELETE' });
     loadShared();
   } catch (e) { alert(e.message); }
 }

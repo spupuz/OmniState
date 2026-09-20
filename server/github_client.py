@@ -222,6 +222,32 @@ class GithubClient:
         with ThreadPoolExecutor(max_workers=CONCURRENCY) as pool:
             list(pool.map(worker, repos))
 
+    # ---- single repo state ----
+
+    def repo_state(self, full_name: str) -> str:
+        """Return 'ok' | 'archived' | 'deleted' | 'unknown' for owner/repo.
+
+        Never raises. 'unknown' (network error, rate limit, or an untrusted 404)
+        must not change the previous state: only a 404 with a token that can see
+        the repo proves deletion (unauthenticated 404 == private repo too).
+        """
+        try:
+            res = httpx.get(
+                f"{GITHUB_API}/repos/{full_name}",
+                headers=self._headers, timeout=15, follow_redirects=True,
+            )
+        except Exception:
+            return "unknown"
+        if res.status_code == 404:
+            return "deleted" if self.token else "unknown"
+        if res.status_code != 200:
+            return "unknown"
+        try:
+            data = res.json()
+        except Exception:
+            return "unknown"
+        return "archived" if bool(data.get("archived")) else "ok"
+
     # ---- orchestration ----
 
     def scan(self, accounts: list[str], *, extended: bool = True, include_forks: bool = False,

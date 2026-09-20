@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import threading
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -49,11 +50,88 @@ class App:
 
     # ---------- helpers ----------
 
+    def _archived_repo_names(self) -> set[str]:
+        """Lower-cased repo names (and full names) flagged archived in the latest GitHub scan."""
+        scan = self.store.latest_gh_scan()
+        if scan is None:
+            return set()
+        names: set[str] = set()
+        for r in self.store.gh_scan_repos(int(scan["id"])):
+            if r.get("is_archived"):
+                if r.get("name"):
+                    names.add(str(r["name"]).lower())
+                if r.get("full_name"):
+                    names.add(str(r["full_name"]).lower())
+        return names
+
+    @staticmethod
+    def _project_category(project: dict[str, Any], archived_names: set[str]) -> str:
+        """Dashboard lifecycle — GitHub wins over the local disk:
+        deleted (path gone OR repo deleted on GitHub) > archived (GitHub) > active."""
+        if project.get("status") == "removed":
+            return "deleted"
+        if project.get("gh_state") == "deleted":
+            return "deleted"
+        if project.get("gh_state") == "archived":
+            return "archived"
+        if str(project.get("name", "")).lower() in archived_names:
+            return "archived"
+        return "active"
+
+    def _gh_deleted_is_trusted(self, repo: str) -> bool:
+        """A 404 proves deletion only with a token that can see the owner's repos
+        (unauthenticated 404s are also private/unknown repos)."""
+        if not self.cfg.github.token:
+            return False
+        owner = repo.split("/", 1)[0].lower()
+        return any(owner == a.strip().lower() for a in self.cfg.github.accounts if a and a.strip())
+
+    def check_projects_github_state(self, *, force: bool = False) -> dict[str, str]:
+        """Refresh gh_state per project 'gh_repo' (parsed from .git/config at registration).
+
+        Queries api.github.com at most once per scan_interval_hours per project.
+        'deleted' is applied only when trusted; network/rate-limit errors leave
+        the previous state untouched ('unknown').
+        """
+        ttl = max(1, self.cfg.github.scan_interval_hours) * 3600
+        client = GithubClient(self.cfg.github.token, stale_days=self.cfg.github.stale_days)
+        out: dict[str, str] = {}
+        for p in self.store.list_projects():
+            repo = p.get("gh_repo")
+            if not repo:
+                continue
+            checked = p.get("gh_checked_at")
+            if not force and checked:
+                try:
+                    ts = datetime.strptime(str(checked), "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+                    if (datetime.now(timezone.utc) - ts).total_seconds() < ttl:
+                        continue
+                except ValueError:
+                    pass
+            state = client.repo_state(repo)
+            if state == "deleted" and not self._gh_deleted_is_trusted(repo):
+                state = "unknown"
+            if state != "unknown":
+                self.store.set_project_gh_state(p["name"], state)
+            elif not p.get("gh_state"):
+                self.store.set_project_gh_state(p["name"], "unknown")
+            out[p["name"]] = state if state != "unknown" else (p.get("gh_state") or "unknown")
+        return out
+
     def _project_metrics_list(self) -> list[dict[str, Any]]:
+        archived_names = self._archived_repo_names()
         out = []
         for p in self.store.list_projects():
             metrics = self.store.project_metrics(int(p["id"]))
-            out.append({"name": p["name"], "host_path": p["host_path"], "status": p["status"], **metrics})
+            out.append({
+                "name": p["name"],
+                "host_path": p["host_path"],
+                "status": p["status"],
+                "gh_repo": p.get("gh_repo"),
+                "gh_state": p.get("gh_state"),
+                "category": self._project_category(p, archived_names),
+                **metrics,
+            })
         return out
 
     def _github_config_view(self) -> dict[str, Any]:
@@ -113,6 +191,7 @@ class App:
             entries = self.store.memory_for_project(int(row["id"]), limit=50)
             return {
                 "project": row,
+                "category": self._project_category(row, self._archived_repo_names()),
                 "metrics": self.store.project_metrics(int(row["id"])),
                 "memory": entries,
             }
@@ -136,9 +215,23 @@ class App:
             )
             return {"memory_id": mem_id, "scope": "shared"}
 
+        @app.delete("/api/shared/{mem_id}")
+        def api_shared_delete(mem_id: int) -> dict[str, Any]:
+            row = self.store.get_memory(mem_id)
+            if row is None or row.get("scope") != "shared":
+                return JSONResponse({"error": "shared entry not found"}, status_code=404)
+            self.store.delete_memory(mem_id)
+            return {"deleted": True, "memory_id": mem_id}
+
         @app.get("/api/stats")
         def api_stats() -> dict[str, Any]:
-            return self.store.stats()
+            stats = self.store.stats()
+            # "Progetti" = only truly active ones: excludes removed paths and
+            # projects matching a GitHub repo flagged archived in the latest scan.
+            stats["projects"] = sum(
+                1 for p in self._project_metrics_list() if p["category"] == "active"
+            )
+            return stats
 
         # ---- GitHub PR Health ----
 
@@ -205,6 +298,31 @@ class App:
 
     # ---------- background work ----------
 
+    def sweep_missing_projects(self) -> list[str]:
+        """Mark active projects whose path no longer exists as 'removed' (dashboard 'Deleted').
+
+        A project is only evaluated when its mounted root is available, so a
+        temporary mount failure never mass-marks projects as deleted.
+        """
+        marked: list[str] = []
+        for p in self.store.list_projects():
+            if p["status"] != "active":
+                continue
+            cp = p.get("container_path") or ""
+            if not cp:
+                continue
+            root = next(
+                (r for r in self.cfg.roots
+                 if cp == r.container or cp.startswith(r.container.rstrip("/") + "/")),
+                None,
+            )
+            if root is None or not Path(root.container).exists():
+                continue
+            if not Path(cp).exists():
+                self.store.set_project_status(p["name"], "removed")
+                marked.append(p["name"])
+        return marked
+
     def run_discovery(self) -> list[str]:
         found = discover_projects(self.cfg)
         registered = []
@@ -226,6 +344,11 @@ class App:
                     except Exception:
                         pass
                 registered.append(project["name"])
+        self.sweep_missing_projects()
+        try:
+            self.check_projects_github_state()
+        except Exception:
+            pass  # network issues must never break discovery
         return registered
 
     def run_github_scan(

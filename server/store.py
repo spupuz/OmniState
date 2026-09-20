@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS projects (
   container_path  TEXT NOT NULL,
   last_indexed_at TEXT,
   status          TEXT DEFAULT 'active',
+  gh_repo         TEXT,
+  gh_state        TEXT,
+  gh_checked_at   TEXT,
   created_at      TEXT
 );
 
@@ -107,9 +110,13 @@ END;
 
 
 class Store:
-    def __init__(self, db_path: Path | str):
+    def __init__(self, db_path: Path | str, shared_dir: Path | str | None = None):
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        # Human-readable mirror of shared entries (DESIGN §9): /data/shared/mem-<id>.md
+        self.shared_dir = Path(shared_dir) if shared_dir else None
+        if self.shared_dir:
+            self.shared_dir.mkdir(parents=True, exist_ok=True)
         self._lock = threading.RLock()
         self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
         self._conn.row_factory = sqlite3.Row
@@ -118,6 +125,42 @@ class Store:
         with self._conn:
             self._conn.executescript(SCHEMA)
             self._conn.executescript(FTS_TRIGGERS)
+            # Migration for pre-2.1 DBs: GitHub repo mapping/state columns.
+            for col in ("gh_repo TEXT", "gh_state TEXT", "gh_checked_at TEXT"):
+                try:
+                    self._conn.execute(f"ALTER TABLE projects ADD COLUMN {col}")
+                except sqlite3.OperationalError:
+                    pass  # duplicate column: already migrated
+
+    # ---------- shared memory file mirror ----------
+
+    def _shared_file(self, mem_id: int) -> Path | None:
+        return self.shared_dir / f"mem-{int(mem_id):06d}.md" if self.shared_dir else None
+
+    def _write_shared_file(self, row: dict[str, Any]) -> None:
+        path = self._shared_file(int(row["id"]))
+        if path is None:
+            return
+        tags = json.loads(row.get("tags") or "[]")
+        body = "\n".join([
+            "---",
+            f"id: {row['id']}",
+            f"title: {row.get('title') or ''}",
+            f"tags: [{', '.join(tags)}]",
+            f"created_at: {row.get('created_at') or ''}",
+            "---",
+            "",
+            row.get("content") or "",
+            "",
+        ])
+        tmp = path.with_suffix(".tmp")
+        tmp.write_text(body, encoding="utf-8")
+        tmp.replace(path)
+
+    def _delete_shared_file(self, mem_id: int) -> None:
+        path = self._shared_file(mem_id)
+        if path and path.exists():
+            path.unlink()
 
     @contextmanager
     def tx(self) -> Iterator[sqlite3.Connection]:
@@ -142,19 +185,23 @@ class Store:
 
     # ---------- projects ----------
 
-    def upsert_project(self, name: str, host_path: str, container_path: str) -> int:
+    def upsert_project(
+        self, name: str, host_path: str, container_path: str, gh_repo: str | None = None
+    ) -> int:
         now = _now()
         row = self.one("SELECT id FROM projects WHERE name = ?", (name,))
         if row:
             with self.tx() as conn:
                 conn.execute(
-                    "UPDATE projects SET host_path=?, container_path=?, status='active', last_indexed_at=? WHERE id=?",
-                    (host_path, container_path, now, row["id"]),
+                    "UPDATE projects SET host_path=?, container_path=?, status='active', "
+                    "gh_repo=COALESCE(?, gh_repo), last_indexed_at=? WHERE id=?",
+                    (host_path, container_path, gh_repo, now, row["id"]),
                 )
             return int(row["id"])
         return self.execute(
-            "INSERT INTO projects(name, host_path, container_path, created_at, last_indexed_at) VALUES(?,?,?,?,?)",
-            (name, host_path, container_path, now, now),
+            "INSERT INTO projects(name, host_path, container_path, gh_repo, created_at, last_indexed_at) "
+            "VALUES(?,?,?,?,?,?)",
+            (name, host_path, container_path, gh_repo, now, now),
         )
 
     def list_projects(self) -> list[dict[str, Any]]:
@@ -163,8 +210,27 @@ class Store:
     def get_project(self, name: str) -> dict[str, Any] | None:
         return self.one("SELECT * FROM projects WHERE name = ?", (name,))
 
+    def set_project_status(self, name: str, status: str) -> None:
+        self.execute("UPDATE projects SET status=? WHERE name = ?", (status, name))
+
+    def set_project_gh_state(self, name: str, state: str, *, repo: str | None = None) -> None:
+        if repo is None:
+            self.execute(
+                "UPDATE projects SET gh_state=?, gh_checked_at=? WHERE name = ?",
+                (state, _now(), name),
+            )
+        else:
+            self.execute(
+                "UPDATE projects SET gh_repo=?, gh_state=?, gh_checked_at=? WHERE name = ?",
+                (repo, state, _now(), name),
+            )
+        self.execute(
+            "UPDATE projects SET gh_state=?, gh_repo=COALESCE(?, gh_repo), gh_checked_at=? WHERE name = ?",
+            (state, repo, _now(), name),
+        )
+
     def mark_project_removed(self, name: str) -> None:
-        self.execute("UPDATE projects SET status='removed' WHERE name = ?", (name,))
+        self.set_project_status(name, "removed")
 
     # ---------- memory ----------
 
@@ -180,11 +246,16 @@ class Store:
         source_file: str | None = None,
     ) -> int:
         now = _now()
-        return self.execute(
+        mem_id = self.execute(
             "INSERT INTO memory(project_id, scope, kind, title, content, tags, source_file, created_at, updated_at) "
             "VALUES(?,?,?,?,?,?,?,?,?)",
             (project_id, scope, kind, title, content, json.dumps(tags or []), source_file, now, now),
         )
+        if scope == "shared":
+            row = self.get_memory(mem_id)
+            if row:
+                self._write_shared_file(row)
+        return mem_id
 
     def update_memory(self, mem_id: int, content: str, title: str | None = None, tags: list[str] | None = None) -> bool:
         now = _now()
@@ -193,15 +264,24 @@ class Store:
                 "UPDATE memory SET content=?, title=COALESCE(?, title), tags=?, updated_at=? WHERE id=?",
                 (content, title, json.dumps(tags or []), now, mem_id),
             )
-        return cur.rowcount > 0
+        ok = cur.rowcount > 0
+        if ok:
+            row = self.get_memory(mem_id)
+            if row and row.get("scope") == "shared":
+                self._write_shared_file(row)
+        return ok
 
     def get_memory(self, mem_id: int) -> dict[str, Any] | None:
         return self.one("SELECT * FROM memory WHERE id = ?", (mem_id,))
 
     def delete_memory(self, mem_id: int) -> bool:
+        row = self.get_memory(mem_id)
         with self.tx() as conn:
             cur = conn.execute("DELETE FROM memory WHERE id = ?", (mem_id,))
-        return cur.rowcount > 0
+        ok = cur.rowcount > 0
+        if ok and row and row.get("scope") == "shared":
+            self._delete_shared_file(mem_id)
+        return ok
 
     def search_memory(
         self,
