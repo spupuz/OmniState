@@ -26,7 +26,10 @@ logger = logging.getLogger("omnistate")
 
 def build_app() -> FastAPI:
     cfg = load_config()
-    store = Store(cfg.db_path)
+    store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
+    # Backfill: write shared files for pre-existing DB entries (mirror feature added later)
+    for row in store.shared_memory(limit=100000):
+        store._write_shared_file(row)
     app_holder = App(cfg, store)
 
     # MCP Streamable HTTP at /mcp (lifespan composed into the FastAPI app)

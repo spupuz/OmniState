@@ -9,14 +9,14 @@ No local skills, no memory files scattered across projects: everything lives in 
 ## Features
 
 - **MCP server** (Streamable HTTP on `/mcp`): connects to opencode, Claude Code and other AI tools as a remote MCP.
-- **Central memory**: all projects indexed in one SQLite (FTS5) in the `/data` volume.
+- **Central memory**: all projects indexed in one SQLite (FTS5) in a plain **folder on your host** (`DATA_HOST_DIR`).
 - **Auto-registration**: when you use the MCP in a project, the server registers and indexes it automatically.
 - **Per-project + shared**: isolated memory for each project + shared memory common to all.
 - **Cross-project search**: full-text across all projects and the shared memory.
 - **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
 - **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search.
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB.
-- **Privacy-first**: the DB, the metrics and the token **never leave the container volume** and never end up on GitHub.
+- **Privacy-first**: the DB, the metrics and the token **never leave your data folder** and never end up on GitHub.
 
 ## Installation (Docker)
 
@@ -26,7 +26,7 @@ cd OmniState
 
 # 1. Configuration: create your .env (NEVER committed)
 cp .env.example .env
-nano .env    # set PROJECTS_ROOT to your projects path
+nano .env    # set PROJECTS_ROOT (projects) and DATA_HOST_DIR (where data lives)
 
 # 2. Start
 docker compose up -d --build
@@ -47,11 +47,47 @@ cp .env.example .env
 | `GITHUB_ACCOUNTS` | — | GitHub accounts/orgs to scan, comma-separated (empty = scans disabled). |
 | `GITHUB_TOKEN` | — | GitHub PAT: enables GraphQL, private repos and extended metrics. **Never exposed** by API/dashboard/MCP. |
 | `GITHUB_SCAN_INTERVAL_HOURS` | — | Hours between automatic scans (default `6`). |
-| `OMNISTATE_SCAN_INTERVAL_SECONDS` | — | Seconds between project discovery scans (default `300`). |
+| `OMNISTATE_SCAN_INTERVAL_SECONDS` | — | Seconds between discovery scans (default `300`). |
+| `DATA_HOST_DIR` | — | Host folder where all server data lives, bind-mounted at `/data` (default `./data` inside the OmniState dir). A plain directory: browse it, back it up, move it. |
+| `OMNISTATE_AUTO_IMPORT_LEGACY` | — | Import old v1 memory files (`chunks/`, `tasks-history.json`, …) automatically when a project with such files is discovered (default off: `false`). |
 
 The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. If you lose it, rotate it on GitHub.
 
 Verify: `curl http://localhost:8347/health` → `OK`.
+
+### Where the data lives (mount points)
+
+Everything is stored in **one plain folder on your host** — `DATA_HOST_DIR` (default `./data` inside the OmniState clone) — bind-mounted into the container. There are exactly **two mounts**:
+
+| Host path | Container path | Mode | What it is |
+|---|---|---|---|
+| `DATA_HOST_DIR` (e.g. `~/OmniState/data`) | `/data` | **read-write** | The server's whole brain: `index.db` (memory + GitHub metrics), `shared/` (shared memory files), `config.json` (accounts + token), `logs/` |
+| `PROJECTS_ROOT` (e.g. `/home/mario/projects`) | `/workspaces` | **read-only** | Your projects: discovery + one-shot legacy import only — the server *never writes* into them |
+
+Inside `DATA_HOST_DIR`:
+
+```
+data/
+├── index.db      ← SQLite: projects, memory (FTS5), gh_* GitHub scan tables
+├── shared/       ← shared memory entries as readable files
+├── config.json   ← runtime config incl. GitHub token (local only, never committed)
+└── logs/
+```
+
+Key points:
+
+- **All paths in the DB are stored twice** — host path (what you see, e.g. `/home/mario/projects/myapp`) and container path (`/workspaces/myapp`) — because the agent talks to the server with host paths, and the server reads files through the `:ro` mount. That's what `OMNISTATE_ROOTS` translation is for.
+- **Persistence**: `docker compose down`/`up`, rebuilds and host reboots lose nothing — the data is just files in that folder.
+- **Backup**: `cp -r data /backups/omnistate-$(date +%F)` while the container is stopped (or use `sqlite3 data/index.db ".backup ..."` while running).
+- **Move the data**: stop the container → copy the folder to the new path → set `DATA_HOST_DIR` in `.env` → `docker compose up -d`.
+- **Privacy**: this folder is git-ignored (`/data/`, `*.db`, `config.json`, `.env` patterns) and docker-ignored — it can never end up on GitHub or inside the image.
+- After an upgrade from the old setup: if you still have the Docker named volume `omnistate_omnistate-data`, copy it into your data folder and remove it:
+  ```bash
+  docker compose stop
+  docker run --rm -v omnistate_omnistate-data:/v -v ./data:/out alpine cp -a /v/. /out/
+  docker compose up -d
+  docker volume rm omnistate_omnistate-data
+  ```
 
 ## Connecting an AI tool
 
@@ -127,26 +163,78 @@ CONTAINER omnistate (:8347)
 ├── /api/*      → REST for the dashboard
 ├── /           → web dashboard
 └── /data       → SQLite index.db (memory + GitHub metrics) + shared/ + config.json
-    └── Docker named volume (omnistate-data) — never in the repo, never on GitHub
+    └── bind mount of DATA_HOST_DIR (host folder, default ./data) — git-ignored, never on GitHub
+
+Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-only)
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
-- Shared memory lives in `/data/shared/`; shared entries are visible in every project.
+- Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
+
+### How shared memory gets populated
+
+| Path | Triggered by |
+|---|---|
+| `memory_remember(scope="shared")` | The **agent**, following the [session protocol](#automatic-memory-session-protocol): cross-project decisions, preferences, reusable patterns it notices while working |
+| Dashboard → **Shared Memory** tab | You: type a note (+ optional tags) and Save; each entry can be deleted with ✕ |
+| `POST /api/shared` | Scripts/curl against the server API |
+
+Shared entries are **never auto-invented**: nothing extracts them from sessions or scans — they only exist because the agent (instructed by the protocol) or you explicitly saved them. At `session_start` the server returns the latest shared entries to the agent, so every project starts with the common knowledge. Entries live in the DB **and** as `.md` files under `DATA_HOST_DIR/shared/` (backup-friendly, human-readable).
 
 ## Automatic memory (session protocol)
 
-The MCP connection makes the tools **available**; the session protocol makes them **automatic**. The protocol file is shipped in the repo (`skills/omnistate-protocol.md`) — copy it to your client's global instructions:
+An MCP connection only makes the tools **available** — nothing gets saved or read until the agent actually **calls** them. The agent decides what to do based on its instruction files; the **session protocol** tells it to use OmniState automatically in every project, so memory populates itself while you work.
 
-| Tool | Global file | Purpose |
+The protocol is shipped in the repo: [`skills/omnistate-protocol.md`](skills/omnistate-protocol.md). Copy it into your client's global instructions (one-time, per machine — these files are local, never committed):
+
+| Client | Global file (all projects) | Project-level file (single project) |
 |---|---|---|
-| opencode | `~/.config/opencode/AGENTS.md` | Protocol: `project_register`+`session_start` at session start, `session_snapshot` at the end, `memory_remember` for notes |
-| Antigravity | `~/.gemini/GEMINI.md` (Global Rules) | Same protocol, all workspaces |
+| opencode | `~/.config/opencode/AGENTS.md` | `<project>/AGENTS.md` |
+| Antigravity (IDE + CLI) | `~/.gemini/GEMINI.md` (Global Rules) | `<project>/.agents/rules/omnistate.md` |
+
+### opencode
+
+```bash
+# global: applies to every project opencode opens
+mkdir -p ~/.config/opencode
+cp ~/OmniState/skills/omnistate-protocol.md ~/.config/opencode/AGENTS.md
+```
+
+To enable it only for a single project instead, put the same file at `<project>/AGENTS.md` (the closest `AGENTS.md` wins; explicit chat instructions override both).
+
+### Antigravity
+
+**Option A — file** (works for Antigravity 2.0, IDE and CLI):
+
+```bash
+cp ~/OmniState/skills/omnistate-protocol.md ~/.gemini/GEMINI.md
+```
+
+If you already have a `GEMINI.md`, append the protocol content at the end (global rules have a 12,000-character limit per file).
+
+**Option B — GUI**: `…` menu at the top of the agent panel → **Customizations** → **Rules** → **+ Global** → paste the protocol content.
+
+For one project only: `<project>/.agents/rules/omnistate.md` (or **+ Workspace** in the same panel). Set the rule activation mode to **Always On** so it applies to every session.
+
+**Note:** the protocol only helps if the MCP server itself is also configured for the client (see [Connecting an AI tool](#connecting-an-ai-tool)) — Antigravity needs `serverUrl` in `mcp_config.json`, opencode needs the `mcp` entry in `opencode.json`.
+
+### What the agent will do once configured
+
+1. **Session start** — `project_register` (with the current working directory) + `session_start` (loads the project's recent memory and open tasks *before* acting)
+2. **During work** — `task_add` / `task_update` to track activities; `memory_remember` with `scope="shared"` for cross-project decisions and `scope="project"` for project-specific notes; `memory_search` before redoing solved work
+3. **Session end** — `session_snapshot` with a distilled 2–5 line summary
+
+No action is required from you. Verify it works after a real session: the dashboard's **Projects** tab → click your project → memory entries appear; or `curl http://localhost:8347/api/stats` and watch `memoryEntries` grow.
+
+### Manual control (optional)
+
+Without the protocol files you can trigger the same flow on demand — either by asking the agent ("save this session to omnistate") or via the [wrapper skills](#optional-opencode-skills) (`/start-session`, `/snapshot-session`, …).
 
 ## Privacy
 
-The SQLite database, the shared memory, the config holding the token and all metrics **live only in the container's `/data` volume**:
+The SQLite database, the shared memory, the config holding the token and all metrics **live only in a plain folder on your host** (mounted at `/data` in the container):
 
-- `/data` is never mounted inside a repo nor versioned.
+- The data folder (default `./data`, git-ignored) is never versioned; pick any host path with `DATA_HOST_DIR` in `.env`.
 - The container has no push/export logic for the DB or metrics.
 - The OmniState repo contains **only code and design** — no `.db`, `.sqlite`, `config.json` or dumps.
 - The local `.env` (token and paths) is **git-ignored and docker-ignored**: it never ends up on GitHub or in the image.
@@ -199,7 +287,7 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 - **Auto-registration**: projects are registered/indexed when they use the MCP.
 - **Automatic discovery + legacy import**: the scheduler finds new projects under `PROJECTS_ROOT` and optionally imports old v1 memory files (`OMNISTATE_AUTO_IMPORT_LEGACY`).
 - **Per-project drill-down**: click a project in the dashboard to browse its saved memory entries with filtering.
-- **Privacy**: DB, metrics and token isolated in the `/data` volume, never versioned nor exposed.
+- **Privacy**: DB, metrics and token isolated in the host data folder (`DATA_HOST_DIR`), never versioned nor exposed.
 
 ### v1.17.0
 - **Security**: Fix [HIGH] arbitrary file read / permission manipulation via symlinks in `migrate.sh` and `update.sh` by skipping symlinked configs and `.gitignore`, and removing the `cp -a` symlink copy fallback

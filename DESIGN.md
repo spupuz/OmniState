@@ -41,13 +41,13 @@ One Python process (uvicorn) in the container, two interfaces:
 │   ├── /               → web dashboard (HTML+JS, current design extended)     │
 │   └── /health         → healthcheck                                          │
 │                                                                              │
-│   SQLite index   /data/index.db   (persistent volume)                        │
-│   Shared memory  /data/shared/*.md (persistent volume)                       │
+│   SQLite index   /data/index.db   (host folder, bind mount)                  │
+│   Shared memory  /data/shared/*.md (host folder, bind mount)                 │
 │   Config         /data/config.json (host↔container root mapping)             │
 │                                                                              │
 │   Scheduler: periodic scan of mounted roots + scheduled GitHub scans         │
 └───────────────┬───────────────────────────────────────┬──────────────────────┘
-                │ volumes                              │ port 8347
+                │ bind mounts                          │ port 8347
         ┌───────▼────────┐                     ┌────────▼─────────┐
         │ /workspaces     │                     │ AI client        │
         │ (projects root) │                     │ opencode/Claude  │
@@ -72,7 +72,7 @@ One Python process (uvicorn) in the container, two interfaces:
 | Volume | Container mount | Purpose |
 |---|---|---|
 | user's projects root (e.g. `~/projects`) | `/workspaces` | Projects to **read** (discovery + legacy import) |
-| named volume `omnistate-data` | `/data` | `index.db` (single memory), `shared/`, `config.json`, `logs/` |
+| host folder (`DATA_HOST_DIR` in `.env`, default `./data`) | `/data` | `index.db` (single memory), `shared/`, `config.json`, `logs/` — a plain, browsable, backuppable directory |
 
 HTTP/MCP port is **8347** (configurable). Projects are mounted **read-only** (`:ro`): the server never writes into the user's projects.
 
@@ -102,7 +102,8 @@ When an MCP tool receives a host path (e.g. `project_register("/home/user/projec
 
 | Variable | Purpose |
 |---|---|
-| `PROJECTS_ROOT` | absolute host path of the projects root (volume mount + path translation) |
+| `PROJECTS_ROOT` | absolute host path of the projects root (bind mount + path translation) |
+| `DATA_HOST_DIR` | host folder where the DB/shared/config live (bind-mounted at `/data`) |
 | `OMNISTATE_HOST_PORT` | host port (default 8347; container always listens on 8347) |
 | `GITHUB_ACCOUNTS` | accounts/orgs to scan (empty = disabled) |
 | `GITHUB_TOKEN` | optional PAT (GraphQL + private repos + extended metrics) |
@@ -121,15 +122,12 @@ services:
       - "${OMNISTATE_HOST_PORT:-8347}:8347"
     volumes:
       - ${PROJECTS_ROOT:-/home/youruser/projects}:/workspaces:ro
-      - omnistate-data:/data
+      - ${DATA_HOST_DIR:-./data}:/data
     environment:
       - OMNISTATE_PORT=8347
       - OMNISTATE_DATA=/data
       - OMNISTATE_ROOTS=${PROJECTS_ROOT:-/home/youruser/projects}:/workspaces
     restart: unless-stopped
-
-volumes:
-  omnistate-data:
 ```
 
 ---
@@ -433,11 +431,11 @@ Consequences for the repo:
 
 ## 12. Privacy: the DB and metrics never end up on GitHub
 
-**Absolute rule:** the SQLite database (`/data/index.db`), the shared memory (`/data/shared/`), the config holding the token (`/data/config.json`, `.env`), the tests and all metrics (per-project memory, GitHub PR health, costs) **live only in the container's `/data` volume and must NEVER be versioned, committed or pushed to GitHub**.
+**Absolute rule:** the SQLite database (`/data/index.db`), the shared memory (`/data/shared/`), the config holding the token (`/data/config.json`, `.env`), the tests and all metrics (per-project memory, GitHub PR health, costs) **live only in the host data folder bind-mounted at `/data` and must NEVER be versioned, committed or pushed to GitHub**.
 
 ### Physical boundaries
 
-- `/data` is a **Docker named volume** (`omnistate-data`), mounted **only in the container**, never in the user's repo.
+- The data lives in a **plain host folder** (`DATA_HOST_DIR`, default `./data` inside the OmniState dir — git-ignored), bind-mounted at `/data`. The folder is easy to browse and back up; the git pattern `/data/` (and `shared/`, `*.db`, `config.json`) prevents any accidental commit.
 - The container has no "export/upload to GitHub" logic for the DB or metrics: no `git` commands, no push, no dumps.
 
 ### Repo guarantees
@@ -455,7 +453,7 @@ Consequences for the repo:
 
 ### Protection against accidental commits
 
-- The `/data` volume is NEVER mounted inside a user repo (and vice versa).
+- The data folder is never mounted inside a user project repo (and vice versa); when pointing it inside the OmniState repo it stays git-ignored.
 - When building/testing the server locally, use a temp DB in `tmp/` (git-ignored) with fake data — never real data.
 - PR rule: **any PR adding/containing a `.db`/`.sqlite`/`config.json`/`.env`/metrics dump file is rejected** (release skill check: `git diff` scan for `*.db`, `*.sqlite`, `/data/`, `.env`).
 - **Tests are local-only**: `tests/` is git-ignored and docker-ignored; CI does not run them; the release workflow verifies locally before push.

@@ -11,6 +11,7 @@ import json
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from .config import Config, save_config
 from .github_client import GithubClient
@@ -24,7 +25,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     def _resolve_project(project: str) -> dict[str, Any]:
         row = store.get_project(project)
         if row is None:
-            raise ValueError(f"Project '{project}' not found. Register it with project_register first.")
+            raise ToolError(f"Project '{project}' not found. Register it with project_register first.")
         return row
 
     # ---------- projects ----------
@@ -49,18 +50,18 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         """Register the current project (or a host path) so the server indexes it. Auto-registration."""
         host_path = path
         if not host_path:
-            raise ValueError("Provide a project host path (e.g. the working directory).")
+            raise ToolError("Provide a project host path (e.g. the working directory).")
         root = cfg.resolve_host_root(host_path)
         if root is None:
-            raise ValueError(
+            raise ToolError(
                 f"Path '{host_path}' is outside the configured roots. Add it to /data/config.json (roots)."
             )
         container_path = root.host_to_container(host_path)
         if container_path is None:
-            raise ValueError("Cannot map host path to container path.")
+            raise ToolError("Cannot map host path to container path.")
         project = register_project(cfg, store, container_path)
         if project is None:
-            raise ValueError("Project could not be registered (path not under any root).")
+            raise ToolError("Project could not be registered (path not under any root).")
         return json.dumps({
             "registered": True,
             "project": project["name"],
@@ -108,7 +109,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
 
     @server.tool()
     def session_start(project: str) -> str:
-        """Start a session: load relevant memory and open tasks for the project."""
+        """Start a session: load relevant memory (project + shared) and open tasks."""
         row = _resolve_project(project)
         tasks = store.list_tasks(int(row["id"]))
         open_tasks = [t for t in tasks if t["content"]]
@@ -117,11 +118,13 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
             "ORDER BY created_at DESC LIMIT 3",
             (row["id"],),
         )
+        shared = store.shared_memory(limit=5)
         return json.dumps({
             "project": project,
             "session_started": True,
             "open_tasks": len(open_tasks),
             "recent_memory": [{"title": m["title"], "created_at": m["created_at"]} for m in recent],
+            "shared_memory": [{"title": m["title"], "content": m["content"][:200], "tags": m["tags"]} for m in shared],
             "recall": store.memory_recall_for(int(row["id"])),
         }, indent=2)
 
@@ -157,7 +160,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         """Add a task to a project."""
         row = _resolve_project(project)
         if status not in ("todo", "in_progress", "done"):
-            raise ValueError("status must be one of: todo, in_progress, done")
+            raise ToolError("status must be one of: todo, in_progress, done")
         mem_id = store.add_memory(
             project_id=int(row["id"]), scope="project", kind="task",
             title=title[:120], content=json.dumps({"title": title, "status": status}),
@@ -169,10 +172,10 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         """Update a task status (-> done makes it ready for snapshot)."""
         row = _resolve_project(project)
         if status not in ("todo", "in_progress", "done"):
-            raise ValueError("status must be one of: todo, in_progress, done")
+            raise ToolError("status must be one of: todo, in_progress, done")
         mem = store.get_memory(task_id)
         if mem is None or mem.get("project_id") != row["id"]:
-            raise ValueError("Task not found in this project.")
+            raise ToolError("Task not found in this project.")
         try:
             meta = json.loads(mem["content"])
         except Exception:
@@ -209,7 +212,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     def memory_remember(text: str, project: str = "", scope: str = "shared", tags: str = "") -> str:
         """Save a note (shared by default, or per-project)."""
         if scope not in ("shared", "project"):
-            raise ValueError("scope must be 'shared' or 'project'.")
+            raise ToolError("scope must be 'shared' or 'project'.")
         tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
         project_id = None
         if scope == "project":
@@ -247,7 +250,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         """Scan GitHub accounts/orgs for open PRs and save metrics to the DB."""
         account_list = [a.strip() for a in (accounts or ",".join(cfg.github.accounts)).split(",") if a.strip()]
         if not account_list:
-            raise ValueError("No accounts configured. Pass accounts or set them via github_config.")
+            raise ToolError("No accounts configured. Pass accounts or set them via github_config.")
         result = _github_client().scan(
             account_list, extended=extended, include_forks=include_forks, include_archived=include_archived
         )

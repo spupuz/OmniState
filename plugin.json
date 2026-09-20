@@ -12,7 +12,7 @@
   "docker": {
     "compose": "docker-compose.yml",
     "port": 8347,
-    "data_volume": "omnistate-data"
+    "data_dir": "DATA_HOST_DIR (.env, default ./data)"
   },
   "opencode": {
     "config": "opencode.json"
