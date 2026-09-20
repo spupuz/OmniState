@@ -77,7 +77,7 @@
           <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" aria-hidden="true"></span> Server
         </span>
       </div>
-      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="dashboard-title">Dashboard OmniState</h1>
+      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="dashboard-title">OmniState Dashboard</h1>
       <p class="text-slate-400 mt-2 text-lg font-light" id="last-update">—</p>
     </div>
     <div class="flex gap-3 flex-wrap">
@@ -136,7 +136,7 @@
       <div class="glass p-6 mb-6">
         <div class="flex gap-3 flex-wrap mb-4">
           <h2 class="text-xl font-bold">Repositories</h2>
-          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="renderGhRepos()"> Solo con PR aperte</label>
+          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="toggleOnlyPrs()"> Only with open PRs</label>
         </div>
         <div class="overflow-x-auto" id="github-repos"><p class="text-slate-400 text-sm">No scans yet.</p></div>
       </div>
@@ -435,7 +435,48 @@ async function loadGithub() {
     renderGhRepos();
     renderGhCharts(history, metrics);
     loadGhAggs();
+    // Load preference for "Only with open PRs" checkbox
+    await loadGithubPreference();
   } catch (e) { console.error(e); }
+}
+
+// Preference handling for GitHub "Only with open PRs" checkbox
+const PREF_NOTE_TITLE = 'GitHub: Only show repos with open PRs';
+
+async function loadGithubPreference() {
+  try {
+    const sharedNotes = await api('/api/shared');
+    const note = sharedNotes.find(n => n.title === PREF_NOTE_TITLE);
+    if (note) {
+      // Expect content to be "true" or "false"
+      const checked = note.content.trim().toLowerCase() === 'true';
+      $('gh-only-prs').checked = checked;
+      // Immediately render repos with the loaded preference
+      renderGhRepos();
+    }
+  } catch (e) {
+    console.error('Failed to load GitHub preference:', e);
+  }
+}
+
+async function saveGithubPreference(checked) {
+  try {
+    // First, delete any existing note with this title to avoid duplicates
+    const sharedNotes = await api('/api/shared');
+    const existing = sharedNotes.find(n => n.title === PREF_NOTE_TITLE);
+    if (existing) {
+      await api(`/api/shared/${existing.id}`, { method: 'DELETE' });
+    }
+    // Add new note with the preference
+    await api('/api/shared', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({title: PREF_NOTE_TITLE, content: checked.toString(), tags: ''})
+    });
+  } catch (e) {
+    console.error('Failed to save GitHub preference:', e);
+    alert('Could not save preference');
+  }
 }
 
 async function runGhScan() {
@@ -505,7 +546,14 @@ function esc(s) {
   d.textContent = s == null ? '' : String(s);
   // Security: textContent only escapes <, > and &. We must also escape quotes
   // to prevent XSS when this is injected into HTML attributes (e.g. title="...").
-  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+  return d.innerHTML.replace(/"/g, '"').replace(/'/g, '&#039;');
+}
+
+// Toggle the "Only with open PRs" preference and save it
+function toggleOnlyPrs() {
+  const checked = $('gh-only-prs').checked;
+  saveGithubPreference(checked);
+  renderGhRepos();
 }
 
 loadAll();

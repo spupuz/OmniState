@@ -1,4 +1,4 @@
-# OmniState v2.1.0
+# OmniState v2.2.0
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -145,7 +145,7 @@ Open **http://localhost:8347** in the browser:
 - **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory; clicking a card drills into the project.
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
-- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table, top authors/labels, "Scan now" button.
+- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table, top authors/labels, "Scan now" button, "Only with open PRs" filter (persisted via shared memory).
 - **Global search** across projects.
 
 ## GitHub PR Health
@@ -283,7 +283,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.1.0 (current)
+### v2.2.0 (current)
+- **Features**: Added "Only with open PRs" filter in GitHub PR Health dashboard (persisted via shared memory).
+
+### v2.1.0
 - **Features**: project lifecycle in the dashboard — Projects tab grouped into aligned Active / Archived / Deleted sections; Overview shows only active projects and its cards now drill down into the project detail.
 - **Features**: GitHub-authoritative project state — each project is mapped to its repo via the local `origin` remote and verified on GitHub (`gh_state` ok/archived/deleted, TTL-cached); a deleted or archived repo classifies the project as Deleted/Archived even if the local folder exists; discovery now marks projects whose path is gone as deleted (never on mount failures).
 - **Features**: data now lives in a plain host folder (`DATA_HOST_DIR`, bind-mounted at `/data`) instead of a Docker named volume; shared-memory files backfilled on startup; MCP tools raise clean `ToolError`s; `session_start` returns shared memory.
