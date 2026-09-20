@@ -471,7 +471,9 @@ async function loadGhAggs() {
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? '' : String(s);
-  return d.innerHTML;
+  // Security: textContent only escapes <, > and &. We must also escape quotes
+  // to prevent XSS when this is injected into HTML attributes (e.g. title="...").
+  return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 }
 
 loadAll();
