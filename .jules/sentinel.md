@@ -1,0 +1,4 @@
+## 2025-02-27 - [XSS] HTML Escape Bypass in textContent -> innerHTML
+**Vulnerability:** A Stored XSS vulnerability in the dashboard due to insufficient escaping in the `esc(s)` function.
+**Learning:** The `esc(s)` function was implemented by assigning `textContent` and reading `innerHTML`. While this properly escapes `<`, `>`, and `&`, modern browsers do not escape double (`"`) or single (`'`) quotes when serializing `innerHTML`. Since the output was used within HTML attributes (e.g., `<span title="${esc(value)}">`), an attacker could inject `" onmouseover="alert(1)` to bypass the attribute enclosure and achieve arbitrary JavaScript execution.
+**Prevention:** When escaping strings that will be embedded inside HTML attributes, always ensure that both double and single quotes are explicitly escaped to `&quot;` and `&#039;`, respectively, in addition to standard angle brackets.
