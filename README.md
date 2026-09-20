@@ -1,4 +1,4 @@
-# OmniState v2.0.0
+# OmniState v2.1.0
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -15,6 +15,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Cross-project search**: full-text across all projects and the shared memory.
 - **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
 - **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search.
+- **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB.
 - **Privacy-first**: the DB, the metrics and the token **never leave your data folder** and never end up on GitHub.
 
@@ -141,8 +142,9 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 
 Open **http://localhost:8347** in the browser:
 
-- **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory.
-- **Per-project drill-down**: session timeline, architecture, tasks, costs.
+- **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory; clicking a card drills into the project.
+- **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
+- **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table, top authors/labels, "Scan now" button.
 - **Global search** across projects.
 
@@ -154,6 +156,7 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 - **GraphQL** (with PAT via `GITHUB_TOKEN` or `github_config`): up to 50 repos/request, private repos included, extended metrics (drafts, PR age, no-reviewer, stale >30d, open issues, stars).
 - **Automatic scan** every 6h (configurable) + manual scans.
 - **Delta** and **historical trend** computed from scans stored in the DB.
+- **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
 ## Architecture
 
@@ -169,6 +172,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
+- Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
 - Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
 
 ### How shared memory gets populated
@@ -279,7 +283,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.0.0 (current)
+### v2.1.0 (current)
+- **Features**: project lifecycle in the dashboard — Projects tab grouped into aligned Active / Archived / Deleted sections; Overview shows only active projects and its cards now drill down into the project detail.
+- **Features**: GitHub-authoritative project state — each project is mapped to its repo via the local `origin` remote and verified on GitHub (`gh_state` ok/archived/deleted, TTL-cached); a deleted or archived repo classifies the project as Deleted/Archived even if the local folder exists; discovery now marks projects whose path is gone as deleted (never on mount failures).
+- **Features**: data now lives in a plain host folder (`DATA_HOST_DIR`, bind-mounted at `/data`) instead of a Docker named volume; shared-memory files backfilled on startup; MCP tools raise clean `ToolError`s; `session_start` returns shared memory.
+- **Security**: fix stored XSS in dashboard escaping — `esc()` now also escapes quotes so project/label values can no longer break out of HTML attributes (PR #106).
+- **Accessibility**: `aria-label` on all dashboard inputs/selects and high-contrast `:focus-visible` outlines for keyboard navigation (PR #107).
+
+### v2.0.0
 - **New architecture**: from file-based system with local skills to a **Docker MCP server** with central SQLite memory.
 - **Web dashboard v2**: served by the server, aggregate view, per-project drill-down, shared memory, global search.
 - **GitHub PR Health**: server-side GitHub scans (REST/GraphQL), open-PR metrics, historical trends and delta, stored in the central DB.
