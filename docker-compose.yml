@@ -1,0 +1,23 @@
+services:
+  omnistate:
+    build: .
+    container_name: omnistate
+    env_file: .env
+    ports:
+      - "${OMNISTATE_HOST_PORT:-8347}:8347"
+    volumes:
+      # Host projects: READ-ONLY, never written by the server
+      - ${PROJECTS_ROOT:-/home/utente/progetti}:/workspaces:ro
+      # DB + shared memory: isolated volume, NEVER on GitHub
+      - omnistate-data:/data
+    environment:
+      - OMNISTATE_PORT=8347
+      - OMNISTATE_DATA=/data
+      # traduzione path host -> container per i tools MCP
+      - OMNISTATE_ROOTS=${PROJECTS_ROOT:-/home/utente/progetti}:/workspaces
+      - OMNISTATE_SCAN_INTERVAL_SECONDS=${OMNISTATE_SCAN_INTERVAL_SECONDS:-}
+      - OMNISTATE_AUTO_IMPORT_LEGACY=${OMNISTATE_AUTO_IMPORT_LEGACY:-}
+    restart: unless-stopped
+
+volumes:
+  omnistate-data:

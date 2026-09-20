@@ -1,0 +1,285 @@
+"""OmniState web app: FastAPI mounting MCP (Streamable HTTP) + REST API + dashboard."""
+from __future__ import annotations
+
+import json
+import threading
+from contextlib import asynccontextmanager
+from pathlib import Path
+from typing import Any
+
+from fastapi import FastAPI
+from fastapi.responses import HTMLResponse, JSONResponse
+
+from .config import Config, GithubConfig
+from .github_client import GithubClient
+from .indexer import discover_projects, import_legacy, register_project
+from .mcp_server import create_server
+from .store import Store
+
+DASHBOARD_HTML = Path(__file__).parent / "dashboard.html"
+
+
+class App:
+    def __init__(self, cfg: Config, store: Store):
+        self.cfg = cfg
+        self.store = store
+        self.fastapi = FastAPI(title="OmniState", version="2.0.0")
+        self._scan_lock = threading.Lock()
+        self._stop_event = threading.Event()
+        self._setup_routes()
+
+    # ---------- MCP mount ----------
+
+    def mount_mcp(self) -> None:
+        """Mount the MCP Streamable HTTP app at / and compose its lifespan into
+        the parent app, so the MCP session manager starts on uvicorn startup."""
+        mcp_server = create_server(self.cfg, self.store)
+        mcp_app = mcp_server.streamable_http_app(streamable_http_path="/mcp", host="0.0.0.0")
+        self.fastapi.mount("/", mcp_app)
+
+        parent_lifespan = self.fastapi.router.lifespan_context
+
+        @asynccontextmanager
+        async def lifespan(app):
+            async with parent_lifespan(app):
+                async with mcp_app.router.lifespan_context(mcp_app):
+                    yield
+
+        self.fastapi.router.lifespan_context = lifespan
+
+    # ---------- helpers ----------
+
+    def _project_metrics_list(self) -> list[dict[str, Any]]:
+        out = []
+        for p in self.store.list_projects():
+            metrics = self.store.project_metrics(int(p["id"]))
+            out.append({"name": p["name"], "host_path": p["host_path"], "status": p["status"], **metrics})
+        return out
+
+    def _github_config_view(self) -> dict[str, Any]:
+        info = GithubClient(self.cfg.github.token).token_info()
+        return {
+            "accounts": self.cfg.github.accounts,
+            "extended": self.cfg.github.extended,
+            "include_forks": self.cfg.github.include_forks,
+            "include_archived": self.cfg.github.include_archived,
+            "scan_interval_hours": self.cfg.github.scan_interval_hours,
+            "token": info,
+        }
+
+    # ---------- routes ----------
+
+    def _setup_routes(self) -> None:
+        app = self.fastapi
+
+        @app.get("/", response_class=HTMLResponse)
+        def index() -> str:
+            return DASHBOARD_HTML.read_text(encoding="utf-8") if DASHBOARD_HTML.exists() else "<h1>OmniState v2</h1>"
+
+        @app.get("/health")
+        def health() -> dict[str, Any]:
+            return {"status": "ok", "version": "2.0.0", "data_dir": str(self.cfg.data_dir)}
+
+        @app.get("/api/projects")
+        def api_projects() -> list[dict[str, Any]]:
+            return self._project_metrics_list()
+
+        @app.post("/api/register")
+        def api_register(body: dict[str, Any]) -> dict[str, Any]:
+            host_path = (body.get("path") or "").strip()
+            if not host_path:
+                return JSONResponse({"error": "path required"}, status_code=400)
+            root = self.cfg.resolve_host_root(host_path)
+            if root is None:
+                return JSONResponse(
+                    {"error": f"path '{host_path}' is outside the configured roots"}, status_code=400
+                )
+            container_path = root.host_to_container(host_path)
+            project = register_project(self.cfg, self.store, container_path)
+            if project is None:
+                return JSONResponse({"error": "cannot register project"}, status_code=400)
+            return {"registered": True, "project": project}
+
+        @app.post("/api/discover")
+        def api_discover() -> dict[str, Any]:
+            registered = self.run_discovery()
+            return {"registered": registered}
+
+        @app.get("/api/projects/{name}")
+        def api_project(name: str) -> dict[str, Any]:
+            row = self.store.get_project(name)
+            if row is None:
+                return JSONResponse({"error": "not found"}, status_code=404)
+            entries = self.store.memory_for_project(int(row["id"]), limit=50)
+            return {
+                "project": row,
+                "metrics": self.store.project_metrics(int(row["id"])),
+                "memory": entries,
+            }
+
+        @app.get("/api/memory")
+        def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20) -> list[dict[str, Any]]:
+            return self.store.search_memory(q, project=project or None, scope=scope, limit=limit)
+
+        @app.get("/api/shared")
+        def api_shared() -> list[dict[str, Any]]:
+            return self.store.shared_memory()
+
+        @app.post("/api/shared")
+        def api_shared_add(body: dict[str, Any]) -> dict[str, Any]:
+            text = (body.get("text") or "").strip()
+            if not text:
+                return JSONResponse({"error": "text required"}, status_code=400)
+            tags = [t.strip() for t in (body.get("tags") or "").split(",") if t.strip()]
+            mem_id = self.store.add_memory(
+                project_id=None, scope="shared", kind="note", title=text[:120], content=text, tags=tags
+            )
+            return {"memory_id": mem_id, "scope": "shared"}
+
+        @app.get("/api/stats")
+        def api_stats() -> dict[str, Any]:
+            return self.store.stats()
+
+        # ---- GitHub PR Health ----
+
+        @app.post("/api/github/scan")
+        def api_github_scan(body: dict[str, Any] | None = None) -> dict[str, Any]:
+            body = body or {}
+            try:
+                scan_id, summary = self.run_github_scan(
+                    accounts=body.get("accounts"),
+                    extended=body.get("extended"),
+                    include_forks=body.get("include_forks"),
+                    include_archived=body.get("include_archived"),
+                )
+            except ValueError as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+            return {"scan_id": scan_id, **summary}
+
+        @app.get("/api/github/metrics")
+        def api_github_metrics() -> dict[str, Any]:
+            scan = self.store.latest_gh_scan()
+            if scan is None:
+                return {"error": "no scans yet"}
+            prev = self.store.one("SELECT * FROM gh_scans ORDER BY id DESC LIMIT 1 OFFSET 1")
+            return {**scan, "delta_vs_previous": (scan["total_prs"] - prev["total_prs"]) if prev else None}
+
+        @app.get("/api/github/delta")
+        def api_github_delta() -> dict[str, Any]:
+            scans = self.store.gh_history(limit=2)
+            if len(scans) < 2:
+                return {"error": "need at least two scans"}
+            latest, prev = scans[-1], scans[-2]
+            return {
+                "latest": latest["timestamp"],
+                "previous": prev["timestamp"],
+                "delta_prs": latest["total_prs"] - prev["total_prs"],
+                "delta_repos": latest["total_repos"] - prev["total_repos"],
+            }
+
+        @app.get("/api/github/history")
+        def api_github_history(top_n: int = 5, limit: int = 30) -> dict[str, Any]:
+            scans = self.store.gh_history(limit=limit)
+            trend = [{"timestamp": s["timestamp"], "total_prs": s["total_prs"]} for s in scans]
+            per_repo = self.store.gh_per_repo_trend(top_n=top_n, limit=limit)
+            return {"trend": trend, "per_repo": per_repo}
+
+        @app.get("/api/github/repos")
+        def api_github_repos(scan_id: int = 0) -> list[dict[str, Any]]:
+            scan = self.store.latest_gh_scan()
+            if scan is None:
+                return []
+            return self.store.gh_scan_repos(scan_id or int(scan["id"]))
+
+        @app.get("/api/github/authors")
+        def api_github_authors(limit: int = 10) -> list[dict[str, Any]]:
+            return self.store.gh_top_authors(limit=limit)
+
+        @app.get("/api/github/labels")
+        def api_github_labels(limit: int = 10) -> list[dict[str, Any]]:
+            return self.store.gh_top_labels(limit=limit)
+
+        @app.get("/api/github/config")
+        def api_github_config() -> dict[str, Any]:
+            return self._github_config_view()
+
+    # ---------- background work ----------
+
+    def run_discovery(self) -> list[str]:
+        found = discover_projects(self.cfg)
+        registered = []
+        for p in found:
+            existing = self.store.get_project(p.name)
+            project = register_project(self.cfg, self.store, str(p))
+            if project:
+                # Auto-import legacy v1 memory (DESIGN §6): for newly discovered
+                # projects AND for registered projects that still have no memory.
+                has_legacy = any((p / m).exists() for m in ("chunks", "tasks-history.json", "project-summary.md"))
+                needs_import = (
+                    self.cfg.auto_import_legacy
+                    and has_legacy
+                    and (existing is None or not self.store.memory_for_project(int(project["id"]), limit=1))
+                )
+                if needs_import:
+                    try:
+                        import_legacy(self.cfg, self.store, str(p))
+                    except Exception:
+                        pass
+                registered.append(project["name"])
+        return registered
+
+    def run_github_scan(
+        self,
+        accounts: list[str] | None = None,
+        extended: bool | None = None,
+        include_forks: bool | None = None,
+        include_archived: bool | None = None,
+    ) -> tuple[int, dict[str, Any]]:
+        """Run a GitHub scan and persist it. Returns (scan_id, summary with snake_case keys)."""
+        account_list = accounts if accounts else list(self.cfg.github.accounts)
+        account_list = [a.strip() for a in account_list if a and a.strip()]
+        if not account_list:
+            raise ValueError("no accounts configured")
+        with self._scan_lock:
+            client = GithubClient(self.cfg.github.token, stale_days=self.cfg.github.stale_days)
+            result = client.scan(
+                account_list,
+                extended=self.cfg.github.extended if extended is None else extended,
+                include_forks=self.cfg.github.include_forks if include_forks is None else include_forks,
+                include_archived=self.cfg.github.include_archived if include_archived is None else include_archived,
+            )
+            scan_id = self.store.persist_gh_scan(result, account_list)
+        summary = {
+            "method": result["method"],
+            "total_repos": result["totalRepos"],
+            "total_prs": result["totalPRs"],
+        }
+        return scan_id, summary
+
+    def start_scheduler(self) -> threading.Thread:
+        """Background loop: periodic project discovery + scheduled GitHub scans (DESIGN §6, §7b)."""
+        def loop() -> None:
+            import time
+            discovery_interval = max(30, self.cfg.scan_interval_seconds)
+            scan_interval = max(1, self.cfg.github.scan_interval_hours) * 3600
+            last_scan = 0.0
+            while not self._stop_event.is_set():
+                try:
+                    self.run_discovery()
+                except Exception:
+                    pass
+                now = time.time()
+                if self.cfg.github.accounts and now - last_scan >= scan_interval:
+                    try:
+                        self.run_github_scan()
+                        last_scan = now
+                    except Exception:
+                        pass
+                self._stop_event.wait(discovery_interval)
+
+        thread = threading.Thread(target=loop, daemon=True, name="omnistate-scheduler")
+        thread.start()
+        return thread
+
+    def stop(self) -> None:
+        self._stop_event.set()

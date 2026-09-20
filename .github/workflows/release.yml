@@ -72,17 +72,18 @@ jobs:
             
             ${{ steps.changelog.outputs.changes }}
             
-            ## Install
+            ## Install (Docker)
             
             ```bash
-            # Linux / macOS
             git clone https://github.com/${{ github.repository }}.git ~/OmniState
-            cd ~/OmniState && git checkout v${{ steps.version.outputs.version }} && bash update.sh
+            cd ~/OmniState && git checkout v${{ steps.version.outputs.version }}
             
-            # Windows (PowerShell)
-            git clone https://github.com/${{ github.repository }}.git $HOME\OmniState
-            cd $HOME\OmniState; git checkout v${{ steps.version.outputs.version }}; .\update.ps1
+            # Edit docker-compose.yml: mount your projects root (~/projects:/workspaces:ro)
+            docker compose up -d --build
             ```
+            
+            Connect your AI tool: remote MCP at `http://localhost:8347/mcp` (see `opencode.json`).
+            Dashboard: http://localhost:8347
             
             See [README](https://github.com/${{ github.repository }}#-changelog) for full history.
           draft: false

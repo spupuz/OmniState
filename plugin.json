@@ -1,34 +1,20 @@
 {
   "name": "omnistate",
-  "version": "1.17.0",
-  "description": "Universal persistent memory and token optimization for any AI coding tool. Tracks tasks, archives progress, and minimizes context window usage.",
+  "version": "2.0.0",
+  "description": "Multi-project persistent memory MCP server with a built-in web dashboard and GitHub PR Health. Runs as a Docker container.",
   "author": "spupuz",
-  "keywords": ["memory", "cost", "optimization", "omnistate", "snapshot", "tokens", "context"],
-  "platforms": ["opencode", "antigravity", "kilocode", "roo", "claude", "universal"],
-  "skills": [
-    {
-      "name": "start-session",
-      "path": "dist/skills/start-session",
-      "description": "Loads reduced memory and open tasks at session start to save context."
-    },
-    {
-      "name": "snapshot-session",
-      "path": "dist/skills/snapshot-session",
-      "description": "Creates a snapshot, archives completed tasks, and updates persistent memory."
-    },
-    {
-      "name": "cost-setup",
-      "path": "dist/skills/cost-setup",
-      "description": "Initializes project memory, git protection, and cost routing."
-    },
-    {
-      "name": "dashboard-omnistate",
-      "path": "dist/skills/dashboard-omnistate",
-      "description": "Generates a visual HTML dashboard with project metrics and token savings."
-    }
-  ],
+  "keywords": ["memory", "mcp", "sqlite", "omnistate", "docker", "dashboard", "github", "tokens"],
+  "platforms": ["opencode", "universal"],
+  "mcp": {
+    "type": "remote",
+    "url": "http://localhost:8347/mcp"
+  },
+  "docker": {
+    "compose": "docker-compose.yml",
+    "port": 8347,
+    "data_volume": "omnistate-data"
+  },
   "opencode": {
-    "config": "opencode.json",
-    "skills": ".opencode/skills"
+    "config": "opencode.json"
   }
 }

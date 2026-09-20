@@ -1,9 +1,5 @@
 .gemini/
 .antigravity/
-# ant
-/tasks-history.json
-/chunks/
-/project-summary.md
 node_modules/
 .DS_Store
 *.log
@@ -13,22 +9,36 @@ node_modules/
 .agents/
 .omnistate/
 .kilo/
-.kilo/plans/
-# sync-workflows.sh  # this is tracked in dist/sync/sync-workflows.sh
+.roo/
+.opencode/
 
-# Kilo configuration files that should not be tracked globally
-omnistate-dashboard.html
-/omnistate-dashboard.html
-/tasks-archive.json
-project-summary.md
+# v2 server data — NEVER commit user data/metrics (DESIGN.md §10b)
+.env
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+/data/
+shared/
+config.json
+dashboard-data.json
+tmp/
+
+# test: local-only, mai su GitHub (nessun dump di dati reali nel repo)
+tests/
+
+# v1 legacy memory files (if still present in user projects)
 tasks-history.json
 tasks-archive.json
+project-summary.md
+chunks/
 antigravity.config.json
 omnistate.config.json
-chunks/
+omnistate-dashboard.html
 
-AGENTS.md
-AI_POLICY.md
-CONTEXT.md
-.roo/
-.opencode/skills/
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

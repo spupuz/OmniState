@@ -1,0 +1,1 @@
+"""OmniState server package — MCP server + web dashboard (v2)."""

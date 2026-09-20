@@ -1,213 +1,207 @@
-# OmniState v1.17.0
+# OmniState v2.0.0
 
-**Universal Persistent Memory** for any AI coding tool.
-Works with opencode, Antigravity, Kilocode, Roo Code, Claude Code, and more.
+**Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
-Tracks tasks, archives progress, and minimizes context window usage — saving thousands of tokens per session.
+OmniState v2 is a **Docker container** that runs as an **MCP server** (Model Context Protocol): it indexes the memory of all your projects into a **single central SQLite database**, offers **cross-project search** and **shared memory**, and integrates **GitHub PR Health** monitoring directly in the web dashboard.
+
+No local skills, no memory files scattered across projects: everything lives in the server.
 
 ## Features
 
-- **Universal**: Works with any AI coding tool (opencode, Antigravity, Kilocode, Roo Code, Claude Code)
-- **Auto-Update**: Self-updates from GitHub, syncs skills to all detected platforms
-- **Visual Dashboard**: HTML dashboard with real-time metrics and token savings
-- **Smart Archiving**: Auto-moves completed tasks to keep context lean
-- **Context Purge**: Cleans AI context on startup to prevent distractions
-- **Git Protection**: Automatically protects memory files from commits
+- **MCP server** (Streamable HTTP on `/mcp`): connects to opencode, Claude Code and other AI tools as a remote MCP.
+- **Central memory**: all projects indexed in one SQLite (FTS5) in the `/data` volume.
+- **Auto-registration**: when you use the MCP in a project, the server registers and indexes it automatically.
+- **Per-project + shared**: isolated memory for each project + shared memory common to all.
+- **Cross-project search**: full-text across all projects and the shared memory.
+- **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search.
+- **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB.
+- **Privacy-first**: the DB, the metrics and the token **never leave the container volume** and never end up on GitHub.
 
-## Install
+## Installation (Docker)
 
 ```bash
-# Clone and install globally
-git clone https://github.com/spupuz/OmniState.git ~/OmniState
-cd ~/OmniState
+git clone https://github.com/spupuz/OmniState.git
+cd OmniState
 
-# Linux / macOS
-bash update.sh
+# 1. Configuration: create your .env (NEVER committed)
+cp .env.example .env
+nano .env    # set PROJECTS_ROOT to your projects path
 
-# Windows (PowerShell)
-.\update.ps1
+# 2. Start
+docker compose up -d --build
 ```
 
-The installer auto-detects your AI coding tools and installs skills to all of them.
+### The `.env` file
 
-### Manual Setup (opencode)
+The container configuration lives in a local **`.env`** file, **never committed to GitHub** (it is in `.gitignore` and `.dockerignore`). The repo ships a documented template, **`.env.example`**:
 
-If auto-detection doesn't work, add to your `opencode.json`:
+```bash
+cp .env.example .env
+```
+
+| Variable | Required | Description |
+|---|---|---|
+| `PROJECTS_ROOT` | ✅ | **Absolute** path on the host to your projects root (e.g. `/home/mario/projects`). Mounted at `/workspaces` **read-only** and used for MCP path translation. |
+| `OMNISTATE_HOST_PORT` | — | Host port for dashboard+MCP (default `8347`; the container always listens on 8347). |
+| `GITHUB_ACCOUNTS` | — | GitHub accounts/orgs to scan, comma-separated (empty = scans disabled). |
+| `GITHUB_TOKEN` | — | GitHub PAT: enables GraphQL, private repos and extended metrics. **Never exposed** by API/dashboard/MCP. |
+| `GITHUB_SCAN_INTERVAL_HOURS` | — | Hours between automatic scans (default `6`). |
+| `OMNISTATE_SCAN_INTERVAL_SECONDS` | — | Seconds between project discovery scans (default `300`). |
+
+The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. If you lose it, rotate it on GitHub.
+
+Verify: `curl http://localhost:8347/health` → `OK`.
+
+## Connecting an AI tool
+
+### opencode
+
+Add the remote MCP to your `opencode.json`:
 
 ```json
 {
-  "$schema": "https://opencode.ai/config.json",
-  "skills": {
-    "paths": ["~/.agents/skills"]
+  "mcp": {
+    "omnistate": { "type": "remote", "url": "http://localhost:8347/mcp" }
   }
 }
 ```
 
-## Upgrade from v1.2.x or earlier
+### Antigravity
 
-If you have an existing OmniState installation from v1.2.x or earlier, follow these steps to upgrade to v1.5.0 (universal version).
+Global (all workspaces) via the GUI: agent panel `…` → **MCP Servers** → **Manage MCP Servers** → **View raw config** → edit `~/.gemini/config/mcp_config.json`:
 
-### What Changed in v1.5.0
-
-- **Platform-specific installation**: Skills installed in correct format per platform
-- **Smart detection**: Detects which platform your project uses
-- **Config renamed**: `antigravity.config.json` → `omnistate.config.json`
-- **Schema updated**: Removed `compression_level`, added `project_name`, model fields now empty
-- **Universal**: Works with all AI coding tools, not just Antigravity
-
-### Automatic Migration
-
-The upgrade process automatically migrates your config:
-
-```bash
-# Linux / macOS
-cd ~/OmniState
-git pull origin main
-bash update.sh --auto /path/to/your/project
-
-# Windows
-cd ~/OmniState
-git pull origin main
-.\update.ps1 -Auto C:\path\to\your\project
+```json
+{
+  "mcpServers": {
+    "omnistate": { "serverUrl": "http://localhost:8347/mcp" }
+  }
+}
 ```
 
-**What happens:**
-1. `antigravity.config.json` is backed up to `.omnistate/backups/`
-2. Config is migrated to `omnistate.config.json` with updated schema
-3. Old config is added to `.gitignore` for safety
+Note: for remote (HTTP) servers Antigravity requires the **`serverUrl`** field — legacy `url`/`httpUrl` are not supported. Workspace-level alternative: `<project>/.agents/mcp_config.json`.
 
-### Manual Migration
+### Other tools
 
-If automatic migration doesn't work:
-
-```bash
-# Linux / macOS
-bash migrate.sh /path/to/your/project
-
-# Windows
-.\migrate.ps1 -Target C:\path\to\your\project
-```
-
-### Verify Migration
-
-After upgrading, check that:
-- `omnistate.config.json` exists in your project root
-- `antigravity.config.json` no longer exists (or is in `.gitignore`)
-- Your model settings are correct (old Gemini defaults are now empty)
-
-### Troubleshooting
-
-- **Both configs exist**: The migration script will prompt you before overwriting
-- **Backup location**: Backups are stored in `.omnistate/backups/` (git-ignored)
-- **Manual cleanup**: If needed, manually remove `antigravity.config.json` and add it to `.gitignore`
+Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8347/mcp`.
 
 ## Usage
 
-| Command | When | What it does |
-|---------|------|-------------|
-| `/cost-setup` | First time | Creates memory files, git protection, cost routing |
-| `/start-session` | Session start | Context purge, loads summaries, shows status |
-| `/snapshot-session` | Session end | Archives tasks, distills progress, creates chunk |
-| `/dashboard-omnistate` | Any time | Generates visual HTML dashboard |
+| MCP tool | What it does |
+|---|---|
+| `project_register` | Registers the current project (auto-registration) |
+| `session_start` | Loads relevant memory, starts a session |
+| `session_snapshot` | Archives done tasks, distills progress, creates a chunk |
+| `task_add` / `task_update` / `task_list` | Task management |
+| `memory_search` | Cross-project + shared memory full-text search |
+| `memory_remember` | Saves a note (per-project or shared) |
+| `memory_recall` / `memory_forget` | Recall and delete memory |
+| `project_summary` / `project_metrics` | Project state and metrics |
+| `github_scan` | Runs a GitHub scan (open PRs + metrics) |
+| `github_metrics` / `github_delta` / `github_history` | GitHub scan results |
+| `github_config` | Configures accounts/token for automatic scans |
 
-### Quick Start
+## Web dashboard
 
-1. **Init**: Run `/cost-setup` in your project
-2. **Start**: Run `/start-session` at the beginning of each session
-3. **Save**: Run `/snapshot-session` at the end to persist state
-4. **View**: Open `omnistate-dashboard.html` in a browser
+Open **http://localhost:8347** in the browser:
 
-## Platform-Specific Installation
+- **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory.
+- **Per-project drill-down**: session timeline, architecture, tasks, costs.
+- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table, top authors/labels, "Scan now" button.
+- **Global search** across projects.
 
-OmniState automatically detects which AI coding tool your project uses and installs skills in the correct format:
+## GitHub PR Health
 
-### How It Works
+The server scans your GitHub accounts/organizations and stores the metrics in the central DB:
 
-```bash
-# Sync to a project
-bash update.sh --sync /path/to/your/project
+- **REST** (no token): open-PR count per repo (~60 req/h).
+- **GraphQL** (with PAT via `GITHUB_TOKEN` or `github_config`): up to 50 repos/request, private repos included, extended metrics (drafts, PR age, no-reviewer, stale >30d, open issues, stars).
+- **Automatic scan** every 6h (configurable) + manual scans.
+- **Delta** and **historical trend** computed from scans stored in the DB.
+
+## Architecture
+
+```
+CONTAINER omnistate (:8347)
+├── /mcp        → MCP Streamable HTTP (tools & resources)
+├── /api/*      → REST for the dashboard
+├── /           → web dashboard
+└── /data       → SQLite index.db (memory + GitHub metrics) + shared/ + config.json
+    └── Docker named volume (omnistate-data) — never in the repo, never on GitHub
 ```
 
-The script will:
-1. Detect which platform your project uses (from `opencode.json`, `.kilo/`, `.agents/`, etc.)
-2. Install skills in the correct format for that platform
-3. Also install globally to detected platforms
+- The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
+- Shared memory lives in `/data/shared/`; shared entries are visible in every project.
 
-### Skill Formats by Platform
+## Automatic memory (session protocol)
 
-| Platform | Format | Example |
-|----------|--------|---------|
-| **opencode** | Subdirectory + `SKILL.md` | `.opencode/skills/start-session/SKILL.md` |
-| **Claude Code** | Subdirectory + `SKILL.md` | `.agents/skills/start-session/SKILL.md` |
-| **Antigravity** | Flat `.md` files | `.agents/workflows/start-session.md` |
-| **Kilocode** | Flat `.md` files | `.kilo/commands/start-session.md` |
-| **Roo Code** | Flat `.md` files | `.roo/commands/start-session.md` |
+The MCP connection makes the tools **available**; the session protocol makes them **automatic**. The protocol file is shipped in the repo (`skills/omnistate-protocol.md`) — copy it to your client's global instructions:
 
-### Mixed Projects
+| Tool | Global file | Purpose |
+|---|---|---|
+| opencode | `~/.config/opencode/AGENTS.md` | Protocol: `project_register`+`session_start` at session start, `session_snapshot` at the end, `memory_remember` for notes |
+| Antigravity | `~/.gemini/GEMINI.md` (Global Rules) | Same protocol, all workspaces |
 
-If your project uses multiple platforms, skills are installed in all relevant formats:
+## Privacy
 
-```bash
-# Example: opencode + kilocode project
-mkdir my-project && cd my-project
-echo '{}' > opencode.json
-mkdir .kilo
+The SQLite database, the shared memory, the config holding the token and all metrics **live only in the container's `/data` volume**:
 
-bash update.sh --sync .
+- `/data` is never mounted inside a repo nor versioned.
+- The container has no push/export logic for the DB or metrics.
+- The OmniState repo contains **only code and design** — no `.db`, `.sqlite`, `config.json` or dumps.
+- The local `.env` (token and paths) is **git-ignored and docker-ignored**: it never ends up on GitHub or in the image.
+- The GitHub token lives only in the `.env` or `/data/config.json` and is **never exposed** by API/dashboard/MCP (`token_set` flag + login only).
+- Tests are local-only (`tests/` is git-ignored): CI does not run them; the release workflow verifies locally.
+- In development the server uses git-ignored temp DBs with fake data.
 
-# Result:
-# .opencode/skills/start-session/SKILL.md (opencode format)
-# .kilo/commands/start-session.md (kilocode format)
-```
+## Migration from v1
 
-## Platform Support
+The local skills (`start-session`, `snapshot-session`, `cost-setup`, `dashboard-omnistate`) and per-project memory files are **no longer used**. The v1→v2 map:
 
-| Platform | Auto-detected | Skills path |
-|----------|:------------:|-------------|
-| opencode | ✅ | `~/.agents/skills/` |
-| Antigravity | ✅ | `~/.gemini/antigravity/plugins/omnistate/` |
-| Kilocode | ✅ | `~/.kilo/commands/` |
-| Roo Code | ✅ | `~/.roo/commands/` |
-| Claude Code | ✅ | `~/.claude/skills/` |
-| Other | — | Copy `.opencode/skills/*` to your tool's skill directory |
+| v1 (local skill) | v2 (MCP tool) |
+|---|---|
+| `/start-session` | `session_start` + `memory_recall` + `project_register` |
+| `/snapshot-session` | `session_snapshot` + `task_update` |
+| `/cost-setup` | `project_register` + `project_import_legacy` |
+| `/dashboard-omnistate` | web dashboard (single URL) |
 
-## Project Sync
+Old per-project files (`tasks-history.json`, `chunks/`, `project-summary.md`, etc.) can be **imported once** via `project_import_legacy` to keep the history; after migration they are no longer written.
 
-To sync skills to a specific project:
+## Optional opencode skills
+
+The v1 skills still exist as **thin wrappers** that call the MCP tools — same familiar UX, memory lives in the server. Install globally:
 
 ```bash
-# Linux / macOS
-bash update.sh /path/to/your/project
-
-# Windows
-.\update.ps1 C:\path\to\your\project
+cp -r skills/* ~/.config/opencode/skills/
 ```
 
-## Files Created in Your Project
+Skills are `.md` instruction files: the agent follows them and calls the MCP tools — no code runs on the host.
 
-| File | Purpose | Git-ignored |
-|------|---------|:-----------:|
-| `omnistate.config.json` | Configuration | ✅ |
-| `project-summary.md` | Architecture index | ✅ |
-| `tasks-history.json` | Active + completed tasks | ✅ |
-| `tasks-archive.json` | Old archived tasks | ✅ |
-| `AGENTS.md` | Agent definitions | ✅ |
-| `AI_POLICY.md` | AI interaction rules | ✅ |
-| `CONTEXT.md` | Project context | ✅ |
-| `chunks/` | Session snapshots | ✅ |
-| `omnistate-dashboard.html` | Visual dashboard | ✅ |
+## Requirements
 
-## SSH / Remote Host One-Liner
+- Docker (with docker compose).
+- An MCP client with Streamable HTTP support (opencode, Claude Code, etc.).
+- A modern browser for the dashboard.
 
-```bash
-export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/spupuz/OmniState.git $REPO_DIR; cd $REPO_DIR && git pull && bash update.sh
-```
+## Development
 
----
+- `server/` — Python server (MCP + FastAPI/uvicorn + SQLite FTS5).
+- `DESIGN.md` — full design document (architecture, DB schema, API, security).
+- `tests/` — local-only test suite (`pytest tests/ -q`), never published.
 
 ## Changelog
 
-### v1.17.0 (current)
+### v2.0.0 (current)
+- **New architecture**: from file-based system with local skills to a **Docker MCP server** with central SQLite memory.
+- **Web dashboard v2**: served by the server, aggregate view, per-project drill-down, shared memory, global search.
+- **GitHub PR Health**: server-side GitHub scans (REST/GraphQL), open-PR metrics, historical trends and delta, stored in the central DB.
+- **Shared memory**: namespace common to all projects, searchable together with projects.
+- **Auto-registration**: projects are registered/indexed when they use the MCP.
+- **Automatic discovery + legacy import**: the scheduler finds new projects under `PROJECTS_ROOT` and optionally imports old v1 memory files (`OMNISTATE_AUTO_IMPORT_LEGACY`).
+- **Per-project drill-down**: click a project in the dashboard to browse its saved memory entries with filtering.
+- **Privacy**: DB, metrics and token isolated in the `/data` volume, never versioned nor exposed.
+
+### v1.17.0
 - **Security**: Fix [HIGH] arbitrary file read / permission manipulation via symlinks in `migrate.sh` and `update.sh` by skipping symlinked configs and `.gitignore`, and removing the `cp -a` symlink copy fallback
 - **Performance**: Optimize chunk label parsing in `collect-dashboard-data.py` — parse labels only for the 5 most recent chunks; use fast word-count path for older chunks
 - **Accessibility**: Add dynamic ARIA labels to saved-token stats and Chart.js canvas in the dashboard for screen reader users
@@ -217,7 +211,7 @@ export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/sp
 - **Performance**: Optimize task counting and session word/file-reading overhead in `collect-dashboard-data.py` (single-pass line reads, native list counting)
 - **Accessibility**: Wrap global empty-state injections in `<main id="main-content">`, remove `tabindex="0"` from non-scrollable empty containers, and pair `aria-valuetext` with `aria-valuenow` on the progress bar
 
-### v1.15.1 (current)
+### v1.15.1
 - **Security**: Fix [HIGH] JSON injection in `collect-dashboard-data.sh` bash fallback logic by escaping backslashes and double quotes with native `bash` parameter expansion when `jq` is unavailable
 - **Accessibility**: Fix `<main>` landmark boundaries in dashboard so the stat grid and optimization/timeline sections are enclosed, preventing skip-links from bypassing critical metrics
 
@@ -350,14 +344,4 @@ export REPO_DIR=~/OmniState; [ -d $REPO_DIR ] || git clone https://github.com/sp
 
 ---
 
-## Support
-
-If OmniState is saving you time, tokens, and context-window headaches every single day, consider fueling the next version with a coffee. Every cup helps keep development going, features shipping, and your AI sessions lean and fast:
-
-<p align="center">
-<a href="https://www.buymeacoffee.com/spupuz"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy me a coffee" width="160" /></a>
-</p>
-
----
-
-*OmniState — Persistent Memory for Any AI.*
+*OmniState v2 — Multi-project persistent memory MCP server.*

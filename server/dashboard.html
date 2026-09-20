@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OmniState | Dashboard</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-dark: #070b14;
+    --card-bg: rgba(15, 23, 42, 0.6);
+    --accent: #3b82f6;
+    --accent-glow: rgba(59, 130, 246, 0.4);
+    --success: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+  }
+  body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+    font-family: 'Inter', sans-serif;
+    background-image:
+      radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+    min-height: 100vh;
+  }
+  h1, h2, h3, .font-outfit { font-family: 'Outfit', sans-serif; }
+  .glass {
+    background: var(--card-bg);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 1.5rem;
+    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+  }
+  .stat-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+  .stat-card:hover { transform: translateY(-8px); border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
+  .glow-text { text-shadow: 0 0 20px var(--accent-glow); }
+  .pulse { animation: pulse-subtle 3s infinite ease-in-out; }
+  @keyframes pulse-subtle { 0%,100%{opacity:1} 50%{opacity:.6} }
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg-dark); }
+  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+  .tab-btn { padding: .5rem 1.25rem; border-radius: 9999px; font-size: .8rem; font-weight: 600; transition: all .2s; border: 1px solid rgba(255,255,255,.08); }
+  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tab-btn:not(.active) { color: #94a3b8; }
+  .tab-btn:not(.active):hover { color: #f1f5f9; border-color: var(--accent); }
+  .chart-box { height: 320px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: .6rem .8rem; font-size: .82rem; border-bottom: 1px solid rgba(255,255,255,.05); }
+  th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; }
+  td.num, th.num { text-align: right; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; padding: .3rem .7rem; border-radius: 9999px; font-size: .75rem; background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25); margin: .2rem; }
+  input, select { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #f1f5f9; border-radius: .6rem; padding: .5rem .8rem; font-size: .85rem; outline: none; }
+  input:focus, select:focus { border-color: var(--accent); }
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: .6rem; padding: .55rem 1.1rem; font-size: .82rem; font-weight: 600; cursor: pointer; transition: all .2s; }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.ghost { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #94a3b8; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body class="p-6 md:p-10">
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:font-bold focus:outline-none focus:ring-2 focus:ring-blue-400">Skip to main content</a>
+
+<div class="max-w-7xl mx-auto">
+  <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+    <div>
+      <div class="flex items-center gap-3 mb-3">
+        <span class="px-4 py-1.5 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-full border border-blue-600/30 tracking-wider">OMNISTATE v2</span>
+        <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-widest pulse" id="server-status">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" aria-hidden="true"></span> Server
+        </span>
+      </div>
+      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="dashboard-title">Dashboard OmniState</h1>
+      <p class="text-slate-400 mt-2 text-lg font-light" id="last-update">—</p>
+    </div>
+    <div class="flex gap-3 flex-wrap">
+      <button class="btn" onclick="loadAll()">Reload</button>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Sezioni dashboard">
+    <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
+    <button class="tab-btn" data-tab="projects" role="tab">Projects</button>
+    <button class="tab-btn" data-tab="github" role="tab">GitHub PR Health</button>
+    <button class="tab-btn" data-tab="shared" role="tab">Shared Memory</button>
+    <button class="tab-btn" data-tab="search" role="tab">Search</button>
+  </nav>
+
+  <main id="main-content" tabindex="-1">
+
+    <!-- Overview -->
+    <section id="tab-overview" class="tab-panel" role="tabpanel">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats"></div>
+      <div class="glass p-6">
+        <h2 class="text-xl font-bold mb-4">Indexed Projects</h2>
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="overview-projects"></div>
+      </div>
+    </section>
+
+    <!-- Projects -->
+    <section id="tab-projects" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6 mb-6">
+        <h2 class="text-xl font-bold mb-4">Projects</h2>
+        <div class="flex gap-3 flex-wrap items-center mb-4">
+          <input type="text" id="register-path" placeholder="/path/to/project" class="flex-1 min-w-[240px]">
+          <button class="btn ghost" onclick="registerProject()">Register project</button>
+          <button class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
+        </div>
+        <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects.</p></div>
+        <div id="project-detail" class="hidden"></div>
+      </div>
+    </section>
+
+    <!-- GitHub -->
+    <section id="tab-github" class="tab-panel hidden" role="tabpanel">
+      <div class="flex gap-3 flex-wrap items-center mb-6">
+        <input type="text" id="gh-accounts" placeholder="account, org (separati da virgola)" class="flex-1 min-w-[240px]">
+        <button class="btn" onclick="runGhScan()">Scan now</button>
+        <button class="btn ghost" onclick="loadGithub()">Refresh</button>
+        <span class="text-xs text-slate-400" id="gh-token-info"></span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
+      <div class="glass p-6 mb-6" id="gh-delta"><h2 class="text-xl font-bold mb-2">Delta vs previous scan</h2><p class="text-slate-400 text-sm" id="gh-delta-text">—</p></div>
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Top repositories per open PR</p><div class="chart-box"><canvas id="chartGhTop"></canvas></div></div>
+        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Trend storico open PR</p><div class="chart-box"><canvas id="chartGhTrend"></canvas></div></div>
+      </div>
+      <div class="glass p-6 mb-6">
+        <div class="flex gap-3 flex-wrap mb-4">
+          <h2 class="text-xl font-bold">Repositories</h2>
+          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="renderGhRepos()"> Solo con PR aperte</label>
+        </div>
+        <div class="overflow-x-auto" id="github-repos"><p class="text-slate-400 text-sm">No scans yet.</p></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass p-6"><h3 class="font-bold mb-3">Top PR authors</h3><div id="gh-authors" class="flex flex-wrap gap-2"></div></div>
+        <div class="glass p-6"><h3 class="font-bold mb-3">Most frequent labels</h3><div id="gh-labels" class="flex flex-wrap gap-2"></div></div>
+      </div>
+    </section>
+
+    <!-- Shared -->
+    <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6 mb-6">
+        <h2 class="text-xl font-bold mb-4">Shared Memory</h2>
+        <div class="flex gap-3 flex-wrap mb-4">
+          <input type="text" id="shared-text" placeholder="New shared note…" class="flex-1 min-w-[240px]">
+          <input type="text" id="shared-tags" placeholder="tags, comma-separated" class="w-56">
+          <button class="btn" onclick="addShared()">Save</button>
+        </div>
+        <div id="shared-list"></div>
+      </div>
+    </section>
+
+    <!-- Search -->
+    <section id="tab-search" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6">
+        <h2 class="text-xl font-bold mb-4">Global Search</h2>
+        <div class="flex gap-3 flex-wrap mb-4">
+          <input type="search" id="search-q" placeholder="Search memory…" class="flex-1 min-w-[240px]">
+          <select id="search-scope">
+            <option value="all">All</option>
+            <option value="project">Projects</option>
+            <option value="shared">Shared</option>
+          </select>
+          <button class="btn" onclick="doSearch()">Search</button>
+        </div>
+        <div id="search-results"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let ghTopChart = null, ghTrendChart = null;
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    btn.classList.add('active');
+    $('tab-' + btn.dataset.tab).classList.remove('hidden');
+    if (btn.dataset.tab === 'github') loadGithub();
+    if (btn.dataset.tab === 'shared') loadShared();
+    if (btn.dataset.tab === 'projects') loadProjects();
+  });
+});
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  if (!res.ok) throw new Error(path + ' -> ' + res.status);
+  return res.json();
+}
+
+function fmt(n) { return n == null ? '—' : n.toLocaleString('it-IT'); }
+function fmtDate(ts, dateOnly) {
+  if (!ts) return '—';
+  const s = String(ts).endsWith('Z') ? String(ts) : String(ts) + 'Z';
+  const d = new Date(s);
+  if (isNaN(d)) return String(ts);
+  return dateOnly ? d.toLocaleDateString('it-IT') : d.toLocaleString('it-IT');
+}
+
+async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared()]); }
+
+// ---------- Overview ----------
+async function loadOverview() {
+  try {
+    const stats = await api('/api/stats');
+    $('last-update').textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
+    const cards = [
+      { l: 'Progetti', v: fmt(stats.projects), c: 'text-blue-400' },
+      { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
+      { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
+      { l: 'Token savings', v: '~' + fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300' },
+    ];
+    $('overview-stats').innerHTML = cards.map(c => `
+      <div class="glass p-8 stat-card">
+        <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p>
+        <p class="text-4xl font-black font-outfit ${c.c}">${c.v}</p>
+      </div>`).join('');
+    const projects = await api('/api/projects');
+    $('overview-projects').innerHTML = projects.length ? projects.map(p => `
+      <div class="glass p-5 stat-card">
+        <p class="font-bold mb-1 truncate">${esc(p.name)}</p>
+        <p class="text-xs text-slate-400 mb-3 truncate" title="${esc(p.host_path)}">${esc(p.host_path)}</p>
+        <div class="flex gap-4 text-xs">
+          <span class="text-blue-300">${fmt(p.activeTasks)} active</span>
+          <span class="text-emerald-300">${fmt(p.doneTasks)} done</span>
+          <span class="text-purple-300">${fmt(p.snapshots)} snap</span>
+        </div>
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No projects registered. Use the Projects tab or the MCP project_register tool.</p>';
+  } catch (e) { console.error(e); }
+}
+
+// ---------- Projects ----------
+async function loadProjects() {
+  try {
+    const projects = await api('/api/projects');
+    backToProjects();
+    if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects.</p>'; return; }
+    $('projects-table-wrap').innerHTML = `
+      <table><thead><tr>
+        <th>Project</th><th class="num">Active</th><th class="num">Done</th>
+        <th class="num">Snapshots</th><th class="num">Token savings</th><th>Path</th>
+      </tr></thead><tbody>
+      ${projects.map(p => `
+        <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
+          <td class="font-semibold">${esc(p.name)}</td>
+          <td class="num text-blue-300">${fmt(p.activeTasks)}</td>
+          <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
+          <td class="num text-purple-300">${fmt(p.snapshots)}</td>
+          <td class="num">~${fmt(Math.round(p.tokenSavings/1000))}k</td>
+          <td class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { console.error(e); }
+}
+
+async function showProject(name) {
+  try {
+    const d = await api('/api/projects/' + encodeURIComponent(name));
+    window._pmEntries = d.memory || [];
+    const m = d.metrics;
+    $('projects-table-wrap').classList.add('hidden');
+    const el = $('project-detail');
+    el.classList.remove('hidden');
+    el.innerHTML = `
+      <div class="flex items-center gap-3 mb-5 flex-wrap">
+        <button class="btn ghost" onclick="backToProjects()">← Back</button>
+        <h2 class="text-xl font-bold">${esc(name)}</h2>
+        <span class="text-xs text-slate-500 truncate max-w-[280px]" title="${esc(d.project.host_path)}">${esc(d.project.host_path)}</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Active tasks</p><p class="text-3xl font-black text-blue-300">${fmt(m.activeTasks)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Done tasks</p><p class="text-3xl font-black text-emerald-300">${fmt(m.doneTasks)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Snapshots</p><p class="text-3xl font-black text-purple-300">${fmt(m.snapshots)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-3xl font-black">~${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
+      </div>
+      <div class="flex gap-3 items-center mb-4 flex-wrap">
+        <h3 class="font-bold">Memory entries</h3>
+        <input type="search" id="pm-filter" class="ml-auto" placeholder="Filter entries…" oninput="renderPmEntries()">
+      </div>
+      <div id="pm-entries"></div>`;
+    renderPmEntries();
+  } catch (e) { console.error(e); $('projects-table-wrap').classList.remove('hidden'); }
+}
+
+function renderPmEntries() {
+  const q = ($('pm-filter')?.value || '').toLowerCase();
+  const list = (window._pmEntries || []).filter(e =>
+    !q || (e.title||'').toLowerCase().includes(q) || (e.content||'').toLowerCase().includes(q));
+  let tags = '';
+  $('pm-entries').innerHTML = list.length ? list.map(e => {
+    try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
+    return `
+    <div class="glass p-4 mb-3">
+      <div class="flex justify-between gap-4 items-center flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="chip">${esc(e.kind)}</span>
+          <p class="font-semibold">${esc(e.title || '(untitled)')}</p>
+        </div>
+        <span class="text-xs text-slate-500">${fmtDate(e.created_at)}</span>
+      </div>
+      <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((e.content||'').slice(0, 300))}${(e.content||'').length > 300 ? '…' : ''}</p>
+      ${tags ? `<div class="mt-2">${tags}</div>` : ''}
+    </div>`;
+  }).join('') : '<p class="text-slate-400 text-sm">No memory entries.</p>';
+}
+
+function backToProjects() {
+  const el = $('project-detail');
+  if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+  $('projects-table-wrap').classList.remove('hidden');
+}
+
+async function registerProject() {
+  const path = $('register-path').value.trim();
+  if (!path) { alert('Enter a path'); return; }
+  try {
+    await api('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
+    $('register-path').value = '';
+    loadProjects();
+  } catch (e) { alert(e.message); }
+}
+
+async function discoverProjects() {
+  try {
+    const r = await api('/api/discover', { method: 'POST' });
+    alert('Found and registered: ' + ((r.registered||[]).join(', ') || 'none'));
+    loadProjects();
+  } catch (e) { alert(e.message); }
+}
+
+// ---------- Shared ----------
+async function loadShared() {
+  try {
+    const list = await api('/api/shared');
+    $('shared-list').innerHTML = list.length ? list.map(m => `
+      <div class="glass p-4 mb-3">
+        <div class="flex justify-between gap-4">
+          <p class="font-semibold">${esc(m.title)}</p>
+          <span class="text-xs text-slate-500">${esc(m.created_at)}</span>
+        </div>
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content)}</p>
+        ${m.tags ? `<div class="mt-2">${JSON.parse(m.tags).map(t => `<span class="chip">#${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No shared notes.</p>';
+  } catch (e) { console.error(e); }
+}
+
+async function addShared() {
+  const text = $('shared-text').value.trim();
+  const tags = $('shared-tags').value.trim();
+  if (!text) return;
+  try {
+    await api('/api/shared', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text, tags}) });
+    $('shared-text').value = ''; $('shared-tags').value = '';
+    loadShared();
+  } catch (e) { alert(e.message); }
+}
+
+// ---------- Search ----------
+async function doSearch() {
+  const q = $('search-q').value.trim();
+  if (!q) return;
+  try {
+    const scope = $('search-scope').value;
+    const results = await api('/api/memory?q=' + encodeURIComponent(q) + '&scope=' + scope);
+    $('search-results').innerHTML = results.length ? results.map(m => `
+      <div class="glass p-4 mb-3">
+        <div class="flex justify-between gap-4">
+          <p class="font-semibold">${esc(m.title || '(untitled)')}</p>
+          <span class="text-xs text-slate-500">${esc(m.scope)}${m.project_name ? ' · ' + esc(m.project_name) : ''}</span>
+        </div>
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content.slice(0, 300))}</p>
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No results.</p>';
+  } catch (e) { console.error(e); }
+}
+
+// ---------- GitHub ----------
+async function loadGithub() {
+  try {
+    const [cfg, metrics, delta, history] = await Promise.all([
+      api('/api/github/config'), api('/api/github/metrics'), api('/api/github/delta'), api('/api/github/history')
+    ]);
+    $('gh-accounts').value = (cfg.accounts||[]).join(', ');
+    const t = cfg.token || {};
+    $('gh-token-info').textContent = t.token_set ? ('token: ' + (t.login || '?') + ' · ' + (t.scopes||[]).join('+') || t.valid ? 'ok' : '') : 'nessun token (modalità REST)';
+    if (metrics.error) { $('github-stats').innerHTML = '<p class="text-slate-400">No scans yet. Avvia con "Scan now".</p>'; return; }
+    $('github-stats').innerHTML = [
+      { l: 'Repos scansionati', v: fmt(metrics.total_repos), c: 'text-blue-400' },
+      { l: 'Open PR totali', v: fmt(metrics.total_prs), c: 'text-emerald-400' },
+      { l: 'Metodo', v: esc(metrics.method), c: 'text-purple-400' },
+      { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300' },
+    ].map(c => `<div class="glass p-8 stat-card"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="text-3xl font-black font-outfit ${c.c}">${c.v}</p></div>`).join('');
+    $('gh-delta-text').textContent = delta.error ? delta.error : `Δ PR: ${delta.delta_prs >= 0 ? '+' : ''}${fmt(delta.delta_prs)} · Δ repos: ${delta.delta_repos >= 0 ? '+' : ''}${fmt(delta.delta_repos)} (${fmtDate(delta.latest)} vs ${fmtDate(delta.previous)})`;
+    renderGhRepos();
+    renderGhCharts(history, metrics);
+    loadGhAggs();
+  } catch (e) { console.error(e); }
+}
+
+async function runGhScan() {
+  const accounts = $('gh-accounts').value.trim();
+  try {
+    await api('/api/github/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts: accounts ? accounts.split(',').map(s=>s.trim()) : undefined}) });
+    loadGithub();
+  } catch (e) { alert(e.message); }
+}
+
+async function renderGhRepos() {
+  try {
+    const repos = await api('/api/github/repos');
+    if (!repos.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; return; }
+    const only = $('gh-only-prs').checked;
+    const filtered = only ? repos.filter(r => r.open_prs > 0) : repos;
+    $('github-repos').innerHTML = `
+      <table><thead><tr>
+        <th>Repo</th><th class="num">PR</th><th class="num">Draft</th><th class="num">No rev</th>
+        <th class="num">Stale</th><th class="num">Issues</th><th class="num">Stars</th><th>Lingua</th>
+      </tr></thead><tbody>
+      ${filtered.map(r => `
+        <tr>
+          <td class="font-semibold">${esc(r.full_name)}</td>
+          <td class="num text-emerald-300">${r.open_prs ?? '—'}</td>
+          <td class="num">${r.draft_prs ?? '—'}</td>
+          <td class="num text-amber-300">${r.no_reviewer ?? '—'}</td>
+          <td class="num text-red-300">${r.stale_prs ?? '—'}</td>
+          <td class="num">${r.open_issues ?? '—'}</td>
+          <td class="num">${r.stars ?? 0}</td>
+          <td class="text-slate-400">${esc(r.language || '')}</td>
+        </tr>`).join('')}
+      </tbody></table>`;
+  } catch (e) { console.error(e); }
+}
+
+function renderGhCharts(history, metrics) {
+  if (ghTopChart) ghTopChart.destroy();
+  if (ghTrendChart) ghTrendChart.destroy();
+  ghTrendChart = new Chart($('chartGhTrend'), {
+    type: 'line',
+    data: { labels: (history.trend||[]).map(t => fmtDate(t.timestamp, true)), datasets: [{ label: 'Open PR', data: (history.trend||[]).map(t => t.total_prs), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.2)', fill: true, tension: .3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }
+  });
+  // top repos chart: fetch repos again
+  fetch('/api/github/repos').then(r => r.json()).then(repos => {
+    const top = repos.slice(0, 8);
+    ghTopChart = new Chart($('chartGhTop'), {
+      type: 'bar',
+      data: { labels: top.map(r => r.full_name), datasets: [{ label: 'Open PR', data: top.map(r => r.open_prs || 0), backgroundColor: 'rgba(59,130,246,.6)', borderRadius: 8 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#94a3b8', font: { size: 11 } } } } }
+    });
+  });
+}
+
+async function loadGhAggs() {
+  try {
+    const [authors, labels] = await Promise.all([api('/api/github/authors'), api('/api/github/labels')]);
+    $('gh-authors').innerHTML = (authors||[]).map(a => `<span class="chip">${esc(a.author)} <b>${a.pr_count}</b></span>`).join('') || '<p class="text-slate-400 text-sm">—</p>';
+    $('gh-labels').innerHTML = (labels||[]).map(l => `<span class="chip">${esc(l.label)} <b>${l.pr_count}</b></span>`).join('') || '<p class="text-slate-400 text-sm">—</p>';
+  } catch (e) { console.error(e); }
+}
+
+// ---------- utils ----------
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+loadAll();
+</script>
+</body>
+</html>
