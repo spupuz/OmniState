@@ -198,7 +198,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 async function api(path, opts) {
-  const res = await fetch(path, opts);
+  const res = await fetch(path, { cache: 'no-store', ...(opts || {}) });
   if (!res.ok) throw new Error(path + ' -> ' + res.status);
   return res.json();
 }
@@ -440,7 +440,10 @@ async function loadGithub() {
     loadGhAggs();
     // Load preference for "Only with open PRs" checkbox
     await loadGithubPreference();
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+    $('github-stats').innerHTML = `<p class="text-red-400 text-sm">Could not load GitHub data: ${esc(e.message)}</p>`;
+  }
 }
 
 // Preference handling for GitHub "Only with open PRs" checkbox
@@ -485,10 +488,18 @@ async function saveGithubPreference(checked) {
 
 async function runGhScan() {
   const accounts = $('gh-accounts').value.trim();
+  const btn = document.querySelector('button[onclick="runGhScan()"]');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
   try {
     await api('/api/github/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts: accounts ? accounts.split(',').map(s=>s.trim()) : undefined}) });
-    loadGithub();
-  } catch (e) { alert(e.message); }
+    // Await the reload so the numbers are guaranteed to reflect the new scan.
+    await loadGithub();
+  } catch (e) {
+    alert('Scan failed: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
 }
 
 async function renderGhRepos() {
@@ -534,7 +545,7 @@ function renderGhCharts(history, metrics) {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }
   });
   // top repos chart: fetch repos again
-  fetch('/api/github/repos').then(r => r.json()).then(repos => {
+  fetch('/api/github/repos', { cache: 'no-store' }).then(r => r.json()).then(repos => {
     const top = repos.slice(0, 8);
     ghTopChart = new Chart($('chartGhTop'), {
       type: 'bar',

@@ -1,4 +1,4 @@
-# OmniState v2.3.1
+# OmniState v2.3.2
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -145,7 +145,7 @@ Open **http://localhost:8347** in the browser:
 - **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory; clicking a card drills into the project.
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
-- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button, "Only with open PRs" filter (persisted via shared memory).
+- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately), "Only with open PRs" filter (persisted via shared memory).
 - **Global search** across projects.
 
 ## GitHub PR Health
@@ -154,7 +154,7 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 
 - **REST** (no token): open-PR count per repo (~60 req/h).
 - **GraphQL** (with PAT via `GITHUB_TOKEN` or `github_config`): up to 50 repos/request, private repos included, extended metrics (drafts, PR age, no-reviewer, stale >30d, open issues, stars).
-- **Automatic scan** every 6h (configurable) + manual scans.
+- **Automatic scan** every 6h (configurable) + manual scans; a manual "Scan now" waits for the reload and the API is served `Cache-Control: no-store`, so the dashboard never shows a stale count.
 - **Delta** and **historical trend** computed from scans stored in the DB.
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
@@ -283,7 +283,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.3.1 (current)
+### v2.3.2 (current)
+- **Bugfix**: "Scan now" could leave the GitHub PR counts unchanged — the dashboard fired the reload without awaiting it and the browser could reuse a cached `/api/*` response. The scan button now awaits the reload (with a "Scanning…" state and an error message on failure), all API calls are made with `cache: 'no-store'`, and the server sends `Cache-Control: no-store` on `/api/*` and `/health`.
+- **Docs**: the session protocol now requires registering an MCP task for every significant activity (`task_add` before, `task_update` → `done` after, no batch at the end); the `commit-push` and `release-merge-prs` skills register and close their task accordingly.
+
+### v2.3.1
 - **Bugfix**: "Only with open PRs" filter now actually persists — the dashboard had signed a note field the API doesn't accept (`content` instead of `text`), so every toggle failed with "Could not save preference". The preference is stored as a `GH_ONLY_PR_`-prefixed shared-memory note matching the API schema.
 
 ### v2.3.0

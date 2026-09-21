@@ -150,6 +150,16 @@ class App:
     def _setup_routes(self) -> None:
         app = self.fastapi
 
+        @app.middleware("http")
+        async def _no_store_api(request, call_next):
+            """Never let a browser/proxy cache the dashboard API: a scan must be
+            visible immediately after it finishes (stale PR counts otherwise)."""
+            response = await call_next(request)
+            if request.url.path.startswith("/api/") or request.url.path == "/health":
+                response.headers["Cache-Control"] = "no-store, must-revalidate"
+                response.headers["Pragma"] = "no-cache"
+            return response
+
         @app.get("/", response_class=HTMLResponse)
         def index() -> str:
             return DASHBOARD_HTML.read_text(encoding="utf-8") if DASHBOARD_HTML.exists() else "<h1>OmniState v2</h1>"

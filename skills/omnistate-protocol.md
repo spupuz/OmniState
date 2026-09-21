@@ -8,7 +8,8 @@ An OmniState MCP server (name: `omnistate`) provides persistent, cross-project m
 3. Read the returned recent memory and open tasks BEFORE acting. Summarize them in max 3 bullets, then proceed with the user's task.
 
 ## During the session
-- `task_add` for every significant activity; `task_update` when its status changes (→ `done` makes it ready for the snapshot).
+- **Every significant activity gets a task**: call `task_add` (status `in_progress`) *before* starting it, and `task_update` to `done` when it finishes. Do not batch task creation at the end of the session — register and close them as you go, so the MCP server is updated live.
+- `task_list` at the start of non-trivial work to avoid duplicating an open task.
 - `memory_remember` with `scope="shared"` for decisions, preferences and reusable patterns valid across ALL projects (e.g. "this user prefers conventional commits").
 - `memory_remember` with `scope="project"` for notes specific to the current project only.
 - `memory_search` across all projects before planning work that may already have been solved elsewhere.
