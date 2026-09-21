@@ -1,4 +1,4 @@
-# OmniState v2.3.0
+# OmniState v2.3.1
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -283,7 +283,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.3.0 (current)
+### v2.3.1 (current)
+- **Bugfix**: "Only with open PRs" filter now actually persists — the dashboard had signed a note field the API doesn't accept (`content` instead of `text`), so every toggle failed with "Could not save preference". The preference is stored as a `GH_ONLY_PR_`-prefixed shared-memory note matching the API schema.
+
+### v2.3.0
 - **Features**: The GitHub PR Health repos table is now clickable — the repository name and every metric (open PRs, drafts, no-reviewer, stale, issues, stars) link straight to the matching GitHub page (`/pulls`, the filtered `?q=is:pr is:open draft:true` / `no:review` views, the oldest-sorted list, `/issues`, `/stargazers`), so you can drill from a count to the actual PRs/issues without leaving the dashboard. Only `github.com` repository URLs are linked; missing or foreign URLs render as plain text.
 
 ### v2.2.0

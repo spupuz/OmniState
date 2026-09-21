@@ -444,15 +444,15 @@ async function loadGithub() {
 }
 
 // Preference handling for GitHub "Only with open PRs" checkbox
-const PREF_NOTE_TITLE = 'GitHub: Only show repos with open PRs';
+const PREF_NOTE_PREFIX = 'GH_ONLY_PR_';
 
 async function loadGithubPreference() {
   try {
     const sharedNotes = await api('/api/shared');
-    const note = sharedNotes.find(n => n.title === PREF_NOTE_TITLE);
+    const note = sharedNotes.find(n => (n.title || '').startsWith(PREF_NOTE_PREFIX));
     if (note) {
-      // Expect content to be "true" or "false"
-      const checked = note.content.trim().toLowerCase() === 'true';
+      // Content is stored as PREF_NOTE_PREFIX + "true"/"false"
+      const checked = (note.content || '').trim().toLowerCase() === PREF_NOTE_PREFIX + 'true';
       $('gh-only-prs').checked = checked;
       // Immediately render repos with the loaded preference
       renderGhRepos();
@@ -464,17 +464,18 @@ async function loadGithubPreference() {
 
 async function saveGithubPreference(checked) {
   try {
-    // First, delete any existing note with this title to avoid duplicates
+    // First, delete any existing note with this prefix to avoid duplicates
     const sharedNotes = await api('/api/shared');
-    const existing = sharedNotes.find(n => n.title === PREF_NOTE_TITLE);
-    if (existing) {
-      await api(`/api/shared/${existing.id}`, { method: 'DELETE' });
+    for (const n of sharedNotes || []) {
+      if ((n.title || '').startsWith(PREF_NOTE_PREFIX)) {
+        await api(`/api/shared/${n.id}`, { method: 'DELETE' });
+      }
     }
-    // Add new note with the preference
+    // Store the boolean; the API derives title/content from "text"
     await api('/api/shared', {
       method: 'POST',
       headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({title: PREF_NOTE_TITLE, content: checked.toString(), tags: ''})
+      body: JSON.stringify({text: PREF_NOTE_PREFIX + checked.toString(), tags: ''})
     });
   } catch (e) {
     console.error('Failed to save GitHub preference:', e);
