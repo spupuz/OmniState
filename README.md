@@ -1,4 +1,4 @@
-# OmniState v2.2.0
+# OmniState v2.3.0
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -16,7 +16,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
 - **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
-- **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB.
+- **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Privacy-first**: the DB, the metrics and the token **never leave your data folder** and never end up on GitHub.
 
 ## Installation (Docker)
@@ -145,7 +145,7 @@ Open **http://localhost:8347** in the browser:
 - **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory; clicking a card drills into the project.
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
-- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table, top authors/labels, "Scan now" button, "Only with open PRs" filter (persisted via shared memory).
+- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button, "Only with open PRs" filter (persisted via shared memory).
 - **Global search** across projects.
 
 ## GitHub PR Health
@@ -283,7 +283,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.2.0 (current)
+### v2.3.0 (current)
+- **Features**: The GitHub PR Health repos table is now clickable — the repository name and every metric (open PRs, drafts, no-reviewer, stale, issues, stars) link straight to the matching GitHub page (`/pulls`, the filtered `?q=is:pr is:open draft:true` / `no:review` views, the oldest-sorted list, `/issues`, `/stargazers`), so you can drill from a count to the actual PRs/issues without leaving the dashboard. Only `github.com` repository URLs are linked; missing or foreign URLs render as plain text.
+
+### v2.2.0
 - **Features**: Added "Only with open PRs" filter in GitHub PR Health dashboard (persisted via shared memory).
 - **Performance**: Optimized metrics queries in store for task/chunk counting and token savings calculation (single-pass SQL aggregation).
 

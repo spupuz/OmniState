@@ -54,6 +54,9 @@
   th, td { text-align: left; padding: .6rem .8rem; font-size: .82rem; border-bottom: 1px solid rgba(255,255,255,.05); }
   th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; }
   td.num, th.num { text-align: right; }
+  td a, .num a { color: inherit; text-decoration: none; }
+  td a:hover { text-decoration: underline; }
+  td a:focus-visible, .num a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
   .section-row td { text-transform: uppercase; font-size: .68rem; letter-spacing: .1em; font-weight: 700; color: #94a3b8; background: rgba(255,255,255,.035); padding-top: 1rem; padding-bottom: .4rem; border-bottom: 1px solid rgba(255,255,255,.09); }
   .chip { display: inline-flex; align-items: center; gap: 6px; padding: .3rem .7rem; border-radius: 9999px; font-size: .75rem; background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25); margin: .2rem; }
   input, select { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #f1f5f9; border-radius: .6rem; padding: .5rem .8rem; font-size: .85rem; outline: none; }
@@ -493,22 +496,30 @@ async function renderGhRepos() {
     if (!repos.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; return; }
     const only = $('gh-only-prs').checked;
     const filtered = only ? repos.filter(r => r.open_prs > 0) : repos;
+    // Only link out to github.com repo URLs; anything else renders as plain text.
+    const base = r => (typeof r.url === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+/.test(r.url)) ? r.url.replace(/\/+$/, '') : '';
+    const link = (u, text, title) => u
+      ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(title || u)}">${text}</a>`
+      : `${text}`;
     $('github-repos').innerHTML = `
       <table><thead><tr>
         <th>Repo</th><th class="num">PR</th><th class="num">Draft</th><th class="num">No rev</th>
         <th class="num">Stale</th><th class="num">Issues</th><th class="num">Stars</th><th>Lingua</th>
       </tr></thead><tbody>
-      ${filtered.map(r => `
+      ${filtered.map(r => {
+        const u = base(r);
+        return `
         <tr>
-          <td class="font-semibold">${esc(r.full_name)}</td>
-          <td class="num text-emerald-300">${r.open_prs ?? '—'}</td>
-          <td class="num">${r.draft_prs ?? '—'}</td>
-          <td class="num text-amber-300">${r.no_reviewer ?? '—'}</td>
-          <td class="num text-red-300">${r.stale_prs ?? '—'}</td>
-          <td class="num">${r.open_issues ?? '—'}</td>
-          <td class="num">${r.stars ?? 0}</td>
+          <td class="font-semibold">${link(u, esc(r.full_name), 'Open repository')}</td>
+          <td class="num text-emerald-300">${link(u + '/pulls', r.open_prs ?? '—', 'Open pull requests')}</td>
+          <td class="num">${link(u + '/pulls?q=is%3Apr+is%3Aopen+draft%3Atrue', r.draft_prs ?? '—', 'Draft pull requests')}</td>
+          <td class="num text-amber-300">${link(u + '/pulls?q=is%3Apr+is%3Aopen+no%3Areview', r.no_reviewer ?? '—', 'Pull requests with no review')}</td>
+          <td class="num text-red-300">${link(u + '/pulls?sort=created&direction=asc', r.stale_prs ?? '—', 'Oldest open pull requests')}</td>
+          <td class="num">${link(u + '/issues', r.open_issues ?? '—', 'Open issues')}</td>
+          <td class="num">${link(u + '/stargazers', r.stars ?? 0, 'Stargazers')}</td>
           <td class="text-slate-400">${esc(r.language || '')}</td>
-        </tr>`).join('')}
+        </tr>`;
+      }).join('')}
       </tbody></table>`;
   } catch (e) { console.error(e); }
 }
