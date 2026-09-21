@@ -386,6 +386,42 @@ class Store:
             "tokenSavings": token_saved,
         }
 
+    def all_project_metrics(self) -> dict[int, dict[str, Any]]:
+        """Bulk fetch memory metrics for all projects to prevent O(N) DB queries (N+1 bottleneck)."""
+        res = {r["id"]: {"activeTasks": 0, "doneTasks": 0, "totalTasks": 0, "snapshots": 0, "_words": 0}
+               for r in self.q("SELECT id FROM projects")}
+
+        for r in self.q("""
+            SELECT project_id,
+                SUM(CASE WHEN kind IN ('task', 'chunk') THEN 1 ELSE 0 END) as total_metrics_count,
+                SUM(CASE WHEN kind = 'task' AND json_valid(content) AND COALESCE(json_extract(content, '$.status'), 'todo') = 'done' THEN 1 ELSE 0 END) as done,
+                SUM(CASE WHEN kind = 'task' AND (NOT json_valid(content) OR COALESCE(json_extract(content, '$.status'), 'todo') != 'done') THEN 1 ELSE 0 END) as active,
+                SUM(CASE WHEN kind = 'chunk' THEN 1 ELSE 0 END) as chunks
+            FROM memory WHERE kind IN ('task', 'chunk') GROUP BY project_id
+        """):
+            if (pid := r["project_id"]) in res:
+                res[pid].update({
+                    "doneTasks": r["done"] or 0,
+                    "activeTasks": r["active"] or 0,
+                    "snapshots": r["chunks"] or 0
+                })
+
+        for r in self.q("SELECT project_id, COUNT(*) as c FROM memory GROUP BY project_id"):
+            if r["project_id"] in res:
+                res[r["project_id"]]["totalTasks"] = r["c"]
+
+        # Stream content to avoid OOM
+        with self.tx() as conn:
+            cur = conn.execute("SELECT project_id, content FROM memory WHERE kind IN ('chunk','task')")
+            for r in cur:
+                if r["project_id"] in res:
+                    res[r["project_id"]]["_words"] += len(r["content"].split())
+
+        for m in res.values():
+            m["tokenSavings"] = int(m.pop("_words") * 1.3) + (m["snapshots"] * 4000)
+
+        return res
+
     # ---------- GitHub PR Health ----------
 
     def persist_gh_scan(self, result: dict[str, Any], accounts: list[str]) -> int:
