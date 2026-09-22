@@ -64,21 +64,21 @@ jobs:
           store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
           app = App(cfg, store)
           app.mount_mcp()
-          client = TestClient(app.fastapi)
+          # lifespan must run (MCP session manager) — same as tests/test_api.py
+          with TestClient(app.fastapi) as client:
+              assert client.get("/health").status_code == 200
+              # no token configured -> open
+              assert client.get("/api/stats").status_code == 200
 
-          assert client.get("/health").status_code == 200
-          # no token configured -> open
-          assert client.get("/api/stats").status_code == 200
-
-          cfg.auth_token = "ci-secret"
-          assert client.get("/api/stats").status_code == 401
-          assert client.get("/api/stats", headers={"Authorization": "Bearer ci-secret"}).status_code == 200
-          assert client.get("/api/stats", headers={"Authorization": "Bearer wrong"}).status_code == 401
-          # MCP session creation is gated too
-          r = client.post("/mcp", json={})
-          assert r.status_code == 401
-          r = client.post("/mcp", json={}, headers={"Authorization": "Bearer ci-secret"})
-          assert r.status_code != 401  # reached the MCP app (400 bad-jsonrpc ok)
+              cfg.auth_token = "ci-secret"
+              assert client.get("/api/stats").status_code == 401
+              assert client.get("/api/stats", headers={"Authorization": "Bearer ci-secret"}).status_code == 200
+              assert client.get("/api/stats", headers={"Authorization": "Bearer wrong"}).status_code == 401
+              # MCP session creation is gated too
+              r = client.post("/mcp", json={})
+              assert r.status_code == 401
+              r = client.post("/mcp", json={}, headers={"Authorization": "Bearer ci-secret"})
+              assert r.status_code != 401  # reached the MCP app (400 bad-jsonrpc ok)
           store.close()
           print("CI smoke OK")
           PY
