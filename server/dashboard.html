@@ -117,7 +117,7 @@
           <button class="btn ghost" onclick="registerProject()">Register project</button>
           <button class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
         </div>
-        <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects.</p></div>
+        <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p></div>
         <div id="project-detail" class="hidden"></div>
       </div>
     </section>
@@ -263,7 +263,7 @@ async function loadProjects() {
   try {
     const projects = await api('/api/projects');
     backToProjects();
-    if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects.</p>'; return; }
+    if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p>'; return; }
     const rows = (list) => list.map(p => `
       <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
         <td class="font-semibold">${esc(p.name)}</td>
@@ -541,15 +541,33 @@ async function renderGhRepos() {
 function renderGhCharts(history, metrics) {
   if (ghTopChart) ghTopChart.destroy();
   if (ghTrendChart) ghTrendChart.destroy();
-  ghTrendChart = new Chart($('chartGhTrend'), {
+
+  const trendData = (history.trend||[]).map(t => t.total_prs);
+  const minTrend = trendData.length ? Math.min(...trendData) : 0;
+  const maxTrend = trendData.length ? Math.max(...trendData) : 0;
+  const trendEl = $('chartGhTrend');
+  trendEl.setAttribute('role', 'img');
+  trendEl.setAttribute('aria-label', `Trend storico open PR: min ${minTrend}, max ${maxTrend}`);
+
+  ghTrendChart = new Chart(trendEl, {
     type: 'line',
-    data: { labels: (history.trend||[]).map(t => fmtDate(t.timestamp, true)), datasets: [{ label: 'Open PR', data: (history.trend||[]).map(t => t.total_prs), borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.2)', fill: true, tension: .3 }] },
+    data: { labels: (history.trend||[]).map(t => fmtDate(t.timestamp, true)), datasets: [{ label: 'Open PR', data: trendData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.2)', fill: true, tension: .3 }] },
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }
   });
+
   // top repos chart: fetch repos again
   fetch('/api/github/repos', { cache: 'no-store' }).then(r => r.json()).then(repos => {
     const top = repos.slice(0, 8);
-    ghTopChart = new Chart($('chartGhTop'), {
+    const topEl = $('chartGhTop');
+    topEl.setAttribute('role', 'img');
+    if (top.length > 0) {
+      const topRepo = top.reduce((prev, current) => (prev.open_prs > current.open_prs) ? prev : current);
+      topEl.setAttribute('aria-label', `Top repositories per open PR. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
+    } else {
+      topEl.setAttribute('aria-label', 'Top repositories per open PR. Nessun dato disponibile.');
+    }
+
+    ghTopChart = new Chart(topEl, {
       type: 'bar',
       data: { labels: top.map(r => r.full_name), datasets: [{ label: 'Open PR', data: top.map(r => r.open_prs || 0), backgroundColor: 'rgba(59,130,246,.6)', borderRadius: 8 }] },
       options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#94a3b8', font: { size: 11 } } } } }
