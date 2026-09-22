@@ -122,8 +122,12 @@ class App:
     def _project_metrics_list(self) -> list[dict[str, Any]]:
         archived_names = self._archived_repo_names()
         out = []
+        all_metrics = self.store.all_project_metrics()
         for p in self.store.list_projects():
-            metrics = self.store.project_metrics(int(p["id"]))
+            pid = int(p["id"])
+            metrics = all_metrics.get(pid)
+            if metrics is None:
+                metrics = self.store.project_metrics(pid)
             out.append({
                 "name": p["name"],
                 "host_path": p["host_path"],
