@@ -17,10 +17,11 @@ from .config import Config, save_config
 from .github_client import GithubClient
 from .indexer import discover_projects, import_legacy, register_project
 from .store import Store
+from .version import get_version
 
 
 def create_server(cfg: Config, store: Store) -> MCPServer:
-    server = MCPServer(name="OmniState", version="2.0.0")
+    server = MCPServer(name="OmniState", version=get_version())
 
     def _resolve_project(project: str) -> dict[str, Any]:
         row = store.get_project(project)
@@ -111,21 +112,12 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     def session_start(project: str) -> str:
         """Start a session: load relevant memory (project + shared) and open tasks."""
         row = _resolve_project(project)
-        tasks = store.list_tasks(int(row["id"]))
-        open_tasks = [t for t in tasks if t["content"]]
-        recent = store.q(
-            "SELECT title, content, created_at FROM memory WHERE project_id = ? AND kind IN ('chunk','summary') "
-            "ORDER BY created_at DESC LIMIT 3",
-            (row["id"],),
-        )
-        shared = store.shared_memory(limit=5)
+        ctx = store.session_context(int(row["id"]))
         return json.dumps({
             "project": project,
             "session_started": True,
-            "open_tasks": len(open_tasks),
-            "recent_memory": [{"title": m["title"], "created_at": m["created_at"]} for m in recent],
-            "shared_memory": [{"title": m["title"], "content": m["content"][:200], "tags": m["tags"]} for m in shared],
-            "recall": store.memory_recall_for(int(row["id"])),
+            **ctx,
+            "token_measure": store.context_token_measure(int(row["id"])),
         }, indent=2)
 
     @server.tool()
@@ -201,10 +193,15 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     # ---------- memory ----------
 
     @server.tool()
-    def memory_search(query: str, project: str = "", scope: str = "all", limit: int = 10) -> str:
-        """Full-text search across projects and shared memory."""
+    def memory_search(query: str, project: str = "", scope: str = "all", limit: int = 10,
+                      startDate: str = "", endDate: str = "", include_outdated: bool = False,
+                      debug: bool = False) -> str:
+        """Hybrid search: FTS5 + coverage + tags + decayed importance + familiarity.
+        Temporal filters (startDate/endDate, ISO or YYYY-MM-DD) apply to created_at."""
         results = store.search_memory(
-            query, project=project or None, scope=scope, limit=min(limit, 50)
+            query, project=project or None, scope=scope, limit=min(limit, 50),
+            start_date=startDate or None, end_date=endDate or None,
+            include_outdated=include_outdated, debug=debug,
         )
         return json.dumps(results, indent=2)
 
@@ -230,12 +227,35 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         row = _resolve_project(project)
         pid = int(row["id"])
         recent = store.memory_for_project(pid, limit=10)
-        shared = store.shared_memory(limit=5)
+        shared = store.q(
+            "SELECT title, content, tags FROM memory WHERE scope = 'shared' AND lifecycle_state = 'active' "
+            "ORDER BY created_at DESC LIMIT 5"
+        )
         return json.dumps({"project": project, "recent": recent, "shared": shared}, indent=2)
 
     @server.tool()
+    def memory_reinforce(memory_id: int, signal: str, reason: str = "") -> str:
+        """Apply a feedback signal (used/important/irrelevant/incorrect/outdated/restore).
+        outdated/incorrect suppress the memory without deleting; restore re-activates.
+        Importance is adjusted (bounded 0..1) and the event is audited."""
+        return json.dumps(store.reinforce_memory(memory_id, signal, reason), indent=2)
+
+    @server.tool()
+    def memory_recent(limit: int = 10, project: str = "", include_outdated: bool = False) -> str:
+        """Latest active memories (optionally per project, or including suppressed ones)."""
+        return json.dumps(
+            store.list_recent_memories(limit=limit, project=project or None, include_outdated=include_outdated),
+            indent=2,
+        )
+
+    @server.tool()
+    def memory_export(path: str = "") -> str:
+        """Dump all memories + reinforcement feedback to a JSON backup file."""
+        return json.dumps(store.export_memories(path or "memory-export.json"), indent=2)
+
+    @server.tool()
     def memory_forget(memory_id: int) -> str:
-        """Delete a memory entry by id."""
+        """Delete a memory entry by id (hard delete; prefer memory_reinforce)."""
         ok = store.delete_memory(memory_id)
         return json.dumps({"deleted": ok, "memory_id": memory_id}, indent=2)
 

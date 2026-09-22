@@ -1,4 +1,4 @@
-# OmniState v2.3.2
+# OmniState v2.3.3
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -54,7 +54,7 @@ cp .env.example .env
 
 The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. If you lose it, rotate it on GitHub.
 
-Verify: `curl http://localhost:8347/health` → `OK`.
+Verify: `curl http://localhost:8347/health` → `{"status":"ok","version":"X.Y.Z",...}` (the version always mirrors `VERSION.txt`).
 
 ### Where the data lives (mount points)
 
@@ -283,7 +283,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.3.2 (current)
+### v2.3.3 (current)
+- **Bugfix**: `/health` and the MCP server reported a hardcoded `2.0.0` instead of the real release version. The version now has a single source of truth — `server/version.py` reads `VERSION.txt` (also baked into the image at `/app/VERSION.txt`) — used by `/health`, the FastAPI app and the MCP server; a test guards against drift.
+- **Metrics**: token savings are now **real measured data, not an estimate**. `session_start` returns a single bounded, deduplicated context (`recent_memory` with the 3 latest chunks at ≤600 chars + `recall` of notes at ≤400 chars, chunks/tasks excluded) built by one shared source (`Store.session_context`), and both `project_metrics` and `/api/stats` compute `tokenSavings = stored raw tokens − loaded session payload tokens` with a real tokenizer (`tiktoken` cl100k_base, BPE cache pre-warmed in the image). The old `words × 1.3 + chunks × 4000` heuristic is gone.
+- **Features (memory engine)**: recall is now a scored hybrid instead of raw FTS5. `memory_search` scores results by keyword coverage + tag boost (applied only in the headroom above the relevance score), decayed importance (half-life anchored to the last `used`/`important` signal) and a saturating familiarity boost (≤0.03) drawn from recalled-in-the-last-30-days exposures; a relevance gate (0.55, 0.75 for long queries) filters noise; near-duplicate memories (token Jaccard ≥0.9) collapse instead of filling the results.
+- **Features (lifecycle, non-destructive)**: memories gain `importance`, `lifecycle_state` (`active`/`outdated`/`incorrect`), `reinforcement_count`, `last_reinforced_at`, `access_count`, `last_accessed`. `memory_reinforce` applies feedback signals (`used` +0.08, `important` +0.18, `irrelevant` −0.2, `incorrect` −0.5, `outdated`) with every event appended to an audit table (`memory_feedback`); `outdated`/`incorrect` suppress from recall **without deleting**, `restore` re-activates. Note/task/chunk tables and the dashboard show the state; suppressed entries stay hidden unless `include_outdated=True`.
+- **Features (temporal + audit + backup)**: `memory_search`/`memory_recall` accept `startDate`/`endDate` (ISO) and parse natural-language dates in the query ("last week", "2025-03-01", "yesterday"); pure-date queries rank by recency. `memory_recent` lists latest entries, `memory_export` dumps memories + feedback to JSON (refuses to overwrite), and `memory_feedback` for a memory is exposed via the API.
+
+### v2.3.2
 - **Bugfix**: "Scan now" could leave the GitHub PR counts unchanged — the dashboard fired the reload without awaiting it and the browser could reuse a cached `/api/*` response. The scan button now awaits the reload (with a "Scanning…" state and an error message on failure), all API calls are made with `cache: 'no-store'`, and the server sends `Cache-Control: no-store` on `/api/*` and `/health`.
 - **Docs**: the session protocol now requires registering an MCP task for every significant activity (`task_add` before, `task_update` → `done` after, no batch at the end); the `commit-push` and `release-merge-prs` skills register and close their task accordingly.
 

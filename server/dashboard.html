@@ -223,7 +223,7 @@ async function loadOverview() {
       { l: 'Progetti', v: fmt(stats.projects), c: 'text-blue-400' },
       { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
       { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
-      { l: 'Token savings', v: '~' + fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300' },
+      { l: 'Token savings', v: fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300', t: 'Real measured saving: stored raw memory tokens minus what session_start actually loads.' },
     ];
     $('overview-stats').innerHTML = cards.map(c => `
       <div class="glass p-8 stat-card">
@@ -269,7 +269,7 @@ async function loadProjects() {
         <td class="font-semibold">${esc(p.name)}</td>
         <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
         <td class="num text-purple-300">${fmt(p.snapshots)}</td>
-        <td class="num">~${fmt(Math.round(p.tokenSavings/1000))}k</td>
+        <td class="num">${fmt(Math.round(p.tokenSavings/1000))}k</td>
         <td class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
       </tr>`).join('');
     $('projects-table-wrap').innerHTML = `
@@ -305,7 +305,7 @@ async function showProject(name) {
         <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Active tasks</p><p class="text-3xl font-black text-blue-300">${fmt(m.activeTasks)}</p></div>
         <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Done tasks</p><p class="text-3xl font-black text-emerald-300">${fmt(m.doneTasks)}</p></div>
         <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Snapshots</p><p class="text-3xl font-black text-purple-300">${fmt(m.snapshots)}</p></div>
-        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-3xl font-black">~${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-3xl font-black">${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
       </div>
       <div class="flex gap-3 items-center mb-4 flex-wrap">
         <h3 class="font-bold">Memory entries</h3>
@@ -328,10 +328,12 @@ function renderPmEntries() {
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
           <span class="chip">${esc(e.kind)}</span>
+          ${e.lifecycle_state && e.lifecycle_state !== 'active' ? `<span class="chip danger">${esc(e.lifecycle_state)}</span>` : ''}
           <p class="font-semibold">${esc(e.title || '(untitled)')}</p>
         </div>
         <span class="text-xs text-slate-500">${fmtDate(e.created_at)}</span>
       </div>
+      ${(e.importance ?? e.importance !== undefined) ? `<div class="mt-1 text-xs text-slate-500">importance ${Math.round((e.importance||0)*100)}% · exposed ${e.access_count||0}x</div>` : ''}
       <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((e.content||'').slice(0, 300))}${(e.content||'').length > 300 ? '…' : ''}</p>
       ${tags ? `<div class="mt-2">${tags}</div>` : ''}
     </div>`;

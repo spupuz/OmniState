@@ -16,7 +16,11 @@ RUN apt-get update \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Pre-warm the tiktoken BPE cache so token counting works offline at runtime
+RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
+
 COPY server/ ./server/
+COPY VERSION.txt ./VERSION.txt
 
 RUN mkdir -p /data && chmod 755 /data
 

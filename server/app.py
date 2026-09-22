@@ -16,6 +16,7 @@ from .github_client import GithubClient
 from .indexer import discover_projects, import_legacy, register_project
 from .mcp_server import create_server
 from .store import Store
+from .version import get_version
 
 DASHBOARD_HTML = Path(__file__).parent / "dashboard.html"
 
@@ -24,7 +25,7 @@ class App:
     def __init__(self, cfg: Config, store: Store):
         self.cfg = cfg
         self.store = store
-        self.fastapi = FastAPI(title="OmniState", version="2.0.0")
+        self.fastapi = FastAPI(title="OmniState", version=get_version())
         self._scan_lock = threading.Lock()
         self._stop_event = threading.Event()
         self._setup_routes()
@@ -166,7 +167,7 @@ class App:
 
         @app.get("/health")
         def health() -> dict[str, Any]:
-            return {"status": "ok", "version": "2.0.0", "data_dir": str(self.cfg.data_dir)}
+            return {"status": "ok", "version": get_version(), "data_dir": str(self.cfg.data_dir)}
 
         @app.get("/api/projects")
         def api_projects() -> list[dict[str, Any]]:
@@ -207,8 +208,36 @@ class App:
             }
 
         @app.get("/api/memory")
-        def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20) -> list[dict[str, Any]]:
-            return self.store.search_memory(q, project=project or None, scope=scope, limit=limit)
+        def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20,
+                       startDate: str = "", endDate: str = "", include_outdated: bool = False) -> list[dict[str, Any]]:
+            return self.store.search_memory(
+                q, project=project or None, scope=scope, limit=limit,
+                start_date=startDate or None, end_date=endDate or None,
+                include_outdated=include_outdated,
+            )
+
+        @app.get("/api/memory/recent")
+        def api_memory_recent(project: str = "", limit: int = 10,
+                              include_outdated: bool = False) -> list[dict[str, Any]]:
+            return self.store.list_recent_memories(limit=limit, project=project or None,
+                                                  include_outdated=include_outdated)
+
+        @app.post("/api/memory/{mem_id}/reinforce")
+        def api_memory_reinforce(mem_id: int, body: dict[str, Any]) -> dict[str, Any]:
+            signal = (body.get("signal") or "").strip()
+            reason = (body.get("reason") or "").strip()
+            try:
+                return self.store.reinforce_memory(mem_id, signal, reason)
+            except ValueError as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+
+        @app.get("/api/memory/export")
+        def api_memory_export() -> dict[str, Any]:
+            return self.store.export_memories("memory-export.json")
+
+        @app.get("/api/memory/{mem_id}/feedback")
+        def api_memory_feedback(mem_id: int) -> list[dict[str, Any]]:
+            return self.store.memory_feedback_for(mem_id)
 
         @app.get("/api/shared")
         def api_shared() -> list[dict[str, Any]]:
