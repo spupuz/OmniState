@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>OmniState | Dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="alternate icon" href="/favicon.ico">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -83,9 +85,11 @@
       <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="dashboard-title">OmniState Dashboard</h1>
       <p class="text-slate-400 mt-2 text-lg font-light" id="last-update">—</p>
     </div>
-    <div class="flex gap-3 flex-wrap">
-      <button class="btn" onclick="loadAll()">Reload</button>
-    </div>
+    <div class="flex gap-3 flex-wrap items-center">
+        <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (se abilitato)" class="w-44 text-xs">
+        <button class="btn ghost" onclick="saveToken()">Token</button>
+        <button class="btn" onclick="loadAll()">Reload</button>
+      </div>
   </header>
 
   <!-- Tabs -->
@@ -184,6 +188,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 let ghTopChart = null, ghTrendChart = null;
+$('auth-token').value = localStorage.getItem('omnistate_auth_token') || '';
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -198,9 +203,23 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 });
 
 async function api(path, opts) {
-  const res = await fetch(path, { cache: 'no-store', ...(opts || {}) });
+  const token = localStorage.getItem('omnistate_auth_token') || '';
+  const baseHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+  const headers = { ...baseHeaders, ...((opts && opts.headers) || {}) };
+  const { headers: _h, ...rest } = (opts || {});
+  const res = await fetch(path, { cache: 'no-store', ...rest, headers });
+  if (res.status === 401) {
+    throw new Error('401 unauthorized — set the access token (OMNISTATE_AUTH_TOKEN) in the dashboard header.');
+  }
   if (!res.ok) throw new Error(path + ' -> ' + res.status);
   return res.json();
+}
+
+function saveToken() {
+  const t = ($('auth-token').value || '').trim();
+  if (t) localStorage.setItem('omnistate_auth_token', t);
+  else localStorage.removeItem('omnistate_auth_token');
+  loadAll();
 }
 
 function fmt(n) { return n == null ? '—' : n.toLocaleString('it-IT'); }
@@ -556,7 +575,7 @@ function renderGhCharts(history, metrics) {
   });
 
   // top repos chart: fetch repos again
-  fetch('/api/github/repos', { cache: 'no-store' }).then(r => r.json()).then(repos => {
+  api('/api/github/repos').then(repos => {
     const top = repos.slice(0, 8);
     const topEl = $('chartGhTop');
     topEl.setAttribute('role', 'img');

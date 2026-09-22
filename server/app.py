@@ -3,13 +3,14 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from .config import Config, GithubConfig
 from .github_client import GithubClient
@@ -22,13 +23,29 @@ DASHBOARD_HTML = Path(__file__).parent / "dashboard.html"
 
 
 class App:
+    METRICS_TTL_SECONDS = 60.0
+
     def __init__(self, cfg: Config, store: Store):
         self.cfg = cfg
         self.store = store
         self.fastapi = FastAPI(title="OmniState", version=get_version())
         self._scan_lock = threading.Lock()
         self._stop_event = threading.Event()
+        # Dashboard list cache: all_project_metrics() runs tiktoken on every
+        # memory row, which is wasteful on every poll. TTL-bounded + explicitly
+        # invalidated by writes/scans so a "Scan now" always shows fresh counts.
+        # Only the *metrics* are cached; category/gh_state stay decision data and
+        # are recomputed on every poll (cheap SQL, must never go stale silently).
+        self._metrics_cache: dict[int, dict[str, Any]] | None = None
+        self._metrics_cache_ts = 0.0
+        self._metrics_lock = threading.Lock()
         self._setup_routes()
+
+    def invalidate_metrics_cache(self) -> None:
+        """Drop the cached dashboard project list (call after any data write)."""
+        with self._metrics_lock:
+            self._metrics_cache = None
+            self._metrics_cache_ts = 0.0
 
     # ---------- MCP mount ----------
 
@@ -97,6 +114,7 @@ class App:
         ttl = max(1, self.cfg.github.scan_interval_hours) * 3600
         client = GithubClient(self.cfg.github.token, stale_days=self.cfg.github.stale_days)
         out: dict[str, str] = {}
+        changed = False
         for p in self.store.list_projects():
             repo = p.get("gh_repo")
             if not repo:
@@ -114,18 +132,38 @@ class App:
                 state = "unknown"
             if state != "unknown":
                 self.store.set_project_gh_state(p["name"], state)
+                changed = True
             elif not p.get("gh_state"):
                 self.store.set_project_gh_state(p["name"], "unknown")
+                changed = True
             out[p["name"]] = state if state != "unknown" else (p.get("gh_state") or "unknown")
+        if changed:
+            self.invalidate_metrics_cache()
         return out
 
     def _project_metrics_list(self) -> list[dict[str, Any]]:
+        """Dashboard list. The expensive token-counting metrics are TTL-cached
+        (see __init__); category/gh_state are recomputed per poll so a scan that
+        changed a repo's archived/deleted state is visible immediately."""
+        now = time.time()
+        with self._metrics_lock:
+            if (
+                self._metrics_cache is not None
+                and now - self._metrics_cache_ts < self.METRICS_TTL_SECONDS
+            ):
+                cached_metrics = dict(self._metrics_cache)
+            else:
+                cached_metrics = None
+        if cached_metrics is None:
+            cached_metrics = self.store.all_project_metrics()
+            with self._metrics_lock:
+                self._metrics_cache = dict(cached_metrics)
+                self._metrics_cache_ts = now
         archived_names = self._archived_repo_names()
         out = []
-        all_metrics = self.store.all_project_metrics()
         for p in self.store.list_projects():
             pid = int(p["id"])
-            metrics = all_metrics.get(pid)
+            metrics = cached_metrics.get(pid)
             if metrics is None:
                 metrics = self.store.project_metrics(pid)
             out.append({
@@ -156,6 +194,37 @@ class App:
         app = self.fastapi
 
         @app.middleware("http")
+        async def _auth_required(request, call_next):
+            """Optional network auth (OMNISTATE_AUTH_TOKEN): everything reachable
+            from the LAN must present a Bearer token when one is configured.
+
+            - GET / (static dashboard shell) and /health stay open so the
+              healthcheck and the token prompt still work.
+            - /api/* requires the header on every call.
+            - /mcp is checked at session creation (POST without an
+              Mcp-Session-Id); follow-ups on an already-authenticated session
+              pass without resending the header.
+            """
+            token = self.cfg.auth_token
+            if not token:
+                return await call_next(request)
+            path = request.url.path
+            if path in ("/", "/health"):
+                return await call_next(request)
+            protected = path.startswith("/api/") or path.startswith("/mcp")
+            if not protected:
+                return await call_next(request)
+            if path == "/mcp" and "mcp-session-id" in request.headers:
+                return await call_next(request)
+            if request.headers.get("authorization", "") != f"Bearer {token}":
+                return JSONResponse(
+                    {"error": "unauthorized"},
+                    status_code=401,
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return await call_next(request)
+
+        @app.middleware("http")
         async def _no_store_api(request, call_next):
             """Never let a browser/proxy cache the dashboard API: a scan must be
             visible immediately after it finishes (stale PR counts otherwise)."""
@@ -168,6 +237,18 @@ class App:
         @app.get("/", response_class=HTMLResponse)
         def index() -> str:
             return DASHBOARD_HTML.read_text(encoding="utf-8") if DASHBOARD_HTML.exists() else "<h1>OmniState v2</h1>"
+
+        @app.get("/favicon.svg")
+        def favicon_svg() -> Response:
+            p = Path(__file__).parent / "favicon.svg"
+            return Response(p.read_text(encoding="utf-8"), media_type="image/svg+xml") if p.exists() else Response(status_code=404)
+
+        @app.get("/favicon.ico")
+        def favicon_ico() -> Response:
+            # Serve the SVG for the legacy path too (browsers accept it via the
+            # <link rel=icon> in the dashboard head).
+            p = Path(__file__).parent / "favicon.svg"
+            return Response(p.read_text(encoding="utf-8"), media_type="image/svg+xml") if p.exists() else Response(status_code=404)
 
         @app.get("/health")
         def health() -> dict[str, Any]:
@@ -191,6 +272,7 @@ class App:
             project = register_project(self.cfg, self.store, container_path)
             if project is None:
                 return JSONResponse({"error": "cannot register project"}, status_code=400)
+            self.invalidate_metrics_cache()
             return {"registered": True, "project": project}
 
         @app.post("/api/discover")
@@ -231,9 +313,11 @@ class App:
             signal = (body.get("signal") or "").strip()
             reason = (body.get("reason") or "").strip()
             try:
-                return self.store.reinforce_memory(mem_id, signal, reason)
+                result = self.store.reinforce_memory(mem_id, signal, reason)
             except ValueError as e:
                 return JSONResponse({"error": str(e)}, status_code=400)
+            self.invalidate_metrics_cache()
+            return result
 
         @app.get("/api/memory/export")
         def api_memory_export() -> dict[str, Any]:
@@ -256,6 +340,7 @@ class App:
             mem_id = self.store.add_memory(
                 project_id=None, scope="shared", kind="note", title=text[:120], content=text, tags=tags
             )
+            self.invalidate_metrics_cache()
             return {"memory_id": mem_id, "scope": "shared"}
 
         @app.delete("/api/shared/{mem_id}")
@@ -264,6 +349,7 @@ class App:
             if row is None or row.get("scope") != "shared":
                 return JSONResponse({"error": "shared entry not found"}, status_code=404)
             self.store.delete_memory(mem_id)
+            self.invalidate_metrics_cache()
             return {"deleted": True, "memory_id": mem_id}
 
         @app.get("/api/stats")
@@ -288,8 +374,10 @@ class App:
                     include_forks=body.get("include_forks"),
                     include_archived=body.get("include_archived"),
                 )
-            except ValueError as e:
+            except (ValueError, RuntimeError) as e:
                 return JSONResponse({"error": str(e)}, status_code=400)
+            except Exception as e:  # noqa: BLE001
+                return JSONResponse({"error": str(e)}, status_code=502)
             return {"scan_id": scan_id, **summary}
 
         @app.get("/api/github/metrics")
@@ -392,6 +480,7 @@ class App:
             self.check_projects_github_state()
         except Exception:
             pass  # network issues must never break discovery
+        self.invalidate_metrics_cache()
         return registered
 
     def run_github_scan(
@@ -415,6 +504,8 @@ class App:
                 include_archived=self.cfg.github.include_archived if include_archived is None else include_archived,
             )
             scan_id = self.store.persist_gh_scan(result, account_list)
+        # Fresh PR counts must be visible immediately after "Scan now".
+        self.invalidate_metrics_cache()
         summary = {
             "method": result["method"],
             "total_repos": result["totalRepos"],

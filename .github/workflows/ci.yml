@@ -1,0 +1,101 @@
+name: CI
+
+# Inrepo smoke tests only. The real pytest suite (tests/) stays local-only on
+# purpose (it can touch local data paths); this job covers the parts that can
+# run safely here: compile check, temporary-DB store roundtrip, auth on /api
+# and /mcp, version consistency.
+#
+# Runs on every pull request to main and on every push to main.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install --quiet -r requirements.txt
+
+      - name: Compile-check server
+        run: python -m compileall -q server
+
+      - name: Store roundtrip + auth smoke test
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import tempfile
+          from pathlib import Path
+
+          from fastapi.testclient import TestClient
+
+          from server.app import App
+          from server.config import load_config
+          from server.store import Store
+
+          tmp = Path(tempfile.mkdtemp(prefix="omnistate-ci-"))
+          cfg = load_config(data_dir=tmp / "data", env={"OMNISTATE_ROOTS": f"{tmp}/h:/w"})
+          store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
+
+          # --- store roundtrip (fresh temp DB, no real data) ---
+          pid = store.upsert_project("demo", f"{tmp}/h/demo", "/w/demo")
+          mid = store.add_memory(project_id=pid, scope="project", kind="note",
+                                 title="CI note", content="ci smoke memory payload", tags=["ci"])
+          assert store.get_memory(mid)["title"] == "CI note"
+          found = store.search_memory("ci smoke")
+          assert found and found[0]["id"] == mid
+          out = store.reinforce_memory(mid, "important")
+          assert out["importance"] > 0.5
+          # pathological query must not break anything
+          assert store.search_memory("'; DROP TABLE memory;--") == []
+          store.close()
+
+          # --- App + auth middleware ---
+          store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
+          app = App(cfg, store)
+          app.mount_mcp()
+          client = TestClient(app)
+
+          assert client.get("/health").status_code == 200
+          # no token configured -> open
+          assert client.get("/api/stats").status_code == 200
+
+          cfg.auth_token = "ci-secret"
+          assert client.get("/api/stats").status_code == 401
+          assert client.get("/api/stats", headers={"Authorization": "Bearer ci-secret"}).status_code == 200
+          assert client.get("/api/stats", headers={"Authorization": "Bearer wrong"}).status_code == 401
+          # MCP session creation is gated too
+          r = client.post("/mcp", json={})
+          assert r.status_code == 401
+          r = client.post("/mcp", json={}, headers={"Authorization": "Bearer ci-secret"})
+          assert r.status_code != 401  # reached the MCP app (400 bad-jsonrpc ok)
+          store.close()
+          print("CI smoke OK")
+          PY
+
+      - name: Version files consistency + semver
+        run: |
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          v = Path("VERSION.txt").read_text().strip()
+          p = json.loads(Path("plugin.json").read_text())["version"]
+          if v != p:
+              raise SystemExit(f"VERSION mismatch: VERSION.txt={v} plugin.json={p}")
+          for x in (v, p):
+              if not re.fullmatch(r"\d+\.\d+\.\d+", x):
+                  raise SystemExit(f"not semver: {x}")
+          print(f"versions match: {v}")
+          PY

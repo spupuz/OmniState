@@ -12,17 +12,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify version consistency
+      - name: Verify version consistency (VERSION.txt == plugin.json, semver)
         run: |
-          VERSION_TXT=$(cat VERSION.txt | tr -d '[:space:]')
-          PLUGIN_VER=$(grep -o '"version": "[^"]*"' plugin.json | head -1 | cut -d'"' -f4)
-          
-          echo "VERSION.txt: $VERSION_TXT"
-          echo "plugin.json: $PLUGIN_VER"
-          
-          if [ "$VERSION_TXT" != "$PLUGIN_VER" ]; then
-            echo "::error::Version mismatch! VERSION.txt ($VERSION_TXT) != plugin.json ($PLUGIN_VER)"
-            exit 1
-          fi
-          
-          echo "Versions match: $VERSION_TXT"
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          v = Path("VERSION.txt").read_text().strip()
+          try:
+              p = json.loads(Path("plugin.json").read_text())["version"]
+          except Exception as exc:  # invalid plugin.json is a hard error
+              raise SystemExit(f"plugin.json is not valid JSON: {exc}")
+          print(f"VERSION.txt: {v!r}")
+          print(f"plugin.json: {p!r}")
+          if v != p:
+              raise SystemExit(f"::error::Version mismatch! VERSION.txt ({v}) != plugin.json ({p})")
+          for x in (v, p):
+              if not re.fullmatch(r"\d+\.\d+\.\d+", x):
+                  raise SystemExit(f"::error::'{x}' is not semver (X.Y.Z)")
+          print(f"Versions match: {v}")
+          PY
+
+      # README must carry a changelog entry for the bumped version. Only checked
+      # on push (a PR alone may change no version at all).
+      - name: Check README changelog entry (push only)
+        if: github.event_name == 'push'
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          v = Path("VERSION.txt").read_text().strip()
+          body = Path("README.md").read_text(encoding="utf-8")
+          for candidate in (f"### v{v}", f"### {v}", f"## v{v}", f"## {v}"):
+              if candidate in body:
+                  print(f"README changelog entry found: {candidate}")
+                  raise SystemExit(0)
+          raise SystemExit(f"::error::README.md has no changelog entry for {v}")
+          PY

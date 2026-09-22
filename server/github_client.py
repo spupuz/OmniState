@@ -10,6 +10,7 @@ All requests go to api.github.com only. The token is never exposed by callers.
 from __future__ import annotations
 
 import re
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,6 +21,36 @@ GITHUB_GRAPHQL = "https://api.github.com/graphql"
 STALE_DAYS = 30
 MAX_PAGES = 10
 CONCURRENCY = 8
+RETRIES = 3
+
+
+def _should_retry(resp: Any) -> bool:
+    """Rate ceilings (403/429) and transient 5xx deserve a short backoff."""
+    return resp.status_code in (403, 429) or resp.status_code >= 500
+
+
+def _backoff(attempt: int) -> float:
+    return min(1.0 * (1.5 ** attempt), 4.0)
+
+
+def _get(*, url: str, headers: dict[str, str], timeout: float,
+         follow_redirects: bool = False, retries: int = RETRIES) -> Any:
+    for attempt in range(retries):
+        res = httpx.get(url, headers=headers, timeout=timeout, follow_redirects=follow_redirects)
+        if not _should_retry(res) or attempt >= retries - 1:
+            return res
+        time.sleep(_backoff(attempt))
+    return res
+
+
+def _post(*, url: str, headers: dict[str, str], json: dict[str, Any],
+          timeout: float, retries: int = RETRIES) -> Any:
+    for attempt in range(retries):
+        res = httpx.post(url, headers=headers, json=json, timeout=timeout)
+        if not _should_retry(res) or attempt >= retries - 1:
+            return res
+        time.sleep(_backoff(attempt))
+    return res
 
 
 def _days_between(iso: str | None) -> int | None:
@@ -46,7 +77,7 @@ class GithubClient:
         if not self.token:
             return {"token_set": False}
         try:
-            res = httpx.get(f"{GITHUB_API}/user", headers=self._headers, timeout=15)
+            res = _get(url=f"{GITHUB_API}/user", headers=self._headers, timeout=15)
             if res.status_code != 200:
                 return {"token_set": True, "valid": False, "status": res.status_code}
             scopes = res.headers.get("x-oauth-scopes", "")
@@ -66,13 +97,14 @@ class GithubClient:
         author_counts: dict[str, int] = {}
         label_counts: dict[str, int] = {}
         pr_part = (
-            "pullRequests(states:OPEN,first:50,orderBy:{field:CREATED_AT,direction:ASC}){"
-            "totalCount nodes{isDraft createdAt author{login} reviewRequests{totalCount} labels(first:3){nodes{name}}}}"
+            "pullRequests(states:OPEN,first:100,orderBy:{field:CREATED_AT,direction:ASC}){"
+            "totalCount nodes{isDraft createdAt updatedAt reviews{totalCount} author{login} "
+            "reviewRequests{totalCount} labels(first:3){nodes{name}}}}"
             if extended
             else "pullRequests(states:OPEN){totalCount}"
         )
         issue_part = "issues(states:OPEN){totalCount}" if extended else ""
-        per_page = 50 if extended else 100
+        per_page = 100 if extended else 100
         query = (
             "query($login:String!,$cursor:String){repositoryOwner(login:$login){__typename "
             "repositories(first:%d,after:$cursor,orderBy:{field:NAME,direction:ASC}){pageInfo{hasNextPage endCursor} "
@@ -83,8 +115,8 @@ class GithubClient:
         cursor: str | None = None
         out: list[dict[str, Any]] = []
         while True:
-            res = httpx.post(
-                GITHUB_GRAPHQL,
+            res = _post(
+                url=GITHUB_GRAPHQL,
                 headers={**self._headers, "Content-Type": "application/json"},
                 json={"query": query, "variables": {"login": login, "cursor": cursor}},
                 timeout=30,
@@ -130,10 +162,14 @@ class GithubClient:
                     r["noReviewer"] = sum(
                         1
                         for p in nodes
-                        if not p.get("isDraft") and (p.get("reviewRequests") or {}).get("totalCount", 0) == 0
+                        if not p.get("isDraft")
+                        and (p.get("reviewRequests") or {}).get("totalCount", 0) == 0
+                        and (p.get("reviews") or {}).get("totalCount", 0) == 0
                     )
+                    # Stale = no push on the PR branch (updatedAt), not age since
+                    # creation: an old-but-active PR is never "stale".
                     r["stalePRs"] = sum(
-                        1 for p in nodes if (_days_between(p.get("createdAt")) or 0) >= self.stale_days
+                        1 for p in nodes if (_days_between(p.get("updatedAt")) or 0) >= self.stale_days
                     )
                     r["oldestPRDate"] = nodes[0].get("createdAt")
                     r["oldestPRDays"] = _days_between(nodes[0].get("createdAt"))
@@ -156,7 +192,7 @@ class GithubClient:
     def list_repos_rest(self, login: str) -> list[dict[str, Any]]:
         def page(kind: str, p: int):
             url = f"{GITHUB_API}/{kind}/{login}/repos?per_page=100&page={p}&sort=full_name&type=owner"
-            return httpx.get(url, headers=self._headers, timeout=30)
+            return _get(url=url, headers=self._headers, timeout=30)
 
         kind = "users"
         first = page("users", 1)
@@ -201,7 +237,7 @@ class GithubClient:
     def count_open_prs_rest(self, full_name: str) -> int | None:
         url = f"{GITHUB_API}/repos/{full_name}/pulls?state=open&per_page=1"
         try:
-            res = httpx.get(url, headers=self._headers, timeout=30)
+            res = _get(url=url, headers=self._headers, timeout=30)
         except Exception:
             return None
         if res.status_code != 200:
@@ -232,8 +268,8 @@ class GithubClient:
         the repo proves deletion (unauthenticated 404 == private repo too).
         """
         try:
-            res = httpx.get(
-                f"{GITHUB_API}/repos/{full_name}",
+            res = _get(
+                url=f"{GITHUB_API}/repos/{full_name}",
                 headers=self._headers, timeout=15, follow_redirects=True,
             )
         except Exception:

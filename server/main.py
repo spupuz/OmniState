@@ -25,6 +25,11 @@ logger = logging.getLogger("omnistate")
 
 
 def build_app() -> FastAPI:
+    if not logging.getLogger().handlers:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        )
     cfg = load_config()
     store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
     # Backfill: write shared files for pre-existing DB entries (mirror feature added later)

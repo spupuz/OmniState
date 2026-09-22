@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import os
+import traceback
+from functools import wraps
 from typing import Any
 
 from mcp.server.mcpserver import MCPServer
@@ -18,6 +22,52 @@ from .github_client import GithubClient
 from .indexer import discover_projects, import_legacy, register_project
 from .store import Store
 from .version import get_version
+
+log = logging.getLogger("omnistate.mcp")
+
+
+def _logged(fn: Any) -> Any:
+    """Log tool failures and surface them as clean ToolError messages.
+
+    Async/sync aware; preserves the original signature/docstring so the MCP
+    SDK keeps building the right tool schema (functools.wraps sets __wrapped__).
+    """
+
+    def _make_wrap(fn_err: Any) -> Any:
+        """Return a callable that catches non-ToolError failures and turns them
+        into clean, pre-`name`-safe ToolError messages.
+
+        The returned closure takes its own args so `*a, **k` are unambiguous
+        (a bare factory that referenced the outer wrapper's args would raise
+        `name 'a' is not defined`).
+        """
+
+        def _run(*a: Any, **k: Any) -> Any:
+            try:
+                return fn_err(*a, **k)
+            except ToolError:
+                raise
+            except Exception as e:  # noqa: BLE001
+                if os.environ.get("OMNISTATE_DEBUG"):
+                    traceback.print_exc()
+                log.warning("mcp tool %s failed: %s", fn_err.__name__, e)
+                raise ToolError(f"{fn_err.__name__}: {e}") from e
+
+        return _run
+
+    if asyncio.iscoroutinefunction(fn):
+
+        @wraps(fn)
+        async def async_wrapper(*a: Any, **k: Any) -> Any:
+            return await _make_wrap(fn)(*a, **k)
+
+        return async_wrapper
+
+    @wraps(fn)
+    def wrapper(*a: Any, **k: Any) -> Any:
+        return _make_wrap(fn)(*a, **k)
+
+    return wrapper
 
 
 def create_server(cfg: Config, store: Store) -> MCPServer:
@@ -32,6 +82,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     # ---------- projects ----------
 
     @server.tool()
+    @_logged
     def project_list() -> str:
         """List registered projects with metrics."""
         out = []
@@ -47,6 +98,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps(out, indent=2)
 
     @server.tool()
+    @_logged
     def project_register(path: str = "") -> str:
         """Register the current project (or a host path) so the server indexes it. Auto-registration."""
         host_path = path
@@ -71,6 +123,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         }, indent=2)
 
     @server.tool()
+    @_logged
     def project_summary(project: str) -> str:
         """Distilled summary (architecture + state) of a project."""
         row = _resolve_project(project)
@@ -83,12 +136,14 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({"project": project, "summary": summary, "metrics": metrics}, indent=2)
 
     @server.tool()
+    @_logged
     def project_metrics(project: str) -> str:
         """Active/archived/done tasks, snapshots and token savings of a project."""
         row = _resolve_project(project)
         return json.dumps(store.project_metrics(int(row["id"])), indent=2)
 
     @server.tool()
+    @_logged
     def project_import_legacy(project: str) -> str:
         """Import v1 per-project memory files once (migration). Read-only import."""
         row = _resolve_project(project)
@@ -96,6 +151,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps(result, indent=2)
 
     @server.tool()
+    @_logged
     def project_discover() -> str:
         """Scan mounted roots for new projects and register them (auto-registration)."""
         found = discover_projects(cfg)
@@ -109,6 +165,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     # ---------- sessions ----------
 
     @server.tool()
+    @_logged
     def session_start(project: str) -> str:
         """Start a session: load relevant memory (project + shared) and open tasks."""
         row = _resolve_project(project)
@@ -117,10 +174,11 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
             "project": project,
             "session_started": True,
             **ctx,
-            "token_measure": store.context_token_measure(int(row["id"])),
+            "token_measure": store.context_token_measure(int(row["id"]), ctx=ctx),
         }, indent=2)
 
     @server.tool()
+    @_logged
     def session_snapshot(project: str, summary: str = "") -> str:
         """Archive done tasks, distill progress and create a session chunk."""
         row = _resolve_project(project)
@@ -148,6 +206,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     # ---------- tasks ----------
 
     @server.tool()
+    @_logged
     def task_add(project: str, title: str, status: str = "todo") -> str:
         """Add a task to a project."""
         row = _resolve_project(project)
@@ -160,6 +219,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({"task_id": mem_id, "status": status}, indent=2)
 
     @server.tool()
+    @_logged
     def task_update(project: str, task_id: int, status: str) -> str:
         """Update a task status (-> done makes it ready for snapshot)."""
         row = _resolve_project(project)
@@ -177,6 +237,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({"task_id": task_id, "status": status}, indent=2)
 
     @server.tool()
+    @_logged
     def task_list(project: str, status: str = "") -> str:
         """List tasks of a project (optionally by status)."""
         row = _resolve_project(project)
@@ -193,6 +254,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     # ---------- memory ----------
 
     @server.tool()
+    @_logged
     def memory_search(query: str, project: str = "", scope: str = "all", limit: int = 10,
                       startDate: str = "", endDate: str = "", include_outdated: bool = False,
                       debug: bool = False) -> str:
@@ -206,6 +268,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps(results, indent=2)
 
     @server.tool()
+    @_logged
     def memory_remember(text: str, project: str = "", scope: str = "shared", tags: str = "") -> str:
         """Save a note (shared by default, or per-project)."""
         if scope not in ("shared", "project"):
@@ -222,6 +285,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({"memory_id": mem_id, "scope": scope}, indent=2)
 
     @server.tool()
+    @_logged
     def memory_recall(project: str) -> str:
         """Return relevant memory for a session start (reduced context)."""
         row = _resolve_project(project)
@@ -234,6 +298,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({"project": project, "recent": recent, "shared": shared}, indent=2)
 
     @server.tool()
+    @_logged
     def memory_reinforce(memory_id: int, signal: str, reason: str = "") -> str:
         """Apply a feedback signal (used/important/irrelevant/incorrect/outdated/restore).
         outdated/incorrect suppress the memory without deleting; restore re-activates.
@@ -241,23 +306,58 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps(store.reinforce_memory(memory_id, signal, reason), indent=2)
 
     @server.tool()
+    @_logged
     def memory_recent(limit: int = 10, project: str = "", include_outdated: bool = False) -> str:
         """Latest active memories (optionally per project, or including suppressed ones)."""
         return json.dumps(
-            store.list_recent_memories(limit=limit, project=project or None, include_outdated=include_outdated),
+            store.list_recent_memories(limit=min(limit, 200), project=project or None,
+                                       include_outdated=include_outdated),
             indent=2,
         )
 
     @server.tool()
+    @_logged
     def memory_export(path: str = "") -> str:
         """Dump all memories + reinforcement feedback to a JSON backup file."""
         return json.dumps(store.export_memories(path or "memory-export.json"), indent=2)
 
     @server.tool()
+    @_logged
     def memory_forget(memory_id: int) -> str:
         """Delete a memory entry by id (hard delete; prefer memory_reinforce)."""
         ok = store.delete_memory(memory_id)
         return json.dumps({"deleted": ok, "memory_id": memory_id}, indent=2)
+
+    # ---------- memory resources (read-only, JSON) ----------
+
+    @server.resource("omnistate://memory/recent", name="Recent memories",
+                     description="Latest active memories across projects and shared scope.",
+                     mime_type="application/json")
+    @_logged
+    def memory_recent_resource() -> str:
+        return json.dumps(store.list_recent_memories(limit=25), indent=2)
+
+    @server.resource("omnistate://memory/{id}", name="Memory entry",
+                     description="A single memory entry by id (or JSON error object).",
+                     mime_type="application/json")
+    @_logged
+    def memory_entry_resource(id: str) -> str:
+        try:
+            mid = int(id)
+        except ValueError:
+            return json.dumps({"error": f"invalid id: {id}"})
+        row = store.get_memory(mid)
+        if row is None:
+            return json.dumps({"error": f"memory {mid} not found"})
+        return json.dumps(row, indent=2)
+
+    @server.resource("omnistate://projects/{project}/recent", name="Recent project memory",
+                     description="Most recent memory entries of a registered project.",
+                     mime_type="application/json")
+    @_logged
+    def project_recent_resource(project: str) -> str:
+        row = _resolve_project(project)
+        return json.dumps(store.memory_for_project(int(row["id"]), limit=15), indent=2)
 
     # ---------- GitHub PR Health ----------
 
@@ -265,16 +365,22 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return GithubClient(cfg.github.token, stale_days=cfg.github.stale_days)
 
     @server.tool()
-    def github_scan(accounts: str = "", extended: bool = True, include_forks: bool = False,
-                    include_archived: bool = False) -> str:
+    @_logged
+    async def github_scan(accounts: str = "", extended: bool = True, include_forks: bool = False,
+                          include_archived: bool = False) -> str:
         """Scan GitHub accounts/orgs for open PRs and save metrics to the DB."""
         account_list = [a.strip() for a in (accounts or ",".join(cfg.github.accounts)).split(",") if a.strip()]
         if not account_list:
             raise ToolError("No accounts configured. Pass accounts or set them via github_config.")
-        result = _github_client().scan(
-            account_list, extended=extended, include_forks=include_forks, include_archived=include_archived
+        # Network + persistence is blocking: keep it off the event loop.
+        result = await asyncio.to_thread(
+            lambda: _github_client().scan(
+                account_list, extended=extended, include_forks=include_forks,
+                include_archived=include_archived,
+            )
         )
-        scan_id = store.persist_gh_scan(result, account_list)
+        scan_id = await asyncio.to_thread(store.persist_gh_scan, result, account_list)
+        log.info("github_scan: method=%s repos=%s prs=%s", result["method"], result["totalRepos"], result["totalPRs"])
         return json.dumps({
             "scan_id": scan_id,
             "method": result["method"],
@@ -284,6 +390,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         }, indent=2)
 
     @server.tool()
+    @_logged
     def github_metrics() -> str:
         """Latest GitHub scan totals."""
         scan = store.latest_gh_scan()
@@ -294,6 +401,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({**scan, "delta_vs_previous": delta}, indent=2)
 
     @server.tool()
+    @_logged
     def github_delta() -> str:
         """Delta between the last two GitHub scans."""
         scans = store.gh_history(limit=2)
@@ -309,6 +417,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         }, indent=2)
 
     @server.tool()
+    @_logged
     def github_history(top_n: int = 5, limit: int = 30) -> str:
         """Historical open PR trend (total + per-repo)."""
         scans = store.gh_history(limit=limit)
@@ -317,16 +426,19 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         return json.dumps({"trend": trend, "per_repo": per_repo}, indent=2)
 
     @server.tool()
+    @_logged
     def github_top_authors(limit: int = 10) -> str:
         """Top authors of open PRs across scans."""
         return json.dumps(store.gh_top_authors(limit=limit), indent=2)
 
     @server.tool()
+    @_logged
     def github_top_labels(limit: int = 10) -> str:
         """Most frequent PR labels across scans."""
         return json.dumps(store.gh_top_labels(limit=limit), indent=2)
 
     @server.tool()
+    @_logged
     def github_config(accounts: str = "", token: str = "", extended: bool = True) -> str:
         """Save GitHub accounts/token/config for automatic scans. Token is stored in /data/config.json only."""
         if accounts:
@@ -344,6 +456,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
         }, indent=2)
 
     @server.tool()
+    @_logged
     def github_token_info() -> str:
         """GitHub token metadata (valid/login/scopes). Never returns the token."""
         return json.dumps(GithubClient(cfg.github.token).token_info(), indent=2)

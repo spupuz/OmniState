@@ -51,6 +51,9 @@ class Config:
     scan_interval_seconds: int = 300
     reindex_on_change: bool = True
     auto_import_legacy: bool = False
+    # Bearer token protecting /api/* and MCP session creation (network access).
+    # Empty = open (trusted localhost only). Never logged.
+    auth_token: str = ""
 
     # ---- derived paths ----
     @property
@@ -123,6 +126,7 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
         cfg.scan_interval_seconds = int(raw.get("scan_interval_seconds", cfg.scan_interval_seconds))
         cfg.reindex_on_change = bool(raw.get("reindex_on_change", cfg.reindex_on_change))
         cfg.auto_import_legacy = bool(raw.get("auto_import_legacy", cfg.auto_import_legacy))
+        cfg.auth_token = str(raw.get("auth_token", "") or "")
         for r in raw.get("roots", []):
             cfg.roots.append(Root(host=r.get("host", ""), container=r.get("container", "")))
         gh = raw.get("github", {})
@@ -152,6 +156,8 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
         cfg.scan_interval_seconds = int(env["OMNISTATE_SCAN_INTERVAL_SECONDS"])
     if env.get("OMNISTATE_AUTO_IMPORT_LEGACY") is not None:
         cfg.auto_import_legacy = env["OMNISTATE_AUTO_IMPORT_LEGACY"].strip().lower() in ("1", "true", "yes", "on")
+    if env.get("OMNISTATE_AUTH_TOKEN") is not None:
+        cfg.auth_token = env["OMNISTATE_AUTH_TOKEN"].strip()
 
     for d in (cfg.shared_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)
@@ -165,6 +171,7 @@ def save_config(cfg: Config) -> None:
         "scan_interval_seconds": cfg.scan_interval_seconds,
         "reindex_on_change": cfg.reindex_on_change,
         "auto_import_legacy": cfg.auto_import_legacy,
+        "auth_token": cfg.auth_token,
         "github": {
             "accounts": cfg.github.accounts,
             "token": cfg.github.token,

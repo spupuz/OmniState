@@ -187,6 +187,11 @@ CREATE TABLE IF NOT EXISTS gh_labels (
 CREATE INDEX IF NOT EXISTS idx_projects_name ON projects(name);
 CREATE INDEX IF NOT EXISTS idx_memory_project ON memory(project_id);
 CREATE INDEX IF NOT EXISTS idx_memory_scope ON memory(scope);
+CREATE INDEX IF NOT EXISTS idx_memory_created ON memory(created_at);
+CREATE INDEX IF NOT EXISTS idx_memory_updated ON memory(updated_at, project_id);
+CREATE INDEX IF NOT EXISTS idx_memory_scope_lifecycle ON memory(scope, lifecycle_state);
+CREATE INDEX IF NOT EXISTS idx_feedback_memory ON memory_feedback(memory_id);
+CREATE INDEX IF NOT EXISTS idx_feedback_memory_created ON memory_feedback(memory_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_gh_repos_scan ON gh_repos(scan_id);
 CREATE INDEX IF NOT EXISTS idx_gh_scans_ts ON gh_scans(timestamp);
 CREATE INDEX IF NOT EXISTS idx_gh_authors_scan ON gh_authors(scan_id);
@@ -341,16 +346,7 @@ class Store:
         self.execute("UPDATE projects SET status=? WHERE name = ?", (status, name))
 
     def set_project_gh_state(self, name: str, state: str, *, repo: str | None = None) -> None:
-        if repo is None:
-            self.execute(
-                "UPDATE projects SET gh_state=?, gh_checked_at=? WHERE name = ?",
-                (state, _now(), name),
-            )
-        else:
-            self.execute(
-                "UPDATE projects SET gh_repo=?, gh_state=?, gh_checked_at=? WHERE name = ?",
-                (repo, state, _now(), name),
-            )
+        """Single UPDATE: gh_state now, gh_repo only when provided (COALESCE)."""
         self.execute(
             "UPDATE projects SET gh_state=?, gh_repo=COALESCE(?, gh_repo), gh_checked_at=? WHERE name = ?",
             (state, repo, _now(), name),
@@ -574,8 +570,10 @@ class Store:
         return out
 
     def _decayed_importance(self, r: dict[str, Any], importance: float) -> float:
-        """Half-life decay anchored to last_reinforced_at (un-reinforced: never decays)."""
-        anchor = r.get("last_reinforced_at")
+        """Half-life decay anchored to last_reinforced_at, falling back to
+        created_at so a never-reinforced memory still fades over time
+        (non-destructive: importance drops, the entry is never deleted)."""
+        anchor = r.get("last_reinforced_at") or r.get("created_at")
         if not anchor or importance <= 0:
             return importance
         try:
@@ -765,7 +763,7 @@ class Store:
             ],
         }
 
-    def context_token_measure(self, project_id: int) -> dict[str, Any]:
+    def context_token_measure(self, project_id: int, ctx: dict[str, Any] | None = None) -> dict[str, Any]:
         """Measured token budget for a project.
 
         Real data, not an estimate: both sides are counted with a real
@@ -773,12 +771,14 @@ class Store:
           - stored_tokens: all project memory content (chunks + tasks + notes)
           - loaded_tokens: the actual session_start payload that gets returned
           - token_savings: stored - loaded  (context you no longer re-read raw)
+
+        Pass `ctx` (already-computed session_context) to avoid recomputing it.
         """
         stored = 0
         for r in self.q("SELECT content FROM memory WHERE project_id = ?", (project_id,)):
             stored += count_tokens(r["content"] or "")
         # Same serialization session_start emits, so the loaded side is exact.
-        loaded = count_tokens(json.dumps(self.session_context(project_id), indent=2))
+        loaded = count_tokens(json.dumps(ctx if ctx is not None else self.session_context(project_id), indent=2))
         return {
             "storedTokens": stored,
             "loadedTokens": loaded,

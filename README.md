@@ -1,4 +1,8 @@
-# OmniState v2.3.4
+# OmniState v2.4.0
+
+<p align="center">
+  <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
+</p>
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -17,6 +21,8 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
+- **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
+- **Favicon + branding**: `server/favicon.svg` served at `/favicon.svg` and `/favicon.ico` (exempt from auth) and shown in the README and dashboard.
 - **Privacy-first**: the DB, the metrics and the token **never leave your data folder** and never end up on GitHub.
 
 ## Installation (Docker)
@@ -49,12 +55,17 @@ cp .env.example .env
 | `GITHUB_TOKEN` | — | GitHub PAT: enables GraphQL, private repos and extended metrics. **Never exposed** by API/dashboard/MCP. |
 | `GITHUB_SCAN_INTERVAL_HOURS` | — | Hours between automatic scans (default `6`). |
 | `OMNISTATE_SCAN_INTERVAL_SECONDS` | — | Seconds between discovery scans (default `300`). |
+| `OMNISTATE_AUTH_TOKEN` | — | **Optional** access token for everything reachable over the network (`/api/*` + MCP sessions) — set it if the box is reachable by others on the LAN. Read below for how each client sends it. |
 | `DATA_HOST_DIR` | — | Host folder where all server data lives, bind-mounted at `/data` (default `./data` inside the OmniState dir). A plain directory: browse it, back it up, move it. |
 | `OMNISTATE_AUTO_IMPORT_LEGACY` | — | Import old v1 memory files (`chunks/`, `tasks-history.json`, …) automatically when a project with such files is discovered (default off: `false`). |
 
 The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. If you lose it, rotate it on GitHub.
 
-Verify: `curl http://localhost:8347/health` → `{"status":"ok","version":"X.Y.Z",...}` (the version always mirrors `VERSION.txt`).
+### Access token (optional auth)
+
+When `OMNISTATE_AUTH_TOKEN` is set in `.env`, the server requires a **Bearer token** on `/api/*` and on **MCP session creation** (`POST /mcp` without an `Mcp-Session-Id`). Routes that stay open on purpose: `/` (dashboard shell, so the token prompt loads), `/health`, `/favicon.*`, and MCP follow-ups that already carry a server-issued `Mcp-Session-Id`. Without the variable the server is wide open, as before.
+
+Verify: `curl http://localhost:8347/health` → `{"status":"ok","version":"X.Y.Z",...}` (the version always mirrors `VERSION.txt`). With a token set, `curl http://localhost:8347/api/projects` returns **401** unless you send `-H "Authorization: Bearer $TOKEN"`.
 
 ### Where the data lives (mount points)
 
@@ -99,10 +110,16 @@ Add the remote MCP to your `opencode.json`:
 ```json
 {
   "mcp": {
-    "omnistate": { "type": "remote", "url": "http://localhost:8347/mcp" }
+    "omnistate": {
+      "type": "remote",
+      "url": "http://localhost:8347/mcp",
+      "headers": { "Authorization": "Bearer {file:/root/.config/opencode/omnistate_token}" }
+    }
   }
 }
 ```
+
+The `{file:...}` interpolation reads the token from a local, `chmod 600` file instead of hardcoding the secret in the config. Omit `headers` when `OMNISTATE_AUTH_TOKEN` is not set.
 
 ### Antigravity
 
@@ -111,7 +128,10 @@ Global (all workspaces) via the GUI: agent panel `…` → **MCP Servers** → *
 ```json
 {
   "mcpServers": {
-    "omnistate": { "serverUrl": "http://localhost:8347/mcp" }
+    "omnistate": {
+      "serverUrl": "http://localhost:8347/mcp",
+      "httpHeaders": { "Authorization": "Bearer PASTE-OMNISTATE_AUTH_TOKEN-HERE" }
+    }
   }
 }
 ```
@@ -120,7 +140,7 @@ Note: for remote (HTTP) servers Antigravity requires the **`serverUrl`** field �
 
 ### Other tools
 
-Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8347/mcp`.
+Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8347/mcp` and add the `Authorization: Bearer <token>` header on session creation if auth is enabled.
 
 ## Usage
 
@@ -145,6 +165,8 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 
 Open **http://localhost:8347** in the browser:
 
+> **Auth**: if `OMNISTATE_AUTH_TOKEN` is set, the dashboard shows an *Access token* field in the header. Paste the token there and press **Token** — the browser stores it in `localStorage` (`omnistate_auth_token`) and sends it as `Authorization: Bearer` on every API call. Do it once per browser.
+
 - **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory; clicking a card drills into the project.
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
@@ -166,9 +188,11 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 
 ```
 CONTAINER omnistate (:8347)
-├── /mcp        → MCP Streamable HTTP (tools & resources)
-├── /api/*      → REST for the dashboard
-├── /           → web dashboard
+├── /mcp        → MCP Streamable HTTP (tools & resources) — auth on session creation
+├── /api/*      → REST for the dashboard — Bearer auth when enabled
+├── /           → web dashboard (open shell, loads even without a token)
+├── /favicon.*  → icons (open)
+├── /health     → healthcheck (open)
 └── /data       → SQLite index.db (memory + GitHub metrics) + shared/ + config.json
     └── bind mount of DATA_HOST_DIR (host folder, default ./data) — git-ignored, never on GitHub
 
@@ -287,7 +311,16 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.3.4 (current)
+### v2.4.0 (current)
+- **Security**: optional access token (`OMNISTATE_AUTH_TOKEN` in `.env` / `server/config.py:auth_token`) protecting everything reachable over the network — `BaseHTTPMiddleware` `/_auth_required` guards `/api/*` and MCP session creation (`POST /mcp` without `Mcp-Session-Id`), while `/`, `/health`, `/favicon.*` and already-authenticated `Mcp-Session-Id` follow-ups stay open. Dashboard shows a header token prompt stored in `localStorage` (`omnistate_auth_token`); `opencode.json` uses `{file:...}` header interpolation and Antigravity uses `~/.gemini/config/mcp_config.json:httpHeaders` — no secret hardcoded.
+- **Features (branding)**: `server/favicon.svg` (indigo→cyan gradient "O") served at `GET /favicon.svg` and legacy `GET /favicon.ico` (`server/app.py:Response`), linked via `<link rel="icon">` in `dashboard.html` and as `<img src="server/favicon.svg">` in the README.
+- **Bugfix (MCP)**: harden `server/mcp_server.py:_logged` — new `_make_wrap` closure owns its `*argv/**kwargs`, separate async/sync wrappers with `functools.wraps`, `OMNISTATE_DEBUG` traceback, all tools now wrapped with `@_logged` (fixes `NameError: name 'a' is not defined` + unreachable dead-code after `return wrapper`).
+- **Bugfix (dashboard)**: `/_project_metrics_list` TTL cache now caches only `all_project_metrics()` and recomputes `category`/`gh_state` every poll (fixes stale `archived` after de-archiving, `test_project_category_archived_via_github_scan` — 63 passed); `server/dashboard.html:api()` header-merge bug fixed (`...rest, headers` instead of clobbering `opts.headers`, fixes 401 on `Scan now`); `api_github_scan` now returns `400` on `ValueError`/`RuntimeError` and `502` on unexpected errors instead of `500`; dashboard `fetch` uses `cache: 'no-store'` and server sends `no-store` on `/api/*`.
+- **Bugfix (GitHub)**: `server/github_client.py` scans use `pullRequests(first:100, states:OPEN, orderBy:updatedAt)` + `reviews.totalCount`, `noReviewer` gated on `!isDraft`, stale on `updatedAt`, retry/backoff `_get`/`_post` (`RETRIES=3`, 1.5^n on `403/429/5xx`), `github_scan` runs via `asyncio.to_thread`.
+- **Performance**: `server/store.py` adds indices (`idx_memory_*`, `idx_feedback_*`), `memory_recent` bounded (`limit=200`), decayed importance anchored to `COALESCE(last_reinforced_at, created_at)`, `context_token_measure` accepts precomputed `ctx`; `server/main.py` pre-warms `tiktoken` via `logging.basicConfig`.
+- **CI**: new `ci.yml` smoke workflow (compile, temporary-DB roundtrip, auth probes, version consistency) on every PR/push to `main`; `release.yml` adds `concurrency` guard; `version-check.yml` tightened semver enforcement.
+
+### v2.3.4
 - **Bugfix**: the "Only with open PRs" filter is now restored reliably after a scan or a refresh — the dashboard read its shared-memory note with a case-mismatched comparison (`content.toLowerCase()` against a non-lowercased `GH_ONLY_PR_` prefix), so it always resolved to "off" and unchecked the box after every reload. The preference is read case-insensitively and survives scans, refreshes and page loads.
 
 ### v2.3.3

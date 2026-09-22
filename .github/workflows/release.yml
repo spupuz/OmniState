@@ -10,9 +10,16 @@ on:
 permissions:
   contents: write
 
+# One release at a time: two pushes touching the version files in quick
+# succession would otherwise race on creating the same tag.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,9 +28,17 @@ jobs:
       - name: Read version
         id: version
         run: |
-          VERSION=$(cat VERSION.txt | tr -d '[:space:]')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          v = Path("VERSION.txt").read_text().strip()
+          if not re.fullmatch(r"\d+\.\d+\.\d+", v):
+              raise SystemExit(f"VERSION.txt is not semver: {v!r}")
+          print(f"version={v}")
+          print(f"tag=v{v}")
+          PY
+          echo "version=$(cat VERSION.txt | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+          echo "tag=v$(cat VERSION.txt | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
       - name: Check tag exists
         id: check_tag
