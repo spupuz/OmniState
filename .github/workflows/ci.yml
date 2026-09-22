@@ -60,11 +60,11 @@ jobs:
           assert store.search_memory("'; DROP TABLE memory;--") == []
           store.close()
 
-          # --- App + auth middleware ---
+          # --- App + auth middleware (App wraps FastAPI in .fastapi) ---
           store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
           app = App(cfg, store)
           app.mount_mcp()
-          client = TestClient(app)
+          client = TestClient(app.fastapi)
 
           assert client.get("/health").status_code == 200
           # no token configured -> open
