@@ -130,9 +130,12 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 | `session_start` | Loads relevant memory, starts a session |
 | `session_snapshot` | Archives done tasks, distills progress, creates a chunk |
 | `task_add` / `task_update` / `task_list` | Task management |
-| `memory_search` | Cross-project + shared memory full-text search |
+| `memory_search` | Scored hybrid recall across projects + shared (keyword coverage, tag boost, decayed importance, familiarity); accepts `startDate`/`endDate` and natural-language dates |
 | `memory_remember` | Saves a note (per-project or shared) |
 | `memory_recall` / `memory_forget` | Recall and delete memory |
+| `memory_reinforce` | Applies feedback signals (`used`/`important`/`irrelevant`/`incorrect`/`outdated`) that tune recall without deleting |
+| `memory_recent` | Lists the latest active memories (optionally per project) |
+| `memory_export` | Dumps all memories + feedback to a JSON backup file |
 | `project_summary` / `project_metrics` | Project state and metrics |
 | `github_scan` | Runs a GitHub scan (open PRs + metrics) |
 | `github_metrics` / `github_delta` / `github_history` | GitHub scan results |
@@ -147,6 +150,7 @@ Open **http://localhost:8347** in the browser:
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately), "Only with open PRs" filter (persisted via shared memory).
 - **Global search** across projects.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`), and empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
 
 ## GitHub PR Health
 
@@ -284,6 +288,9 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 ## Changelog
 
 ### v2.3.3 (current)
+- **Security**: fixed a stored XSS in the dashboard — the `esc()` function emitted a literal `"` instead of `&quot;`, leaving attribute injections possible; it now emits proper entities.
+- **Performance**: fixed N+1 queries in the project-metrics dashboard — metrics for every project are now fetched in a single pass (counts + measured token savings), falling back per project only if absent.
+- **UX**: chart accessibility and actionable empty states — trend/top-repo charts expose summary stats via `aria-label` (`role="img"`), and empty states show the exact next command to run.
 - **Bugfix**: `/health` and the MCP server reported a hardcoded `2.0.0` instead of the real release version. The version now has a single source of truth — `server/version.py` reads `VERSION.txt` (also baked into the image at `/app/VERSION.txt`) — used by `/health`, the FastAPI app and the MCP server; a test guards against drift.
 - **Metrics**: token savings are now **real measured data, not an estimate**. `session_start` returns a single bounded, deduplicated context (`recent_memory` with the 3 latest chunks at ≤600 chars + `recall` of notes at ≤400 chars, chunks/tasks excluded) built by one shared source (`Store.session_context`), and both `project_metrics` and `/api/stats` compute `tokenSavings = stored raw tokens − loaded session payload tokens` with a real tokenizer (`tiktoken` cl100k_base, BPE cache pre-warmed in the image). The old `words × 1.3 + chunks × 4000` heuristic is gone.
 - **Features (memory engine)**: recall is now a scored hybrid instead of raw FTS5. `memory_search` scores results by keyword coverage + tag boost (applied only in the headroom above the relevance score), decayed importance (half-life anchored to the last `used`/`important` signal) and a saturating familiarity boost (≤0.03) drawn from recalled-in-the-last-30-days exposures; a relevance gate (0.55, 0.75 for long queries) filters noise; near-duplicate memories (token Jaccard ≥0.9) collapse instead of filling the results.

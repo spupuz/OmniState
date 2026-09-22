@@ -847,38 +847,85 @@ class Store:
         }
 
     def all_project_metrics(self) -> dict[int, dict[str, Any]]:
-        """Bulk fetch memory metrics for all projects to prevent O(N) DB queries (N+1 bottleneck)."""
-        res = {r["id"]: {"activeTasks": 0, "doneTasks": 0, "totalTasks": 0, "snapshots": 0, "_words": 0}
-               for r in self.q("SELECT id FROM projects")}
+        """Bulk metrics for every project (dashboard list): single streaming pass
+        so the N+1 bottleneck is gone, with the same measured token savings that
+        context_token_measure() reports (tiktoken stored-minus-loaded)."""
+        def _clip(text: str, limit: int) -> str:
+            text = (text or "").strip()
+            return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
-        for r in self.q("""
-            SELECT project_id,
-                SUM(CASE WHEN kind IN ('task', 'chunk') THEN 1 ELSE 0 END) as total_metrics_count,
-                SUM(CASE WHEN kind = 'task' AND json_valid(content) AND COALESCE(json_extract(content, '$.status'), 'todo') = 'done' THEN 1 ELSE 0 END) as done,
-                SUM(CASE WHEN kind = 'task' AND (NOT json_valid(content) OR COALESCE(json_extract(content, '$.status'), 'todo') != 'done') THEN 1 ELSE 0 END) as active,
-                SUM(CASE WHEN kind = 'chunk' THEN 1 ELSE 0 END) as chunks
-            FROM memory WHERE kind IN ('task', 'chunk') GROUP BY project_id
-        """):
-            if (pid := r["project_id"]) in res:
-                res[pid].update({
-                    "doneTasks": r["done"] or 0,
-                    "activeTasks": r["active"] or 0,
-                    "snapshots": r["chunks"] or 0
+        res: dict[int, dict[str, Any]] = {
+            r["id"]: {
+                "activeTasks": 0, "doneTasks": 0, "totalTasks": 0, "snapshots": 0,
+                "storedTokens": 0, "loadedTokens": 0, "tokenSavings": 0,
+                "_tasks": [], "_recent": [], "_recall": [],
+            }
+            for r in self.q("SELECT id FROM projects")
+        }
+
+        for r in self.q(
+            "SELECT project_id, id, kind, content, title, tags, created_at, updated_at, lifecycle_state "
+            "FROM memory"
+        ):
+            if (pid := r["project_id"]) not in res:
+                continue
+            m = res[pid]
+            m["totalTasks"] += 1
+            m["storedTokens"] += count_tokens(r["content"] or "")
+            kind = r["kind"]
+            if kind == "task":
+                m["_tasks"].append(r)
+            elif kind == "chunk":
+                m["snapshots"] += 1
+            if r["lifecycle_state"] == "active":
+                if kind in ("chunk", "summary"):
+                    m["_recent"].append(r)
+                elif kind not in ("chunk", "summary", "task"):
+                    m["_recall"].append(r)
+
+        shared_dump = [
+            {"title": m["title"], "content": _clip(m["content"], 200), "tags": m["tags"]}
+            for m in self.q(
+                "SELECT title, content, tags FROM memory WHERE scope = 'shared' AND lifecycle_state = 'active' "
+                "ORDER BY created_at DESC LIMIT 5"
+            )
+        ]
+
+        for pid, m in res.items():
+            open_tasks = []
+            for t in sorted(m["_tasks"], key=lambda x: x["created_at"], reverse=True):
+                try:
+                    meta = json.loads(t["content"])
+                except Exception:
+                    meta = {"title": t.get("title"), "status": "todo"}
+                if meta.get("status", "todo") == "done":
+                    m["doneTasks"] += 1
+                    continue
+                m["activeTasks"] += 1
+                open_tasks.append({
+                    "id": t["id"],
+                    "title": meta.get("title", t["title"]),
+                    "status": meta.get("status", "todo"),
                 })
-
-        for r in self.q("SELECT project_id, COUNT(*) as c FROM memory GROUP BY project_id"):
-            if r["project_id"] in res:
-                res[r["project_id"]]["totalTasks"] = r["c"]
-
-        # Stream content to avoid OOM
-        with self.tx() as conn:
-            cur = conn.execute("SELECT project_id, content FROM memory WHERE kind IN ('chunk','task')")
-            for r in cur:
-                if r["project_id"] in res:
-                    res[r["project_id"]]["_words"] += len(r["content"].split())
-
-        for m in res.values():
-            m["tokenSavings"] = int(m.pop("_words") * 1.3) + (m["snapshots"] * 4000)
+            recent = sorted(m["_recent"], key=lambda x: x["created_at"], reverse=True)[:3]
+            recall = sorted(m["_recall"], key=lambda x: x["updated_at"], reverse=True)[:8]
+            ctx = {
+                "open_tasks": open_tasks,
+                "recent_memory": [
+                    {"title": r["title"], "content": _clip(r["content"], 600), "created_at": r["created_at"]}
+                    for r in recent
+                ],
+                "shared_memory": shared_dump,
+                "recall": [
+                    {"title": r["title"], "content": _clip(r["content"], 400), "created_at": r["created_at"]}
+                    for r in recall
+                ],
+            }
+            m["loadedTokens"] = count_tokens(json.dumps(ctx, indent=2))
+            m["tokenSavings"] = max(0, m["storedTokens"] - m["loadedTokens"])
+            m.pop("_tasks", None)
+            m.pop("_recent", None)
+            m.pop("_recall", None)
 
         return res
 
