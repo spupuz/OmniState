@@ -1,4 +1,4 @@
-# OmniState v2.3.3
+# OmniState v2.3.4
 
 **Multi-project persistent memory MCP server**, with a built-in web dashboard.
 
@@ -287,7 +287,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.3.3 (current)
+### v2.3.4 (current)
+- **Bugfix**: the "Only with open PRs" filter is now restored reliably after a scan or a refresh — the dashboard read its shared-memory note with a case-mismatched comparison (`content.toLowerCase()` against a non-lowercased `GH_ONLY_PR_` prefix), so it always resolved to "off" and unchecked the box after every reload. The preference is read case-insensitively and survives scans, refreshes and page loads.
+
+### v2.3.3
 - **Security**: fixed a stored XSS in the dashboard — the `esc()` function emitted a literal `"` instead of `&quot;`, leaving attribute injections possible; it now emits proper entities.
 - **Performance**: fixed N+1 queries in the project-metrics dashboard — metrics for every project are now fetched in a single pass (counts + measured token savings), falling back per project only if absent.
 - **UX**: chart accessibility and actionable empty states — trend/top-repo charts expose summary stats via `aria-label` (`role="img"`), and empty states show the exact next command to run.

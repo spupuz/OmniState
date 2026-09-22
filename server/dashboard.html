@@ -457,7 +457,7 @@ async function loadGithubPreference() {
     const note = sharedNotes.find(n => (n.title || '').startsWith(PREF_NOTE_PREFIX));
     if (note) {
       // Content is stored as PREF_NOTE_PREFIX + "true"/"false"
-      const checked = (note.content || '').trim().toLowerCase() === PREF_NOTE_PREFIX + 'true';
+      const checked = (note.content || '').trim().toUpperCase() === PREF_NOTE_PREFIX + 'TRUE';
       $('gh-only-prs').checked = checked;
       // Immediately render repos with the loaded preference
       renderGhRepos();
