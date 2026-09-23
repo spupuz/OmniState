@@ -68,6 +68,33 @@
   .btn:hover { filter: brightness(1.15); }
   .btn.ghost { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #94a3b8; }
   .hidden { display: none !important; }
+  /* Light theme */
+  [data-theme="light"] { --bg-dark:#f1f5f9; --card-bg:rgba(255,255,255,.92); }
+  [data-theme="light"] body { color:#0f172a; background-image: radial-gradient(circle at 10% 10%, rgba(59,130,246,.06) 0%, transparent 40%), radial-gradient(circle at 90% 90%, rgba(139,92,246,.06) 0%, transparent 40%);}
+  [data-theme="light"] .glass { border-color: rgba(15,23,42,.08); box-shadow: 0 10px 30px -10px rgba(15,23,42,.12);}
+  [data-theme="light"] th { color:#64748b; }
+  [data-theme="light"] td { border-color: rgba(15,23,42,.06); }
+  [data-theme="light"] input,[data-theme="light"] select { background:#fff; border-color: rgba(15,23,42,.12); color:#0f172a; }
+  [data-theme="light"] .text-slate-400 { color:#64748b !important; }
+  [data-theme="light"] .text-slate-500 { color:#94a3b8 !important; }
+  .skel { background: linear-gradient(90deg, rgba(255,255,255,.06) 25%, rgba(255,255,255,.12) 37%, rgba(255,255,255,.06) 63%); background-size:400% 100%; animation: shimmer 1.2s infinite; border-radius:.6rem; }
+  [data-theme="light"] .skel { background: linear-gradient(90deg, rgba(15,23,42,.06) 25%, rgba(15,23,42,.10) 37%, rgba(15,23,42,.06) 63%); background-size:400% 100%; }
+  @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+  #toast-wrap { position:fixed; bottom:1.25rem; right:1.25rem; display:flex; flex-direction:column; gap:.5rem; z-index:9999; pointer-events:none; }
+  .toast { pointer-events:auto; padding:.7rem 1rem; border-radius:.75rem; font-size:.82rem; font-weight:600; box-shadow:0 10px 30px rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1); animation: toastIn .22s ease; max-width: 360px; }
+  .toast.ok { background:#0f766e; color:#fff; } .toast.err { background:#7f1d1d; color:#fecaca; } .toast.info { background:#1e293b; color:#e2e8f0; }
+  @keyframes toastIn { from{opacity:0; transform:translateY(8px) scale(.98)} to{opacity:1; transform:none} }
+  #palette { position:fixed; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(4px); z-index:9998; display:flex; align-items:flex-start; justify-content:center; padding-top:18vh; }
+  #palette.hidden { display:none !important; }
+  #palette-box { width:min(640px,92vw); background:#0f172a; border:1px solid rgba(255,255,255,.1); border-radius:1rem; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+  [data-theme="light"] #palette-box { background:#fff; }
+  #palette-input { width:100%; border:none; border-bottom:1px solid rgba(255,255,255,.08); border-radius:0; padding:.9rem 1.1rem; font-size:.95rem; }
+  .palette-item { padding:.65rem 1rem; cursor:pointer; display:flex; justify-content:space-between; gap:.75rem; font-size:.85rem; }
+  .palette-item:hover,.palette-item.active { background:rgba(59,130,246,.15); }
+  .palette-item kbd { font-size:.7rem; background:rgba(255,255,255,.08); padding:.15rem .35rem; border-radius:.3rem; }
+  .copy-btn { font-size:.7rem; padding:.25rem .5rem; border-radius:.4rem; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); cursor:pointer; }
+  .copy-btn:hover { background:rgba(59,130,246,.2); }
+  .kbd { font-size:.68rem; padding:.15rem .35rem; border-radius:.3rem; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); font-family:monospace; }
 </style>
 </head>
 <body class="p-6 md:p-10">
@@ -87,6 +114,8 @@
     </div>
     <div class="flex gap-3 flex-wrap items-center">
         <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (se abilitato)" class="w-44 text-xs">
+        <button class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)">🌙</button>
+        <span class="kbd hidden md:inline">⌘K</span>
         <button class="btn ghost" onclick="saveToken()">Token</button>
         <button class="btn" onclick="loadAll()">Reload</button>
       </div>
@@ -116,6 +145,10 @@
     <section id="tab-projects" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-4">Projects</h2>
+        <div class="flex gap-3 flex-wrap items-center mb-3">
+          <input type="search" id="projects-filter" aria-label="Filter projects" placeholder="Filter projects…" class="w-56" oninput="filterProjects()">
+          <span id="projects-count" class="text-xs text-slate-400"></span>
+        </div>
         <div class="flex gap-3 flex-wrap items-center mb-4">
           <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]">
           <button class="btn ghost" onclick="registerProject()">Register project</button>
@@ -156,7 +189,7 @@
     <!-- Shared -->
     <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
-        <h2 class="text-xl font-bold mb-4">Shared Memory</h2>
+        <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
         <div class="flex gap-3 flex-wrap mb-4">
           <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]">
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
@@ -170,14 +203,22 @@
     <section id="tab-search" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Global Search</h2>
-        <div class="flex gap-3 flex-wrap mb-4">
-          <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory…" class="flex-1 min-w-[240px]">
-          <select id="search-scope" aria-label="Search scope">
+        <div class="flex gap-3 flex-wrap mb-3">
+          <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
+          <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
             <option value="all">All</option>
             <option value="project">Projects</option>
             <option value="shared">Shared</option>
           </select>
           <button class="btn" onclick="doSearch()">Search</button>
+          <button class="btn ghost" onclick="clearSearch()">Clear</button>
+        </div>
+        <div class="flex gap-3 flex-wrap mb-4">
+          <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48">
+          <input type="date" id="search-start" aria-label="Start date">
+          <input type="date" id="search-end" aria-label="End date">
+          <select id="search-limit" aria-label="Limit"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
+          <span id="search-count" class="text-xs text-slate-400 self-center"></span>
         </div>
         <div id="search-results"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
       </div>
@@ -185,6 +226,8 @@
   </main>
 </div>
 
+<div id="toast-wrap" aria-live="polite"></div>
+<div id="palette" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette"><div id="palette-box"><input id="palette-input" placeholder="Type a command… (e.g. overview, projects, search, reload)" autocomplete="off"><div id="palette-list"></div></div></div>
 <script>
 const $ = (id) => document.getElementById(id);
 let ghTopChart = null, ghTrendChart = null;
@@ -235,6 +278,7 @@ async function loadAll() { await Promise.all([loadOverview(), loadProjects(), lo
 
 // ---------- Overview ----------
 async function loadOverview() {
+  const ov=$('overview-stats'); if(ov && !ov.innerHTML.trim()) ov.innerHTML = [1,2,3,4].map(()=>`<div class="glass p-8">`+skel('0.7rem','40%')+`<div style="height:.6rem"></div>`+skel('2rem','30%')+`</div>`).join('');
   try {
     const stats = await api('/api/stats');
     $('last-update').textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
@@ -283,6 +327,8 @@ async function loadProjects() {
     const projects = await api('/api/projects');
     backToProjects();
     if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p>'; return; }
+    _allProjects = projects;
+    const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects';
     const rows = (list) => list.map(p => `
       <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
         <td class="font-semibold">${esc(p.name)}</td>
@@ -337,13 +383,15 @@ async function showProject(name) {
 
 function renderPmEntries() {
   const q = ($('pm-filter')?.value || '').toLowerCase();
-  const list = (window._pmEntries || []).filter(e =>
+  window._pmEntriesFiltered = (window._pmEntries || []).filter(e =>
     !q || (e.title||'').toLowerCase().includes(q) || (e.content||'').toLowerCase().includes(q));
+  const list = window._pmEntriesFiltered;
   let tags = '';
-  $('pm-entries').innerHTML = list.length ? list.map(e => {
+  $('pm-entries').innerHTML = list.length ? list.map((e, idx) => {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
     <div class="glass p-4 mb-3">
+      <div class="flex justify-end gap-2 mb-2"><button class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')">👍</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')">⭐</button></div>
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
           <span class="chip">${esc(e.kind)}</span>
@@ -387,6 +435,7 @@ async function discoverProjects() {
 async function loadShared() {
   try {
     const list = await api('/api/shared');
+    const sc=$('shared-count'); if(sc) sc.textContent = list.length + ' notes';
     $('shared-list').innerHTML = list.length ? list.map(m => `
       <div class="glass p-4 mb-3">
         <div class="flex justify-between gap-4">
@@ -424,19 +473,31 @@ async function deleteShared(id) {
 // ---------- Search ----------
 async function doSearch() {
   const q = $('search-q').value.trim();
-  if (!q) return;
+  if (!q) { $('search-results').innerHTML='<p class="text-slate-400 text-sm">Type a query to search.</p>'; const c=$('search-count'); if(c) c.textContent=''; return; }
+  const sc=$('search-count'); if(sc) sc.textContent='Searching…';
+  $('search-results').innerHTML = '<div class="glass p-4 mb-3">'+ [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') +'</div>';
   try {
     const scope = $('search-scope').value;
-    const results = await api('/api/memory?q=' + encodeURIComponent(q) + '&scope=' + scope);
+    const project = ($('search-project')?.value||'').trim();
+    const startDate = $('search-start')?.value || '';
+    const endDate = $('search-end')?.value || '';
+    const limit = $('search-limit')?.value || '20';
+    let url = '/api/memory?q=' + encodeURIComponent(q) + '&scope=' + scope + '&limit=' + limit;
+    if(project) url += '&project=' + encodeURIComponent(project);
+    if(startDate) url += '&startDate=' + encodeURIComponent(startDate);
+    if(endDate) url += '&endDate=' + encodeURIComponent(endDate);
+    const results = await api(url);
+    if(sc) sc.textContent = results.length ? results.length + ' results' : 'no results';
     $('search-results').innerHTML = results.length ? results.map(m => `
       <div class="glass p-4 mb-3">
-        <div class="flex justify-between gap-4">
+        <div class="flex justify-between gap-4 flex-wrap">
           <p class="font-semibold">${esc(m.title || '(untitled)')}</p>
-          <span class="text-xs text-slate-500">${esc(m.scope)}${m.project_name ? ' · ' + esc(m.project_name) : ''}</span>
+          <span class="text-xs text-slate-500">${esc(m.scope)}${m.project_name ? ' · ' + esc(m.project_name) : ''} · ${fmtDate(m.created_at, true)}</span>
         </div>
-        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content.slice(0, 300))}</p>
-      </div>`).join('') : '<p class="text-slate-400 text-sm">No results.</p>';
-  } catch (e) { console.error(e); }
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((m.content||'').slice(0, 380))}</p>
+        <div class="flex gap-2 mt-3 flex-wrap"><button class="copy-btn" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button><button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button><button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button></div>
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No results. Try a broader query or change scope/project filter.</p>';
+  } catch (e) { console.error(e); toast(String(e).slice(0,140),'err'); if($('search-count')) $('search-count').textContent='error'; }
 }
 
 // ---------- GitHub ----------
@@ -617,6 +678,65 @@ function toggleOnlyPrs() {
   saveGithubPreference(checked);
   renderGhRepos();
 }
+
+
+// ---------- theme ----------
+function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('omnistate_theme', t); const b=$('theme-toggle'); if(b) b.textContent=t==='light'?'🌙':'☀️'; }
+function toggleTheme(){ applyTheme((localStorage.getItem('omnistate_theme')||'dark')==='dark'?'light':'dark'); }
+applyTheme(localStorage.getItem('omnistate_theme')||'dark');
+// ---------- toast ----------
+function toast(msg, kind='info'){ const w=$('toast-wrap'); if(!w) return; const d=document.createElement('div'); d.className='toast '+kind; d.textContent=msg; w.appendChild(d); setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateY(6px)'; setTimeout(()=>d.remove(), 220); }, 3000); }
+// ---------- clipboard ----------
+async function copyText(t){ try{ await navigator.clipboard.writeText(t); toast('Copied','ok'); } catch{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Copied','ok'); } }
+// ---------- skeleton ----------
+function skel(h,w){ h=h||'1rem'; w=w||'100%'; return '<div class="skel" style="height:'+h+';width:'+w+'"></div>'; }
+// ---------- search helpers ----------
+let _searchTimer=null;
+function debouncedSearch(){ clearTimeout(_searchTimer); _searchTimer=setTimeout(doSearch, 320); }
+function clearSearch(){ const q=$('search-q'); if(q) q.value=''; const sp=$('search-project'); if(sp) sp.value=''; const ss=$('search-start'); if(ss) ss.value=''; const se=$('search-end'); if(se) se.value=''; const el=$('search-results'); if(el) el.innerHTML='<p class="text-slate-400 text-sm">Type a query to search.</p>'; const c=$('search-count'); if(c) c.textContent=''; }
+// ---------- projects filter ----------
+let _allProjects=[];
+function filterProjects(){ const q=($('projects-filter')?.value||'').toLowerCase(); const rows=document.querySelectorAll('#projects-table-wrap tbody tr'); const cnt=$('projects-count'); let vis=0; rows.forEach(r=>{ const show=!q||r.textContent.toLowerCase().includes(q); r.style.display=show?'':'none'; if(show) vis++; }); if(cnt) cnt.textContent = q ? vis+' / '+rows.length : rows.length+' projects'; }
+// ---------- palette ----------
+const PALETTE_CMDS=[
+  {id:'overview', label:'Go to Overview', kbd:'1', run:()=>switchTab('overview')},
+  {id:'projects', label:'Go to Projects', kbd:'2', run:()=>switchTab('projects')},
+  {id:'github', label:'Go to GitHub PR Health', kbd:'3', run:()=>switchTab('github')},
+  {id:'shared', label:'Go to Shared Memory', kbd:'4', run:()=>switchTab('shared')},
+  {id:'search', label:'Go to Search', kbd:'5', run:()=>switchTab('search')},
+  {id:'reload', label:'Reload all data', kbd:'R', run:()=>{ closePalette(); loadAll(); toast('Reloading…','info'); }},
+  {id:'theme', label:'Toggle theme', kbd:'T', run:()=>{ toggleTheme(); toast('Theme toggled','info'); }},
+  {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
+];
+function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name)); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); closePalette(); }
+function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
+function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
+function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
+async function reinforceMemory(id, signal){ try{ await api('/api/memory/'+id+'/reinforce', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({signal})}); toast(signal+' ✓','ok'); } catch(e){ toast(String(e),'err'); } }
+document.addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const pal=$('palette'); if(pal && !pal.classList.contains('hidden')) closePalette(); else openPalette(); }
+  else if(e.key==='Escape'){ closePalette(); }
+  else if(e.key==='t' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='SELECT'){ toggleTheme(); }
+  else if(e.key==='/' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){ e.preventDefault(); switchTab('search'); const q=$('search-q'); if(q) q.focus(); }
+});
+(function(){
+  const pal=$('palette'); if(!pal) return;
+  pal.addEventListener('click', e=>{ if(e.target===pal) closePalette(); });
+  const inp=$('palette-input'); if(!inp) return;
+  inp.addEventListener('input', ()=> renderPalette(inp.value));
+  inp.addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ const a=document.querySelector('#palette-list .palette-item.active'); if(a) a.click(); }
+    if(e.key==='ArrowDown' || e.key==='ArrowUp'){
+      e.preventDefault();
+      const items=[...document.querySelectorAll('#palette-list .palette-item')];
+      let idx=items.findIndex(x=>x.classList.contains('active'));
+      items[idx]?.classList.remove('active');
+      idx = e.key==='ArrowDown' ? Math.min(items.length-1, idx+1) : Math.max(0, idx-1);
+      items[idx]?.classList.add('active');
+    }
+    if(e.key==='Escape') closePalette();
+  });
+})();
 
 loadAll();
 </script>
