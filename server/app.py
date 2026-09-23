@@ -319,9 +319,21 @@ class App:
             self.invalidate_metrics_cache()
             return result
 
+        @app.delete("/api/memory/{mem_id}")
+        def api_memory_forget(mem_id: int, reason: str = "") -> dict[str, Any]:
+            ok = self.store.delete_memory(mem_id, reason=reason)
+            if not ok:
+                return JSONResponse({"error": "memory not found"}, status_code=404)
+            self.invalidate_metrics_cache()
+            return {"deleted": True, "memory_id": mem_id}
+
         @app.get("/api/memory/export")
         def api_memory_export() -> dict[str, Any]:
             return self.store.export_memories("memory-export.json")
+
+        @app.get("/api/memory/export-markdown")
+        def api_memory_export_markdown() -> dict[str, Any]:
+            return self.store.export_memories_markdown("memory-export")
 
         @app.get("/api/memory/{mem_id}/feedback")
         def api_memory_feedback(mem_id: int) -> list[dict[str, Any]]:
@@ -351,6 +363,31 @@ class App:
             self.store.delete_memory(mem_id)
             self.invalidate_metrics_cache()
             return {"deleted": True, "memory_id": mem_id}
+
+        @app.get("/api/handoffs")
+        def api_handoffs(project: str = "") -> list[dict[str, Any]]:
+            return self.store.handoffs(project=project or None)
+
+        @app.post("/api/handoffs")
+        def api_handoffs_add(body: dict[str, Any]) -> dict[str, Any]:
+            project = (body.get("project") or "").strip()
+            if not project:
+                return JSONResponse({"error": "project required"}, status_code=400)
+            row = self.store.get_project(project)
+            if row is None:
+                return JSONResponse({"error": "project not found"}, status_code=404)
+            def _parse(s: str) -> list[str]:
+                return [x.strip() for x in (s or "").splitlines() if x.strip()]
+            mem_id = self.store.memory_handoff(
+                project_id=int(row["id"]),
+                current_state=body.get("current_state") or "",
+                completed=_parse(body.get("completed")),
+                next_steps=_parse(body.get("next_steps")),
+                risks=_parse(body.get("risks")),
+                validation=_parse(body.get("validation")),
+            )
+            self.invalidate_metrics_cache()
+            return {"handoff_id": mem_id, "project": project}
 
         @app.get("/api/stats")
         def api_stats() -> dict[str, Any]:

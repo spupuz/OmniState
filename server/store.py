@@ -121,6 +121,7 @@ CREATE TABLE IF NOT EXISTS memory (
   content             TEXT NOT NULL,
   tags                TEXT DEFAULT '[]',
   source_file         TEXT,
+  source              TEXT DEFAULT '',
   created_at          TEXT,
   updated_at          TEXT,
   importance          REAL NOT NULL DEFAULT 0.5,
@@ -128,12 +129,14 @@ CREATE TABLE IF NOT EXISTS memory (
   reinforcement_count INTEGER NOT NULL DEFAULT 0,
   last_reinforced_at  TEXT,
   access_count        INTEGER NOT NULL DEFAULT 0,
-  last_accessed       TEXT
+  last_accessed       TEXT,
+  valid_from          TEXT,
+  valid_until         TEXT
 );
 
 CREATE TABLE IF NOT EXISTS memory_feedback (
   id         INTEGER PRIMARY KEY,
-  memory_id  INTEGER NOT NULL REFERENCES memory(id) ON DELETE CASCADE,
+  memory_id  INTEGER NOT NULL,
   signal     TEXT NOT NULL,
   delta      REAL NOT NULL,
   reason     TEXT,
@@ -241,6 +244,8 @@ class Store:
                     pass  # duplicate column: already migrated
             # Migration for post-2.3 DBs: memory lifecycle + reinforcement + exposure.
             self._migrate_memory_columns()
+            # Migration for post-2.5 DBs: source, valid_from, valid_until.
+            self._migrate_memory_columns_v2()
 
     def _migrate_memory_columns(self) -> None:
         """Add lifecycle/reinforcement columns to pre-existing memory tables.
@@ -256,6 +261,20 @@ class Store:
             "last_reinforced_at": "NULL",
             "access_count": "0",
             "last_accessed": "NULL",
+        }
+        existing = {r["name"] for r in self.q("PRAGMA table_info(memory)")}
+        for col, default in python_defaults.items():
+            if col in existing:
+                continue
+            with self.tx() as conn:
+                conn.execute(f"ALTER TABLE memory ADD COLUMN {col} DEFAULT {default}")
+
+    def _migrate_memory_columns_v2(self) -> None:
+        """Add source/validity columns to pre-existing memory tables."""
+        python_defaults = {
+            "source": "''",
+            "valid_from": "NULL",
+            "valid_until": "NULL",
         }
         existing = {r["name"] for r in self.q("PRAGMA table_info(memory)")}
         for col, default in python_defaults.items():
@@ -367,12 +386,20 @@ class Store:
         title: str | None = None,
         tags: list[str] | None = None,
         source_file: str | None = None,
+        source: str = "",
+        valid_from: str | None = None,
+        valid_until: str | None = None,
+        dedup: bool = True,
     ) -> int:
+        if dedup:
+            existing = self._find_near_duplicate(content)
+            if existing:
+                return int(existing["id"])
         now = _now()
         mem_id = self.execute(
-            "INSERT INTO memory(project_id, scope, kind, title, content, tags, source_file, created_at, updated_at) "
-            "VALUES(?,?,?,?,?,?,?,?,?)",
-            (project_id, scope, kind, title, content, json.dumps(tags or []), source_file, now, now),
+            "INSERT INTO memory(project_id, scope, kind, title, content, tags, source_file, source, valid_from, valid_until, created_at, updated_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+            (project_id, scope, kind, title, content, json.dumps(tags or []), source_file, source, valid_from, valid_until, now, now),
         )
         if scope == "shared":
             row = self.get_memory(mem_id)
@@ -380,13 +407,22 @@ class Store:
                 self._write_shared_file(row)
         return mem_id
 
-    def update_memory(self, mem_id: int, content: str, title: str | None = None, tags: list[str] | None = None) -> bool:
+    def update_memory(self, mem_id: int, content: str | None = None, title: str | None = None, tags: list[str] | None = None) -> bool:
         now = _now()
+        sets = ["updated_at = ?"]
+        params: list = [now]
+        if content is not None:
+            sets.append("content = ?")
+            params.append(content)
+        if title is not None:
+            sets.append("title = COALESCE(?, title)")
+            params.append(title)
+        if tags is not None:
+            sets.append("tags = ?")
+            params.append(json.dumps(tags))
+        params.append(mem_id)
         with self.tx() as conn:
-            cur = conn.execute(
-                "UPDATE memory SET content=?, title=COALESCE(?, title), tags=?, updated_at=? WHERE id=?",
-                (content, title, json.dumps(tags or []), now, mem_id),
-            )
+            cur = conn.execute(f"UPDATE memory SET {', '.join(sets)} WHERE id = ?", tuple(params))
         ok = cur.rowcount > 0
         if ok:
             row = self.get_memory(mem_id)
@@ -397,14 +433,36 @@ class Store:
     def get_memory(self, mem_id: int) -> dict[str, Any] | None:
         return self.one("SELECT * FROM memory WHERE id = ?", (mem_id,))
 
-    def delete_memory(self, mem_id: int) -> bool:
+    def delete_memory(self, mem_id: int, reason: str = "") -> bool:
         row = self.get_memory(mem_id)
+        now = _now()
         with self.tx() as conn:
+            if reason:
+                conn.execute(
+                    "INSERT INTO memory_feedback(memory_id, signal, delta, reason, created_at) VALUES(?,?,?,?,?)",
+                    (mem_id, "deleted", 0.0, reason, now),
+                )
             cur = conn.execute("DELETE FROM memory WHERE id = ?", (mem_id,))
         ok = cur.rowcount > 0
         if ok and row and row.get("scope") == "shared":
             self._delete_shared_file(mem_id)
         return ok
+
+    def _find_near_duplicate(self, content: str) -> dict[str, Any] | None:
+        tokens = _text_tokens(content)
+        if len(tokens) < 3:
+            return None
+        rows = self.q(
+            "SELECT id, content FROM memory WHERE length(content) > 0 ORDER BY created_at DESC LIMIT 200"
+        )
+        for r in rows:
+            rt = _text_tokens(r["content"] or "")
+            if not rt:
+                continue
+            jac = len(tokens & rt) / max(1, len(tokens | rt))
+            if jac >= 0.9:
+                return r
+        return None
 
     def search_memory(
         self,
@@ -694,6 +752,30 @@ class Store:
             (memory_id,),
         )
 
+    def memory_handoff(
+        self,
+        *,
+        project_id: int,
+        current_state: str,
+        completed: list[str],
+        next_steps: list[str],
+        risks: list[str] | None = None,
+        validation: list[str] | None = None,
+    ) -> int:
+        now = _now()
+        content = json.dumps({
+            "current_state": current_state,
+            "completed": completed,
+            "next_steps": next_steps,
+            "risks": risks or [],
+            "validation": validation or [],
+        }, ensure_ascii=False)
+        return self.add_memory(
+            project_id=project_id, scope="project", kind="handoff",
+            title=f"Handoff {now}", content=content,
+            tags=["handoff"], dedup=False,
+        )
+
     def export_memories(self, path: str) -> dict[str, Any]:
         """Dump all memories + feedback to a JSON backup file."""
         import os
@@ -713,6 +795,61 @@ class Store:
         tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
         os.replace(tmp, p)
         return {"path": str(p), "memories": len(data["memories"]), "feedback_events": len(data["feedback"])}
+
+    def export_memories_markdown(self, output_dir: str) -> dict[str, Any]:
+        """Export shared memory + per-project decisions/notes as Markdown files."""
+        out_dir = Path(output_dir)
+        if not out_dir.is_absolute():
+            out_dir = self.db_path.parent / out_dir
+        out_dir.mkdir(parents=True, exist_ok=True)
+        (out_dir / "decisions").mkdir(exist_ok=True)
+        count = 0
+        for m in self.q("SELECT * FROM memory WHERE lifecycle_state = 'active' ORDER BY created_at DESC"):
+            tags = json.loads(m.get("tags") or "[]")
+            kind = m.get("kind", "note")
+            title = m.get("title") or m.get("content", "")[:60]
+            header = "\n".join([
+                "---",
+                f"id: {m['id']}",
+                f"kind: {kind}",
+                f"scope: {m.get('scope')}",
+                f"tags: [{', '.join(tags)}]",
+                f"created_at: {m.get('created_at') or ''}",
+                f"source: {m.get('source') or ''}",
+                f"importance: {m.get('importance', 0.5)}",
+                "---",
+                "",
+            ])
+            body = f"# {title}\n\n{header}{m.get('content', '')}\n"
+            if kind == "decision":
+                path = out_dir / "decisions" / f"ADR-{int(m['id']):04d}.md"
+            else:
+                safe = title.lower().replace(" ", "-")[:60]
+                path = out_dir / f"{kind}-{safe}.md"
+            path.write_text(body, encoding="utf-8")
+            count += 1
+        return {"output_dir": str(out_dir), "exported": count}
+
+    def handoffs(self, project: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
+        """Return handoff entries, optionally filtered by project."""
+        where = ["m.kind = 'handoff'"]
+        params: list = []
+        if project:
+            where.append("p.name = ?")
+            params.append(project)
+        where_sql = "WHERE " + " AND ".join(where) if where else ""
+        rows = self.q(
+            f"SELECT m.*, p.name AS project_name FROM memory m "
+            f"LEFT JOIN projects p ON m.project_id = p.id {where_sql} "
+            "ORDER BY m.created_at DESC LIMIT ?",
+            tuple(params) + (int(limit),),
+        )
+        for r in rows:
+            try:
+                r["_meta"] = json.loads(r.get("content") or "{}")
+            except Exception:
+                r["_meta"] = {}
+        return rows
 
     def memory_for_project(self, project_id: int, limit: int = 20) -> list[dict[str, Any]]:
         return self.q(

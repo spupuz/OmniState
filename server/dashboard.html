@@ -128,6 +128,7 @@
     <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github">GitHub PR Health</button>
     <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared">Shared Memory</button>
     <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search">Search</button>
+    <button class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs">Handoffs</button>
   </nav>
 
   <main id="main-content" tabindex="-1">
@@ -186,31 +187,32 @@
       </div>
     </section>
 
-    <!-- Shared -->
+<!-- Shared -->
     <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
-<div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
+ <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
         <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
           <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]">
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
           <button type="submit" class="btn">Save</button>
+          <button type="button" class="btn ghost" onclick="exportMemoryMarkdown()">Export Markdown</button>
         </form>
         <div id="shared-list"></div>
       </div>
     </section>
 
-    <!-- Search -->
+<!-- Search -->
     <section id="tab-search" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Global Search</h2>
-<form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); doSearch()">
+        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); doSearch()">
           <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
           <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
             <option value="all">All</option>
             <option value="project">Projects</option>
             <option value="shared">Shared</option>
           </select>
-<button type="submit" class="btn">Search</button>
+          <button type="submit" class="btn">Search</button>
           <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
         </form>
         <div class="flex gap-3 flex-wrap mb-4">
@@ -221,6 +223,15 @@
           <span id="search-count" class="text-xs text-slate-400 self-center"></span>
         </div>
         <div id="search-results"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
+      </div>
+    </section>
+
+    <!-- Handoffs -->
+    <section id="tab-handoffs" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6">
+        <h2 class="text-xl font-bold mb-4">Agent Handoffs</h2>
+        <p class="text-slate-400 text-sm mb-4">Context handoffs between agents or sessions. Created via <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs">memory_handoff</code> MCP tool or <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs">/api/handoffs</code> REST API.</p>
+        <div id="handoffs-list"><p class="text-slate-400 text-sm">No handoffs yet.</p></div>
       </div>
     </section>
   </main>
@@ -242,6 +253,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'github') loadGithub();
     if (btn.dataset.tab === 'shared') loadShared();
     if (btn.dataset.tab === 'projects') loadProjects();
+    if (btn.dataset.tab === 'handoffs') loadHandoffs();
   });
 });
 
@@ -274,7 +286,7 @@ function fmtDate(ts, dateOnly) {
   return dateOnly ? d.toLocaleDateString('it-IT') : d.toLocaleString('it-IT');
 }
 
-async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared()]); }
+async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs()]); }
 
 // ---------- Overview ----------
 async function loadOverview() {
@@ -372,11 +384,13 @@ async function showProject(name) {
         <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Snapshots</p><p class="text-3xl font-black text-purple-300">${fmt(m.snapshots)}</p></div>
         <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-3xl font-black">${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
       </div>
-      <div class="flex gap-3 items-center mb-4 flex-wrap">
+      <div class="flex gap-3 flex-wrap items-center mb-4 flex-wrap">
         <h3 class="font-bold">Memory entries</h3>
         <input type="search" id="pm-filter" aria-label="Filter project memory entries" class="ml-auto" placeholder="Filter entries…" oninput="renderPmEntries()">
+        <button class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
       </div>
-      <div id="pm-entries"></div>`;
+      <div id="pm-entries"></div>
+      <div id="handoff-form" class="hidden mt-4"></div>`;
     renderPmEntries();
   } catch (e) { console.error(e); $('projects-table-wrap').classList.remove('hidden'); }
 }
@@ -411,6 +425,41 @@ function backToProjects() {
   const el = $('project-detail');
   if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
   $('projects-table-wrap').classList.remove('hidden');
+}
+
+function showHandoffForm() {
+  const form = $('handoff-form');
+  if (!form) return;
+  form.classList.remove('hidden');
+  form.innerHTML = `
+    <div class="glass p-4 mb-3">
+      <h3 class="font-bold mb-2">Create Handoff</h3>
+      <textarea id="hf-state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
+      <textarea id="hf-next" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
+      <textarea id="hf-done" class="w-full mb-2" rows="2" placeholder="Completed (one per line)…"></textarea>
+      <textarea id="hf-risks" class="w-full mb-2" rows="2" placeholder="Risks (one per line)…"></textarea>
+      <textarea id="hf-valid" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
+      <div class="flex gap-2">
+        <button class="btn" onclick="submitHandoff()">Save handoff</button>
+        <button class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
+      </div>
+    </div>`;
+  form.scrollIntoView({behavior:'smooth'});
+}
+
+async function submitHandoff() {
+  const project = $('projects-filter')?.value || '';
+  if (!project) { alert('Select a project first'); return; }
+  const state = $('hf-state')?.value || '';
+  const next = $('hf-next')?.value || '';
+  const done = $('hf-done')?.value || '';
+  const risks = $('hf-risks')?.value || '';
+  const valid = $('hf-valid')?.value || '';
+  try {
+    await api('/api/handoffs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({project, current_state:state, next_steps:next, completed:done, risks, validation:valid}) });
+    toast('Handoff saved', 'ok');
+    document.getElementById('handoff-form').classList.add('hidden');
+  } catch(e) { toast(String(e), 'err'); }
 }
 
 async function registerProject() {
@@ -470,6 +519,13 @@ async function deleteShared(id) {
   } catch (e) { alert(e.message); }
 }
 
+async function exportMemoryMarkdown() {
+  try {
+    const r = await api('/api/memory/export-markdown');
+    toast('Exported ' + r.exported + ' files to ' + r.output_dir, 'ok');
+  } catch (e) { toast(String(e), 'err'); }
+}
+
 // ---------- Search ----------
 async function doSearch() {
   const q = $('search-q').value.trim();
@@ -495,7 +551,19 @@ async function doSearch() {
           <span class="text-xs text-slate-500">${esc(m.scope)}${m.project_name ? ' · ' + esc(m.project_name) : ''} · ${fmtDate(m.created_at, true)}</span>
         </div>
         <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((m.content||'').slice(0, 380))}</p>
-        <div class="flex gap-2 mt-3 flex-wrap"><button class="copy-btn" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button><button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button><button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button></div>
+        <div class="flex gap-2 mt-3 flex-wrap">
+          <span class="chip">${esc(m.kind)}</span>
+          ${m.source ? `<span class="chip">src: ${esc(m.source)}</span>` : ''}
+          ${m.valid_until ? `<span class="chip danger">expires ${fmtDate(m.valid_until, true)}</span>` : ''}
+          ${m.valid_from ? `<span class="chip">from ${fmtDate(m.valid_from, true)}</span>` : ''}
+          <span class="chip">imp: ${Math.round((m.importance||0)*100)}%</span>
+        </div>
+        <div class="flex gap-2 mt-2 flex-wrap">
+          <button class="copy-btn" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
+          <button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button>
+          <button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button>
+          <button class="copy-btn" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
+        </div>
       </div>`).join('') : '<p class="text-slate-400 text-sm">No results. Try a broader query or change scope/project filter.</p>';
   } catch (e) { console.error(e); toast(String(e).slice(0,140),'err'); if($('search-count')) $('search-count').textContent='error'; }
 }
@@ -704,15 +772,50 @@ const PALETTE_CMDS=[
   {id:'github', label:'Go to GitHub PR Health', kbd:'3', run:()=>switchTab('github')},
   {id:'shared', label:'Go to Shared Memory', kbd:'4', run:()=>switchTab('shared')},
   {id:'search', label:'Go to Search', kbd:'5', run:()=>switchTab('search')},
+  {id:'handoffs', label:'Go to Handoffs', kbd:'6', run:()=>switchTab('handoffs')},
   {id:'reload', label:'Reload all data', kbd:'R', run:()=>{ closePalette(); loadAll(); toast('Reloading…','info'); }},
   {id:'theme', label:'Toggle theme', kbd:'T', run:()=>{ toggleTheme(); toast('Theme toggled','info'); }},
   {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
+  {id:'export-md', label:'Export memory as Markdown', run:()=>exportMemoryMarkdown()},
 ];
-function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); }); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); closePalette(); }
+function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); }); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); closePalette(); }
 function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
 function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
-async function reinforceMemory(id, signal){ try{ await api('/api/memory/'+id+'/reinforce', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({signal})}); toast(signal+' ✓','ok'); } catch(e){ toast(String(e),'err'); } }
+async function forgetMemory(id) {
+  if (!confirm('Delete this memory entry?')) return;
+  try {
+    const reason = prompt('Reason for deletion (audit trail):') || '';
+    await api('/api/memory/' + id, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({reason}) });
+    toast('Memory deleted', 'ok');
+    doSearch();
+  } catch (e) { toast(String(e), 'err'); }
+}
+
+async function loadHandoffs() {
+  try {
+    const list = await api('/api/handoffs');
+    const el=$('handoffs-list'); if(!el) return;
+    el.innerHTML = list.length ? list.map(h => {
+      let meta = {};
+      try { meta = JSON.parse(h.content); } catch(_) {}
+      return `
+      <div class="glass p-4 mb-3">
+        <div class="flex justify-between gap-4 flex-wrap">
+          <p class="font-semibold">${esc(h.title)}</p>
+          <span class="text-xs text-slate-500">${fmtDate(h.created_at)}</span>
+        </div>
+        <div class="mt-2 grid md:grid-cols-2 gap-3 text-sm">
+          <div><p class="text-xs text-slate-500 uppercase">Current state</p><p class="whitespace-pre-wrap">${esc(meta.current_state||'—')}</p></div>
+          <div><p class="text-xs text-slate-500 uppercase">Next steps</p><p>${(meta.next_steps||[]).map(s => `<span class="chip">${esc(s)}</span>`).join('')||'—'}</p></div>
+          ${(meta.completed||[]).length ? `<div><p class="text-xs text-slate-500 uppercase">Completed</p><p>${meta.completed.map(s => `<span class="chip ok">${esc(s)}</span>`).join('')}</p></div>` : ''}
+          ${(meta.risks||[]).length ? `<div><p class="text-xs text-slate-500 uppercase">Risks</p><p>${meta.risks.map(s => `<span class="chip danger">${esc(s)}</span>`).join('')}</p></div>` : ''}
+          ${(meta.validation||[]).length ? `<div><p class="text-xs text-slate-500 uppercase">Validation</p><p>${meta.validation.map(s => `<span class="chip">${esc(s)}</span>`).join('')}</p></div>` : ''}
+        </div>
+      </div>`;
+    }).join('') : '<p class="text-slate-400 text-sm">No handoffs yet.</p>';
+  } catch (e) { console.error(e); }
+}
 document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const pal=$('palette'); if(pal && !pal.classList.contains('hidden')) closePalette(); else openPalette(); }
   else if(e.key==='Escape'){ closePalette(); }

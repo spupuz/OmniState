@@ -269,7 +269,8 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
 
     @server.tool()
     @_logged
-    def memory_remember(text: str, project: str = "", scope: str = "shared", tags: str = "") -> str:
+    def memory_remember(text: str, project: str = "", scope: str = "shared", tags: str = "",
+                          source: str = "") -> str:
         """Save a note (shared by default, or per-project)."""
         if scope not in ("shared", "project"):
             raise ToolError("scope must be 'shared' or 'project'.")
@@ -280,7 +281,7 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
             project_id = int(row["id"])
         mem_id = store.add_memory(
             project_id=project_id, scope=scope, kind="note", title=text[:120],
-            content=text, tags=tag_list,
+            content=text, tags=tag_list, source=source,
         )
         return json.dumps({"memory_id": mem_id, "scope": scope}, indent=2)
 
@@ -323,9 +324,34 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
 
     @server.tool()
     @_logged
-    def memory_forget(memory_id: int) -> str:
-        """Delete a memory entry by id (hard delete; prefer memory_reinforce)."""
-        ok = store.delete_memory(memory_id)
+    def memory_export_markdown(path: str = "") -> str:
+        """Export memories as Markdown files (decisions as ADR-XXXX.md)."""
+        return json.dumps(store.export_memories_markdown(path or "memory-export"), indent=2)
+
+    @server.tool()
+    @_logged
+    def memory_handoff(project: str, current_state: str,
+                       next_steps: str, completed: str = "",
+                       risks: str = "", validation: str = "") -> str:
+        """Create a handoff for another agent or future session."""
+        row = _resolve_project(project)
+        def _parse_list(s: str) -> list[str]:
+            return [x.strip() for x in (s or "").splitlines() if x.strip()]
+        mem_id = store.memory_handoff(
+            project_id=int(row["id"]),
+            current_state=current_state,
+            completed=_parse_list(completed),
+            next_steps=_parse_list(next_steps),
+            risks=_parse_list(risks),
+            validation=_parse_list(validation),
+        )
+        return json.dumps({"handoff_id": mem_id, "project": project}, indent=2)
+
+    @server.tool()
+    @_logged
+    def memory_forget(memory_id: int, reason: str = "") -> str:
+        """Delete a memory entry by id with optional audit reason."""
+        ok = store.delete_memory(memory_id, reason=reason)
         return json.dumps({"deleted": ok, "memory_id": memory_id}, indent=2)
 
     # ---------- memory resources (read-only, JSON) ----------
