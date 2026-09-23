@@ -1,6 +1,6 @@
 {
   "name": "omnistate",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Multi-project persistent memory MCP server with a built-in web dashboard and GitHub PR Health. Runs as a Docker container.",
   "author": "spupuz",
   "keywords": [

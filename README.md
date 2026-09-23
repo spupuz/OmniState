@@ -1,4 +1,4 @@
-# OmniState v2.4.0
+# OmniState v2.5.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -171,8 +171,11 @@ Open **http://localhost:8347** in the browser:
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately), "Only with open PRs" filter (persisted via shared memory).
-- **Global search** across projects.
-- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`), and empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
+- **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, and inline **Copy / 👍 useful / ⭐ important** actions on every result.
+- **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) in `localStorage`.
+- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
+- **Inline memory actions**: project-memory cards expose **Copy**, **👍 useful** and **⭐ important** (reinforce) buttons.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); actionable input groups (token, register, scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively; empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
 
 ## GitHub PR Health
 
@@ -311,7 +314,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.4.0 (current)
+### v2.5.0 (current)
+- **UX (dashboard)**: light/dark theme toggle (header button or `T` key, persisted in `localStorage`), command palette (`Ctrl/⌘+K` or `/` to jump to search) with keyboard navigation, and toast notifications replacing silent failures. Overview and search show skeleton loaders while data loads.
+- **Search** (dashboard): live debounced input, advanced filters (project name, start/end date, result limit), result counter, and inline **Copy / 👍 useful / ⭐ important** (reinforce) actions on every result card.
+- **Projects & memory** (dashboard): inline filter box with live count on the Projects section; project-memory cards gain **Copy / 👍 useful / ⭐ important** actions.
+- **Accessibility** (dashboard): actionable input groups (token, project register, GitHub scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively — improving keyboard and mobile usability.
+- **Details**: shared-memory section shows a live note count + refresh button; empty/error states give clearer guidance.
+
+### v2.4.0
 - **Security**: optional access token (`OMNISTATE_AUTH_TOKEN` in `.env` / `server/config.py:auth_token`) protecting everything reachable over the network — `BaseHTTPMiddleware` `/_auth_required` guards `/api/*` and MCP session creation (`POST /mcp` without `Mcp-Session-Id`), while `/`, `/health`, `/favicon.*` and already-authenticated `Mcp-Session-Id` follow-ups stay open. Dashboard shows a header token prompt stored in `localStorage` (`omnistate_auth_token`); `opencode.json` uses `{file:...}` header interpolation and Antigravity uses `~/.gemini/config/mcp_config.json:httpHeaders` — no secret hardcoded.
 - **Features (branding)**: `server/favicon.svg` (indigo→cyan gradient "O") served at `GET /favicon.svg` and legacy `GET /favicon.ico` (`server/app.py:Response`), linked via `<link rel="icon">` in `dashboard.html` and as `<img src="server/favicon.svg">` in the README.
 - **Bugfix (MCP)**: harden `server/mcp_server.py:_logged` — new `_make_wrap` closure owns its `*argv/**kwargs`, separate async/sync wrappers with `functools.wraps`, `OMNISTATE_DEBUG` traceback, all tools now wrapped with `@_logged` (fixes `NameError: name 'a' is not defined` + unreachable dead-code after `return wrapper`).
