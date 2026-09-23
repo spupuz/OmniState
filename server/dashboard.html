@@ -114,7 +114,7 @@
     </div>
     <form class="flex gap-3 flex-wrap items-center" onsubmit="event.preventDefault(); saveToken()">
         <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (se abilitato)" class="w-44 text-xs">
-        <button type="button" class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)">🌙</button>
+        <button type="button" class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)" aria-label="Toggle theme">🌙</button>
         <span class="kbd hidden md:inline">⌘K</span>
         <button type="submit" class="btn ghost">Token</button>
         <button type="button" class="btn" onclick="loadAll()">Reload</button>
@@ -123,11 +123,11 @@
 
   <!-- Tabs -->
   <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Sezioni dashboard">
-    <button class="tab-btn active" data-tab="overview" role="tab">Overview</button>
-    <button class="tab-btn" data-tab="projects" role="tab">Projects</button>
-    <button class="tab-btn" data-tab="github" role="tab">GitHub PR Health</button>
-    <button class="tab-btn" data-tab="shared" role="tab">Shared Memory</button>
-    <button class="tab-btn" data-tab="search" role="tab">Search</button>
+    <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview">Overview</button>
+    <button class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects">Projects</button>
+    <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github">GitHub PR Health</button>
+    <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared">Shared Memory</button>
+    <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search">Search</button>
   </nav>
 
   <main id="main-content" tabindex="-1">
@@ -391,7 +391,7 @@ function renderPmEntries() {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
     <div class="glass p-4 mb-3">
-      <div class="flex justify-end gap-2 mb-2"><button class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')">👍</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')">⭐</button></div>
+      <div class="flex justify-end gap-2 mb-2"><button class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
           <span class="chip">${esc(e.kind)}</span>
@@ -570,7 +570,7 @@ async function saveGithubPreference(checked) {
 
 async function runGhScan() {
   const accounts = $('gh-accounts').value.trim();
-  const btn = document.querySelector('button[onclick="runGhScan()"]');
+  const btn = document.querySelector('#tab-github button[type="submit"]');
   const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
   try {
@@ -708,7 +708,7 @@ const PALETTE_CMDS=[
   {id:'theme', label:'Toggle theme', kbd:'T', run:()=>{ toggleTheme(); toast('Theme toggled','info'); }},
   {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
 ];
-function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===name)); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); closePalette(); }
+function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); }); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); closePalette(); }
 function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
 function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
