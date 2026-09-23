@@ -783,6 +783,16 @@ class Store:
         p = Path(path)
         if not p.is_absolute():
             p = self.db_path.parent / p
+
+        try:
+            resolved_p = p.resolve(strict=False)
+            resolved_parent = self.db_path.parent.resolve(strict=False)
+        except Exception as e:
+            raise ValueError(f"Invalid export path: {e}")
+
+        if not str(resolved_p).startswith(str(resolved_parent) + os.sep) and resolved_p != resolved_parent:
+            raise ValueError("Invalid export path: must be within the database directory")
+
         p.parent.mkdir(parents=True, exist_ok=True)
         data = {
             "exported_at": _now(),
