@@ -357,9 +357,15 @@ class App:
             stats = self.store.stats()
             # "Progetti" = only truly active ones: excludes removed paths and
             # projects matching a GitHub repo flagged archived in the latest scan.
+            metrics_list = self._project_metrics_list()
             stats["projects"] = sum(
-                1 for p in self._project_metrics_list() if p["category"] == "active"
+                1 for p in metrics_list if p["category"] == "active"
             )
+
+            stored_tokens = sum(p["storedTokens"] for p in metrics_list if p["category"] == "active")
+            loaded_tokens = sum(p["loadedTokens"] for p in metrics_list if p["category"] == "active")
+            stats["tokenSavings"] = max(0, stored_tokens - loaded_tokens)
+
             return stats
 
         # ---- GitHub PR Health ----

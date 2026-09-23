@@ -1017,18 +1017,10 @@ class Store:
         memory = self.one("SELECT COUNT(*) AS c FROM memory")["c"]
         scans = self.one("SELECT COUNT(*) AS c FROM gh_scans")["c"]
 
-        stored = 0
-        loaded = 0
-        for p in self.q("SELECT id FROM projects WHERE status='active'"):
-            m = self.context_token_measure(int(p["id"]))
-            stored += m["storedTokens"]
-            loaded += m["loadedTokens"]
-
         return {
             "projects": projects,
             "memoryEntries": memory,
             "ghScans": scans,
-            "tokenSavings": max(0, stored - loaded),
             "lastUpdate": _now(),
         }
 

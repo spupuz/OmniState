@@ -1,0 +1,3 @@
+## 2024-05-24 - Cache reuse for Dashboard Stats
+**Learning:** `store.stats()` was iterating over all active projects and running an expensive `context_token_measure()` per project, causing an O(N) database bottleneck. The parent `App` class already caches these identical metrics in `_project_metrics_list()`, but `api_stats()` wasn't taking full advantage of it to compute the token savings, instead redundantly calling `store.stats()`.
+**Action:** Replace the expensive `store.stats()` implementation (or have `api_stats` bypass it) by summing `storedTokens` and `loadedTokens` from the already cached `_project_metrics_list()`.
