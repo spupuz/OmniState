@@ -112,13 +112,13 @@
       <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="dashboard-title">OmniState Dashboard</h1>
       <p class="text-slate-400 mt-2 text-lg font-light" id="last-update">—</p>
     </div>
-    <div class="flex gap-3 flex-wrap items-center">
+    <form class="flex gap-3 flex-wrap items-center" onsubmit="event.preventDefault(); saveToken()">
         <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (se abilitato)" class="w-44 text-xs">
-        <button class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)">🌙</button>
+        <button type="button" class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)">🌙</button>
         <span class="kbd hidden md:inline">⌘K</span>
-        <button class="btn ghost" onclick="saveToken()">Token</button>
-        <button class="btn" onclick="loadAll()">Reload</button>
-      </div>
+        <button type="submit" class="btn ghost">Token</button>
+        <button type="button" class="btn" onclick="loadAll()">Reload</button>
+      </form>
   </header>
 
   <!-- Tabs -->
@@ -145,15 +145,15 @@
     <section id="tab-projects" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-4">Projects</h2>
-        <div class="flex gap-3 flex-wrap items-center mb-3">
+<div class="flex gap-3 flex-wrap items-center mb-3">
           <input type="search" id="projects-filter" aria-label="Filter projects" placeholder="Filter projects…" class="w-56" oninput="filterProjects()">
           <span id="projects-count" class="text-xs text-slate-400"></span>
         </div>
-        <div class="flex gap-3 flex-wrap items-center mb-4">
+        <form class="flex gap-3 flex-wrap items-center mb-4" onsubmit="event.preventDefault(); registerProject()">
           <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]">
-          <button class="btn ghost" onclick="registerProject()">Register project</button>
-          <button class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
-        </div>
+          <button type="submit" class="btn ghost">Register project</button>
+          <button type="button" class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
+        </form>
         <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p></div>
         <div id="project-detail" class="hidden"></div>
       </div>
@@ -161,12 +161,12 @@
 
     <!-- GitHub -->
     <section id="tab-github" class="tab-panel hidden" role="tabpanel">
-      <div class="flex gap-3 flex-wrap items-center mb-6">
+      <form class="flex gap-3 flex-wrap items-center mb-6" onsubmit="event.preventDefault(); runGhScan()">
         <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (separati da virgola)" class="flex-1 min-w-[240px]">
-        <button class="btn" onclick="runGhScan()">Scan now</button>
-        <button class="btn ghost" onclick="loadGithub()">Refresh</button>
+        <button type="submit" class="btn">Scan now</button>
+        <button type="button" class="btn ghost" onclick="loadGithub()">Refresh</button>
         <span class="text-xs text-slate-400" id="gh-token-info"></span>
-      </div>
+      </form>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
       <div class="glass p-6 mb-6" id="gh-delta"><h2 class="text-xl font-bold mb-2">Delta vs previous scan</h2><p class="text-slate-400 text-sm" id="gh-delta-text">—</p></div>
       <div class="grid md:grid-cols-2 gap-6 mb-6">
@@ -189,12 +189,12 @@
     <!-- Shared -->
     <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
-        <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
-        <div class="flex gap-3 flex-wrap mb-4">
+<div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
+        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
           <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]">
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
-          <button class="btn" onclick="addShared()">Save</button>
-        </div>
+          <button type="submit" class="btn">Save</button>
+        </form>
         <div id="shared-list"></div>
       </div>
     </section>
@@ -203,16 +203,16 @@
     <section id="tab-search" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Global Search</h2>
-        <div class="flex gap-3 flex-wrap mb-3">
+<form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); doSearch()">
           <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
           <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
             <option value="all">All</option>
             <option value="project">Projects</option>
             <option value="shared">Shared</option>
           </select>
-          <button class="btn" onclick="doSearch()">Search</button>
-          <button class="btn ghost" onclick="clearSearch()">Clear</button>
-        </div>
+<button type="submit" class="btn">Search</button>
+          <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
+        </form>
         <div class="flex gap-3 flex-wrap mb-4">
           <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48">
           <input type="date" id="search-start" aria-label="Start date">
