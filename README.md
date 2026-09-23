@@ -1,4 +1,4 @@
-# OmniState v2.5.0
+# OmniState v2.6.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -18,7 +18,11 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Per-project + shared**: isolated memory for each project + shared memory common to all.
 - **Cross-project search**: full-text across all projects and the shared memory.
 - **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
-- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search.
+- **Agent handoffs**: `memory_handoff` creates structured context handoffs (current state, completed, next steps, risks, validation) between agents or sessions, browsable in the dashboard's **Handoffs** tab.
+- **Memory provenance + validity**: every memory can carry a `source` (agent/session/commit/issue) and optional `valid_from`/`valid_until` temporal bounds; insert-time deduplication collapses near-identical notes (token Jaccard ≥ 0.9).
+- **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
+- **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
@@ -171,10 +175,10 @@ Open **http://localhost:8347** in the browser:
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately), "Only with open PRs" filter (persisted via shared memory).
-- **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, and inline **Copy / 👍 useful / ⭐ important** actions on every result.
-- **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) in `localStorage`.
-- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
-- **Inline memory actions**: project-memory cards expose **Copy**, **👍 useful** and **⭐ important** (reinforce) buttons.
+- **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, and inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions on every result.
+- **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key).
+- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
+- **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); actionable input groups (token, register, scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively; empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
 
 ## GitHub PR Health
@@ -314,9 +318,19 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
+### v2.6.0
+- **Agent handoffs**: new `memory_handoff` MCP tool creates structured context handoffs (`current_state`, `completed`, `next_steps`, `risks`, `validation`) browsable in the dashboard's **Handoffs** tab.
+- **Memory provenance + validity**: `memory_remember` accepts `source`; `memory_save` supports `valid_from`/`valid_until` for time-bounded facts.
+- **Insert-time deduplication**: `memory_remember` collapses near-identical notes (token Jaccard ≥ 0.9) instead of inserting duplicates.
+- **Markdown export**: new `memory_export_markdown` tool and `/api/memory/export-markdown` REST endpoint dump active memories as `.md` files — decisions as `ADR-XXXX.md` under `decisions/`.
+- **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
+- **Sentinel**: fixed arbitrary-file-write path traversal in `Store.export_memories`/`export_memories_markdown` — export paths are now resolved and contained to the database directory.
+- **Bolt**: `api_stats()` computes token savings from the already-cached `_project_metrics_list()` instead of calling `store.stats()` per request.
+- **UX (dashboard)**: new **Handoffs** tab with create form; palette adds "Export Markdown" and "Handoff" commands; search results gain a **🗑 forget** action.
+
 ### v2.5.0 (current)
 - **UX (dashboard)**: light/dark theme toggle (header button or `T` key, persisted in `localStorage`), command palette (`Ctrl/⌘+K` or `/` to jump to search) with keyboard navigation, and toast notifications replacing silent failures. Overview and search show skeleton loaders while data loads.
-- **Search** (dashboard): live debounced input, advanced filters (project name, start/end date, result limit), result counter, and inline **Copy / 👍 useful / ⭐ important** (reinforce) actions on every result card.
+- **Search** (dashboard): live debounced input, advanced filters (project name, start/end date, result limit), result counter, and inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions on every result.
 - **Projects & memory** (dashboard): inline filter box with live count on the Projects section; project-memory cards gain **Copy / 👍 useful / ⭐ important** actions.
 - **Accessibility** (dashboard): actionable input groups (token, project register, GitHub scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively — improving keyboard and mobile usability.
 - **Details**: shared-memory section shows a live note count + refresh button; empty/error states give clearer guidance.
