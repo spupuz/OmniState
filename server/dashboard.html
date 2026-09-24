@@ -135,15 +135,15 @@
 
     <!-- Overview -->
     <section id="tab-overview" class="tab-panel" role="tabpanel">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats"></div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats" role="list"></div>
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-2">DB Backups</h2>
         <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button onclick="loadBackups()">↻ Refresh</button></p>
-        <div id="backups-list" class="flex gap-3 flex-wrap"></div>
+        <div id="backups-list" class="flex gap-3 flex-wrap" role="list"></div>
       </div>
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Indexed Projects</h2>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="overview-projects"></div>
+        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="overview-projects" role="list"></div>
       </div>
     </section>
 
@@ -202,7 +202,7 @@
           <button type="submit" class="btn">Save</button>
           <button type="button" class="btn ghost" onclick="exportMemoryMarkdown()">Export Markdown</button>
         </form>
-        <div id="shared-list"></div>
+        <div id="shared-list" role="list"></div>
       </div>
     </section>
 
@@ -227,7 +227,7 @@
           <select id="search-limit" aria-label="Limit"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
           <span id="search-count" class="text-xs text-slate-400 self-center"></span>
         </div>
-        <div id="search-results"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
+        <div id="search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
       </div>
     </section>
 
@@ -236,7 +236,7 @@
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Agent Handoffs</h2>
         <p class="text-slate-400 text-sm mb-4">Context handoffs between agents or sessions. Created via <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs">memory_handoff</code> MCP tool or <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs">/api/handoffs</code> REST API.</p>
-        <div id="handoffs-list"><p class="text-slate-400 text-sm">No handoffs yet.</p></div>
+        <div id="handoffs-list" role="list"><p class="text-slate-400 text-sm">No handoffs yet.</p></div>
       </div>
     </section>
   </main>
@@ -297,7 +297,7 @@ async function loadBackups() {
     const el = $('backups-list');
     if (!el) return;
     el.innerHTML = list.length ? list.map(b => `
-      <div class="glass p-3" style="min-width:160px">
+      <div class="glass p-3" style="min-width:160px" role="listitem">
         <p class="font-bold text-sm">${esc(b.date)}</p>
         <p class="text-xs text-slate-400">${b.memories} entries · ${b.size_mb} MB</p>
       </div>`).join('') : '<p class="text-xs text-slate-400">No backups yet</p>';
@@ -326,7 +326,7 @@ async function loadOverview() {
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     $('overview-projects').innerHTML = projects.length ? projects.map(p => `
-      <div class="glass p-5 stat-card cursor-pointer" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details">
+      <button type="button" class="glass p-5 stat-card w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" role="listitem" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details">
         <p class="font-bold mb-1 truncate">${esc(p.name)}</p>
         <p class="text-xs text-slate-400 mb-3 truncate" title="${esc(p.host_path)}">${esc(p.host_path)}</p>
         <div class="flex gap-4 text-xs">
@@ -334,7 +334,7 @@ async function loadOverview() {
           <span class="text-emerald-300">${fmt(p.doneTasks)} done</span>
           <span class="text-purple-300">${fmt(p.snapshots)} snap</span>
         </div>
-      </div>`).join('') : '<p class="text-slate-400 text-sm">No active projects. Check the Projects tab for archived/deleted ones.</p>';
+      </button>`).join('') : '<p class="text-slate-400 text-sm">No active projects. Check the Projects tab for archived/deleted ones.</p>';
   } catch (e) { console.error(e); }
 }
 
@@ -357,7 +357,8 @@ async function loadProjects() {
   try {
     const projects = await api('/api/projects');
     backToProjects();
-    if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p>'; return; }
+    if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p>'; $('projects-table-wrap').removeAttribute('tabindex'); return; }
+    $('projects-table-wrap').setAttribute('tabindex', '0');
     _allProjects = projects;
     const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects';
     const rows = (list) => list.map(p => `
@@ -408,8 +409,8 @@ async function showProject(name) {
         <input type="search" id="pm-filter" aria-label="Filter project memory entries" class="ml-auto" placeholder="Filter entries…" oninput="renderPmEntries()">
         <button class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
       </div>
-      <div id="pm-entries"></div>
-      <div id="handoff-form" class="hidden mt-4"></div>`;
+      <div id="pm-entries" role="list"></div>
+      <div id="handoff-form" class="hidden mt-4" role="list"></div>`;
     renderPmEntries();
   } catch (e) { console.error(e); $('projects-table-wrap').classList.remove('hidden'); }
 }
@@ -423,7 +424,7 @@ function renderPmEntries() {
   $('pm-entries').innerHTML = list.length ? list.map((e, idx) => {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
-    <div class="glass p-4 mb-3">
+    <div class="glass p-4 mb-3" role="listitem">
       <div class="flex justify-end gap-2 mb-2"><button class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
@@ -451,7 +452,7 @@ function showHandoffForm() {
   if (!form) return;
   form.classList.remove('hidden');
   form.innerHTML = `
-    <div class="glass p-4 mb-3">
+    <div class="glass p-4 mb-3" role="listitem">
       <h3 class="font-bold mb-2">Create Handoff</h3>
       <textarea id="hf-state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
       <textarea id="hf-next" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
@@ -505,7 +506,7 @@ async function loadShared() {
     const list = await api('/api/shared');
     const sc=$('shared-count'); if(sc) sc.textContent = list.length + ' notes';
     $('shared-list').innerHTML = list.length ? list.map(m => `
-      <div class="glass p-4 mb-3">
+      <div class="glass p-4 mb-3" role="listitem">
         <div class="flex justify-between gap-4">
           <p class="font-semibold">${esc(m.title)}</p>
           <div class="flex items-center gap-3 shrink-0">
@@ -550,7 +551,7 @@ async function doSearch() {
   const q = $('search-q').value.trim();
   if (!q) { $('search-results').innerHTML='<p class="text-slate-400 text-sm">Type a query to search.</p>'; const c=$('search-count'); if(c) c.textContent=''; return; }
   const sc=$('search-count'); if(sc) sc.textContent='Searching…';
-  $('search-results').innerHTML = '<div class="glass p-4 mb-3">'+ [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') +'</div>';
+  $('search-results').innerHTML = '<div class="glass p-4 mb-3" role="listitem">'+ [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') +'</div>';
   try {
     const scope = $('search-scope').value;
     const project = ($('search-project')?.value||'').trim();
@@ -564,7 +565,7 @@ async function doSearch() {
     const results = await api(url);
     if(sc) sc.textContent = results.length ? results.length + ' results' : 'no results';
     $('search-results').innerHTML = results.length ? results.map(m => `
-      <div class="glass p-4 mb-3">
+      <div class="glass p-4 mb-3" role="listitem">
         <div class="flex justify-between gap-4 flex-wrap">
           <p class="font-semibold">${esc(m.title || '(untitled)')}</p>
           <span class="text-xs text-slate-500">${esc(m.scope)}${m.project_name ? ' · ' + esc(m.project_name) : ''} · ${fmtDate(m.created_at, true)}</span>
@@ -602,7 +603,7 @@ async function loadGithub() {
       { l: 'Open PR totali', v: fmt(metrics.total_prs), c: 'text-emerald-400' },
       { l: 'Metodo', v: esc(metrics.method), c: 'text-purple-400' },
       { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300' },
-    ].map(c => `<div class="glass p-8 stat-card"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="text-3xl font-black font-outfit ${c.c}">${c.v}</p></div>`).join('');
+    ].map(c => `<div class="glass p-8 stat-card" role="listitem"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="text-3xl font-black font-outfit ${c.c}">${c.v}</p></div>`).join('');
     $('gh-delta-text').textContent = delta.error ? delta.error : `Δ PR: ${delta.delta_prs >= 0 ? '+' : ''}${fmt(delta.delta_prs)} · Δ repos: ${delta.delta_repos >= 0 ? '+' : ''}${fmt(delta.delta_repos)} (${fmtDate(delta.latest)} vs ${fmtDate(delta.previous)})`;
     renderGhRepos();
     renderGhCharts(history, metrics);
@@ -674,7 +675,8 @@ async function runGhScan() {
 async function renderGhRepos() {
   try {
     const repos = await api('/api/github/repos');
-    if (!repos.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; return; }
+    if (!repos.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; $('github-repos').removeAttribute('tabindex'); return; }
+    $('github-repos').setAttribute('tabindex', '0');
     const only = $('gh-only-prs').checked;
     const filtered = only ? repos.filter(r => r.open_prs > 0) : repos;
     // Only link out to github.com repo URLs; anything else renders as plain text.
@@ -819,7 +821,7 @@ async function loadHandoffs() {
       let meta = {};
       try { meta = JSON.parse(h.content); } catch(_) {}
       return `
-      <div class="glass p-4 mb-3">
+      <div class="glass p-4 mb-3" role="listitem">
         <div class="flex justify-between gap-4 flex-wrap">
           <p class="font-semibold">${esc(h.title)}</p>
           <span class="text-xs text-slate-500">${fmtDate(h.created_at)}</span>
