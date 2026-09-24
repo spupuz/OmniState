@@ -136,6 +136,11 @@
     <!-- Overview -->
     <section id="tab-overview" class="tab-panel" role="tabpanel">
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats"></div>
+      <div class="glass p-6 mb-6">
+        <h2 class="text-xl font-bold mb-2">DB Backups</h2>
+        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button onclick="loadBackups()">↻ Refresh</button></p>
+        <div id="backups-list" class="flex gap-3 flex-wrap"></div>
+      </div>
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Indexed Projects</h2>
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="overview-projects"></div>
@@ -286,7 +291,20 @@ function fmtDate(ts, dateOnly) {
   return dateOnly ? d.toLocaleDateString('it-IT') : d.toLocaleString('it-IT');
 }
 
-async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs()]); }
+async function loadBackups() {
+  try {
+    const list = await api('/api/backups');
+    const el = $('backups-list');
+    if (!el) return;
+    el.innerHTML = list.length ? list.map(b => `
+      <div class="glass p-3" style="min-width:160px">
+        <p class="font-bold text-sm">${esc(b.date)}</p>
+        <p class="text-xs text-slate-400">${b.memories} entries · ${b.size_mb} MB</p>
+      </div>`).join('') : '<p class="text-xs text-slate-400">No backups yet</p>';
+  } catch (e) { console.error(e); }
+}
+
+async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadBackups()]); }
 
 // ---------- Overview ----------
 async function loadOverview() {
@@ -299,6 +317,7 @@ async function loadOverview() {
       { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
       { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
       { l: 'Token savings', v: fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300', t: 'Real measured saving: stored raw memory tokens minus what session_start actually loads.' },
+      { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
     $('overview-stats').innerHTML = cards.map(c => `
       <div class="glass p-8 stat-card">

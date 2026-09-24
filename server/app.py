@@ -389,6 +389,28 @@ class App:
             self.invalidate_metrics_cache()
             return {"handoff_id": mem_id, "project": project}
 
+        @app.get("/api/backups")
+        def api_backups() -> list[dict[str, Any]]:
+            import sqlite3
+            from datetime import datetime, timezone
+            p = self.cfg.data_dir / "backups"
+            if not p.exists():
+                return []
+            out = []
+            for f in sorted(p.glob("index_*.db"), reverse=True)[:7]:
+                stat = f.stat()
+                conn = sqlite3.connect(str(f))
+                mems = conn.execute("SELECT COUNT(*) FROM memory").fetchone()[0]
+                conn.close()
+                out.append({
+                    "file": f.name,
+                    "date": f.name.replace("index_", "").replace(".db", ""),
+                    "size_mb": round(stat.st_size / 1024 / 1024, 2),
+                    "memories": mems,
+                    "mtime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime("%Y-%m-%d %H:%M"),
+                })
+            return out
+
         @app.get("/api/stats")
         def api_stats() -> dict[str, Any]:
             stats = self.store.stats()
@@ -402,7 +424,8 @@ class App:
             stored_tokens = sum(p["storedTokens"] for p in metrics_list if p["category"] == "active")
             loaded_tokens = sum(p["loadedTokens"] for p in metrics_list if p["category"] == "active")
             stats["tokenSavings"] = max(0, stored_tokens - loaded_tokens)
-
+            # Include backup count from /data/backups (not from DB — separate from metrics)
+            stats["backups"] = len(list((self.cfg.data_dir / "backups").glob("index_*.db"))) if (self.cfg.data_dir / "backups").exists() else 0
             return stats
 
         # ---- GitHub PR Health ----
