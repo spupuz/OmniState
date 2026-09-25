@@ -23,8 +23,10 @@ DATE=$(date +%F)
 BACKUP_FILE="$BACKUP_DIR/index_$DATE.db"
 
 cp -v "$DB_FILE" "$BACKUP_FILE"
+sha256sum "$BACKUP_FILE" > "$BACKUP_FILE.sha256"
 
-# Rotazione: mantieni ultimi 7
+# Rotazione: mantieni ultimi 7 + relative checksum
 ls -t "$BACKUP_DIR"/index_*.db | tail -n +8 | xargs -r rm -v
+ls -t "$BACKUP_DIR"/index_*.db.sha256 | tail -n +8 | xargs -r rm -v
 
 echo "Backup completato: $BACKUP_FILE ($(ls -t $BACKUP_DIR/index_*.db 2>/dev/null | wc -l) file mantenuti, max 7)"

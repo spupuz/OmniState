@@ -193,6 +193,8 @@ CREATE INDEX IF NOT EXISTS idx_memory_scope ON memory(scope);
 CREATE INDEX IF NOT EXISTS idx_memory_created ON memory(created_at);
 CREATE INDEX IF NOT EXISTS idx_memory_updated ON memory(updated_at, project_id);
 CREATE INDEX IF NOT EXISTS idx_memory_scope_lifecycle ON memory(scope, lifecycle_state);
+CREATE INDEX IF NOT EXISTS idx_memory_project_updated ON memory(project_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_memory_scope_lifecycle_updated ON memory(scope, lifecycle_state, updated_at);
 CREATE INDEX IF NOT EXISTS idx_feedback_memory ON memory_feedback(memory_id);
 CREATE INDEX IF NOT EXISTS idx_feedback_memory_created ON memory_feedback(memory_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_gh_repos_scan ON gh_repos(scan_id);
@@ -1195,6 +1197,13 @@ class Store:
             "ghScans": scans,
             "lastUpdate": _now(),
         }
+
+    def purge_feedback(self, older_than_days: int = 90) -> int:
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=older_than_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM memory_feedback WHERE created_at < ?", (cutoff,))
+            self._conn.commit()
+            return cur.rowcount
 
     def close(self) -> None:
         with self._lock:

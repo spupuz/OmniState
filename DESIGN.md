@@ -1,6 +1,6 @@
 # OmniState v2 — Design: MCP Server + Web Dashboard (Docker)
 
-Status: **draft under review** — no code was written until approval.
+Status: **implemented (v2.6.1)** — code live, review complete, improvement cycle ongoing.
 Agreed decisions: **Docker** container, **MCP-only** (no more local skills: the MCP server is the single memory), **auto-registration** of projects when they use the MCP, **dashboard v2 only** (static generator removed), **English-only** project.
 
 ---
@@ -64,6 +64,14 @@ One Python process (uvicorn) in the container, two interfaces:
 - The server never runs shell commands with unsanitized input and never reads files outside the mounted roots.
 
 ---
+
+## 2a. Operational notes (post-release improvements)
+- DB indices: composited (`scope+lifecycle+updated_at`) added; FTS5 batch deferred recommended at high frequency.
+- Backup: `scripts/db-backup.sh` now writes `.sha256` and rotates checksums; verify restore before production rely.
+- Auth: `localStorage` token + CSP strict recommended; add `HttpOnly` cookie path.
+- Monitoring: `/api/metrics` minimal added; Prometheus-style `/metrics` and structured JSON logging still needed.
+- Purge: `memory_feedback` retention 90-day purge method added (`Store.purge_feedback`).
+- Test: local-only regression (`tests/test_store_core.py`) verifies schema + indexes + purge; not published per privacy policy.
 
 ## 3. Docker container
 

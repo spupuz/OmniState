@@ -243,6 +243,11 @@ class App:
             p = Path(__file__).parent / "favicon.svg"
             return Response(p.read_text(encoding="utf-8"), media_type="image/svg+xml") if p.exists() else Response(status_code=404)
 
+        @app.get("/manifest.json")
+        def manifest_json() -> Response:
+            p = Path(__file__).parent / "manifest.json"
+            return Response(content=p.read_text() if p.exists() else "{}", media_type="application/json")
+
         @app.get("/favicon.ico")
         def favicon_ico() -> Response:
             # Serve the SVG for the legacy path too (browsers accept it via the
@@ -410,6 +415,13 @@ class App:
                     "mtime": datetime.fromtimestamp(stat.st_mtime, timezone.utc).strftime("%Y-%m-%d %H:%M"),
                 })
             return out
+
+        @app.get("/api/metrics")
+        def api_metrics_route() -> dict[str, Any]:
+            return {
+                "db_path": str(self.store.db_path),
+                "writable": self.store.db_path.parent.exists(),
+            }
 
         @app.get("/api/stats")
         def api_stats() -> dict[str, Any]:

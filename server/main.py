@@ -28,7 +28,8 @@ def build_app() -> FastAPI:
     if not logging.getLogger().handlers:
         logging.basicConfig(
             level=logging.INFO,
-            format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+            format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+            handlers=[logging.StreamHandler()],
         )
     cfg = load_config()
     store = Store(cfg.db_path, shared_dir=cfg.shared_dir)

@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#070b14" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f1f5f9" media="(prefers-color-scheme: light)">
+<link rel="manifest" href="/manifest.json">
 <title>OmniState | Dashboard</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="alternate icon" href="/favicon.ico">
@@ -26,21 +29,23 @@
     color: #f1f5f9;
     font-family: 'Inter', sans-serif;
     background-image:
-      radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.08) 0%, transparent 40%),
-      radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.08) 0%, transparent 40%);
+      radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
+      radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 60%);
     min-height: 100vh;
   }
   h1, h2, h3, .font-outfit { font-family: 'Outfit', sans-serif; }
   .glass {
-    background: var(--card-bg);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: linear-gradient(180deg, rgba(255,255,255,.08) 0%, var(--card-bg) 60%);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255,255,255,.08);
     border-radius: 1.5rem;
-    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+    box-shadow: 0 10px 40px -12px rgba(59,130,246,.25), inset 0 1px 0 rgba(255,255,255,.06);
   }
   .stat-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-  .stat-card:hover { transform: translateY(-8px); border-color: var(--accent); box-shadow: 0 0 20px var(--accent-glow); }
-  .glow-text { text-shadow: 0 0 20px var(--accent-glow); }
+  .stat-card:hover { transform: translateY(-8px); border-color: rgba(59,130,246,.6); box-shadow: 0 0 25px rgba(59,130,246,.35), 0 10px 30px -10px rgba(0,0,0,.4); }
+  .glow-text { text-shadow: 0 0 20px var(--accent-glow), 0 0 60px rgba(59,130,246,.15); letter-spacing: -0.03em; line-height: 1.05; }
   .pulse { animation: pulse-subtle 3s infinite ease-in-out; }
   @keyframes pulse-subtle { 0%,100%{opacity:1} 50%{opacity:.6} }
   ::-webkit-scrollbar { width: 8px; }
@@ -48,13 +53,13 @@
   ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
   ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
   .tab-btn { padding: .5rem 1.25rem; border-radius: 9999px; font-size: .8rem; font-weight: 600; transition: all .2s; border: 1px solid rgba(255,255,255,.08); }
-  .tab-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .tab-btn.active { background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%); color: #fff; border-color: rgba(59,130,246,.6); box-shadow: 0 4px 15px rgba(59,130,246,.35); }
   .tab-btn:not(.active) { color: #94a3b8; }
   .tab-btn:not(.active):hover { color: #f1f5f9; border-color: var(--accent); }
   .chart-box { height: 320px; }
   table { width: 100%; border-collapse: collapse; }
   th, td { text-align: left; padding: .6rem .8rem; font-size: .82rem; border-bottom: 1px solid rgba(255,255,255,.05); }
-  th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: .7rem; letter-spacing: .08em; }
+  th { color: #94a3b8; font-weight: 700; text-transform: uppercase; font-size: .7rem; letter-spacing: .1em; background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, transparent 100%); border-bottom: 2px solid rgba(59,130,246,.3); }
   td.num, th.num { text-align: right; }
   td a, .num a { color: inherit; text-decoration: none; }
   td a:hover { text-decoration: underline; }
@@ -67,6 +72,13 @@
   .btn { background: var(--accent); color: #fff; border: none; border-radius: .6rem; padding: .55rem 1.1rem; font-size: .82rem; font-weight: 600; cursor: pointer; transition: all .2s; }
   .btn:hover { filter: brightness(1.15); }
   .btn.ghost { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #94a3b8; }
+  .skip-link { position: absolute; left: -9999px; z-index: 100; }
+  .skip-link:focus { left: 1rem; top: 1rem; }
+  .tab-panel { animation: fadeIn .35s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  [role="tabpanel"] { min-height: 60vh; }
+  .tab-btn { min-height: 44px; touch-action: manipulation; user-select: none; }
+  ::selection { background: rgba(59,130,246,.25); color: #fff; }
   .hidden { display: none !important; }
   /* Light theme */
   [data-theme="light"] { --bg-dark:#f1f5f9; --card-bg:rgba(255,255,255,.92); }
@@ -98,6 +110,7 @@
 </style>
 </head>
 <body class="p-6 md:p-10">
+  <a href="#main-content" class="skip-link sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-accent focus:text-white focus:px-4 focus:py-2 focus:rounded font-bold shadow-lg">Salta al contenuto</a>
 <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:font-bold focus:outline-none focus:ring-2 focus:ring-blue-400">Skip to main content</a>
 
 <div class="max-w-7xl mx-auto">
@@ -123,15 +136,15 @@
 
   <!-- Tabs -->
   <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Sezioni dashboard">
-    <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview">Overview</button>
-    <button class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects">Projects</button>
-    <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github">GitHub PR Health</button>
-    <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared">Shared Memory</button>
-    <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search">Search</button>
-    <button class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs">Handoffs</button>
+    <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" aria-label="Sezione Overview">Overview</button>
+    <button class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" aria-label="Sezione Progetti">Projects</button>
+    <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" aria-label="Sezione GitHub PR Health">GitHub PR Health</button>
+    <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Sezione Memoria condivisa">Shared Memory</button>
+    <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Sezione Ricerca">Search</button>
+    <button class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Sezione Handoff">Handoffs</button>
   </nav>
 
-  <main id="main-content" tabindex="-1">
+  <main id="main-content" tabindex="-1" aria-live="polite" aria-atomic="false">
 
     <!-- Overview -->
     <section id="tab-overview" class="tab-panel" role="tabpanel">

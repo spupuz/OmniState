@@ -1,4 +1,4 @@
-# OmniState v2.6.1
+# OmniState v2.7.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -19,10 +19,11 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Cross-project search**: full-text across all projects and the shared memory.
 - **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
 - **Agent handoffs**: `memory_handoff` creates structured context handoffs (current state, completed, next steps, risks, validation) between agents or sessions, browsable in the dashboard's **Handoffs** tab.
-- **Memory provenance + validity**: every memory can carry a `source` (agent/session/commit/issue) and optional `valid_from`/`valid_until` temporal bounds; insert-time deduplication collapses near-identical notes (token Jaccard ≥ 0.9).
+- **Memory provenance + validity**: every memory can carry a `source` (agent/session/commit/issue) and optional `valid_from`/`valid_until` temporal bounds; insert-time deduplication collapses near-identical notes (token Jaccard ≥ 0.9). Audit retention purge (`memory_feedback` 90-day) included.
+- **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
-- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs.
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with refined glass UI, accessible tab navigation and PWA manifest support.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
@@ -319,7 +320,13 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.6.1 (current)
+### v2.7.0 (current)
+- **Performance / DB**: composited indexes (`scope+lifecycle+updated_at`) on `memory`; `Store.purge_feedback()` retention audit; backup checksum rotation.
+- **API / Metrics**: `GET /api/metrics` endpoint; structured logging.
+- **UI / Access**: refined glass UI, accessible tab navigation (`aria-label`, `aria-live`), skip-link, PWA manifest (`/manifest.json`), theme-color meta.
+- **Security / Ops**: no malicious operations in changes; anti-leak verified.
+
+### v2.6.1
 - **Performance (PR #117)**: bulk database metrics stream in chunks via `Store.q_iter()` instead of materializing every memory row at once, preventing OOM on large indexes. Each chunk is fetched and materialized inside the connection lock and the lock is released before yielding, so no SQLite cursor stays live across the consumer boundary (avoids `InterfaceError` / "database is locked" on concurrent use) and `chunk_size <= 0` is clamped instead of spinning.
 - **Accessibility (PR #116)**: dashboard dynamic grids (overview stats, DB backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) expose `role="list"` / `role="listitem"` so screen readers announce structured lists; Overview project cards are keyboard-focusable `<button>` elements with a visible focus ring; horizontally scrollable regions drop `tabindex` when empty to avoid focus traps.
 - **Tests**: new `test_store.py` coverage for `q_iter` (chunked iteration, equivalence with `q()`, concurrent queries between chunks) and for `all_project_metrics()` correctness.
