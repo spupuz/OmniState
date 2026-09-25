@@ -223,23 +223,25 @@
     <section id="tab-search" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Global Search</h2>
-        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); doSearch()">
-          <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
-          <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
-            <option value="all">All</option>
-            <option value="project">Projects</option>
-            <option value="shared">Shared</option>
-          </select>
-          <button type="submit" class="btn">Search</button>
-          <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
+        <form class="flex flex-col gap-4 mb-4" onsubmit="event.preventDefault(); doSearch()">
+          <div class="flex gap-3 flex-wrap">
+            <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
+            <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
+              <option value="all">All</option>
+              <option value="project">Projects</option>
+              <option value="shared">Shared</option>
+            </select>
+            <button type="submit" class="btn">Search</button>
+            <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
+          </div>
+          <div class="flex gap-3 flex-wrap">
+            <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48" oninput="debouncedSearch()">
+            <input type="date" id="search-start" aria-label="Start date" onchange="doSearch()">
+            <input type="date" id="search-end" aria-label="End date" onchange="doSearch()">
+            <select id="search-limit" aria-label="Limit" onchange="doSearch()"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
+            <span id="search-count" class="text-xs text-slate-400 self-center"></span>
+          </div>
         </form>
-        <div class="flex gap-3 flex-wrap mb-4">
-          <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48">
-          <input type="date" id="search-start" aria-label="Start date">
-          <input type="date" id="search-end" aria-label="End date">
-          <select id="search-limit" aria-label="Limit"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
-          <span id="search-count" class="text-xs text-slate-400 self-center"></span>
-        </div>
         <div id="search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
       </div>
     </section>
@@ -465,7 +467,7 @@ function showHandoffForm() {
   if (!form) return;
   form.classList.remove('hidden');
   form.innerHTML = `
-    <div class="glass p-4 mb-3" role="listitem">
+    <form class="glass p-4 mb-3" role="listitem" onsubmit="event.preventDefault(); submitHandoff()">
       <h3 class="font-bold mb-2">Create Handoff</h3>
       <textarea id="hf-state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
       <textarea id="hf-next" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
@@ -473,10 +475,10 @@ function showHandoffForm() {
       <textarea id="hf-risks" class="w-full mb-2" rows="2" placeholder="Risks (one per line)…"></textarea>
       <textarea id="hf-valid" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
       <div class="flex gap-2">
-        <button class="btn" onclick="submitHandoff()">Save handoff</button>
-        <button class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
+        <button type="submit" class="btn">Save handoff</button>
+        <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
       </div>
-    </div>`;
+    </form>`;
   form.scrollIntoView({behavior:'smooth'});
 }
 
