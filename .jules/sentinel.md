@@ -1,4 +1,0 @@
-## 2024-05-24 - Path Traversal in File Export
-**Vulnerability:** Arbitrary File Write via path traversal in `Store.export_memories`. The application allowed arbitrary absolute paths to be exported, which could be abused to overwrite critical files like `/etc/passwd`.
-**Learning:** Checking `if not p.is_absolute()` is insufficient because it doesn't prevent relative traversal (`../../`), and skipping containment checks entirely for absolute paths inherently trusts the user input.
-**Prevention:** To securely prevent path traversal vulnerabilities in Python when accepting user-provided paths, use `pathlib.Path.resolve(strict=False)` on both the target path and the allowed base directory. Verify that `str(resolved_target).startswith(str(resolved_base) + os.sep)` and `resolved_target != resolved_base` to ensure the file strictly resides within the intended directory.

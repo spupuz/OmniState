@@ -326,17 +326,29 @@ class Store:
         return [dict(r) for r in rows]
 
     def q_iter(self, sql: str, params: tuple = (), chunk_size: int = 100) -> Iterator[dict[str, Any]]:
-        """⚡ Bolt: Streams results in chunks to prevent OOM errors when bulk-fetching large fields.
-        Releases the thread lock before yielding to avoid lock contention during downstream processing."""
+        """Stream rows in chunks to avoid materializing a large result set at once.
+
+        Each chunk is fetched and materialized inside the thread lock, then the
+        lock is released before yielding so downstream processing does not block
+        other queries. The cursor is only ever stepped while the lock is held
+        (never across a consumer boundary), so no other query can invalidate it
+        and a live cursor never survives into consumer code.
+        """
+        chunk_size = max(1, int(chunk_size))
         with self._lock:
             cur = self._conn.execute(sql, params)
-        while True:
+        try:
+            while True:
+                with self._lock:
+                    rows = cur.fetchmany(chunk_size)
+                if not rows:
+                    break
+                chunk = [dict(r) for r in rows]
+                for row in chunk:
+                    yield row
+        finally:
             with self._lock:
-                rows = cur.fetchmany(chunk_size)
-            if not rows:
-                break
-            for r in rows:
-                yield dict(r)
+                cur.close()
 
     def one(self, sql: str, params: tuple = ()) -> dict[str, Any] | None:
         rows = self.q(sql, params)

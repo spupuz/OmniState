@@ -1,4 +1,4 @@
-# OmniState v2.6.0
+# OmniState v2.6.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -179,7 +179,7 @@ Open **http://localhost:8347** in the browser:
 - **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key).
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
-- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); actionable input groups (token, register, scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively; empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids (overview stats, backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) are exposed as ARIA lists (`role="list"` / `role="listitem"`) so screen readers announce them as structured collections; Overview project cards are real `<button>` elements reachable and activatable by keyboard with a visible focus ring; actionable input groups (token, register, scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively; horizontally scrollable regions are focusable only while they actually overflow (the `tabindex` is removed in empty states to avoid focus traps); empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
 
 ## GitHub PR Health
 
@@ -207,6 +207,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
+- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists) stream through `Store.q_iter()`, which materializes one chunk at a time under the lock and releases it before yielding, so a large index never has to be loaded into memory at once and downstream processing never blocks other queries.
 - Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
 - Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
 
@@ -318,6 +319,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
+### v2.6.1 (current)
+- **Performance (PR #117)**: bulk database metrics stream in chunks via `Store.q_iter()` instead of materializing every memory row at once, preventing OOM on large indexes. Each chunk is fetched and materialized inside the connection lock and the lock is released before yielding, so no SQLite cursor stays live across the consumer boundary (avoids `InterfaceError` / "database is locked" on concurrent use) and `chunk_size <= 0` is clamped instead of spinning.
+- **Accessibility (PR #116)**: dashboard dynamic grids (overview stats, DB backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) expose `role="list"` / `role="listitem"` so screen readers announce structured lists; Overview project cards are keyboard-focusable `<button>` elements with a visible focus ring; horizontally scrollable regions drop `tabindex` when empty to avoid focus traps.
+- **Tests**: new `test_store.py` coverage for `q_iter` (chunked iteration, equivalence with `q()`, concurrent queries between chunks) and for `all_project_metrics()` correctness.
+
 ### v2.6.0
 - **Agent handoffs**: new `memory_handoff` MCP tool creates structured context handoffs (`current_state`, `completed`, `next_steps`, `risks`, `validation`) browsable in the dashboard's **Handoffs** tab.
 - **Memory provenance + validity**: `memory_remember` accepts `source`; `memory_save` supports `valid_from`/`valid_until` for time-bounded facts.
@@ -328,7 +334,7 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 - **Bolt**: `api_stats()` computes token savings from the already-cached `_project_metrics_list()` instead of calling `store.stats()` per request.
 - **UX (dashboard)**: new **Handoffs** tab with create form; palette adds "Export Markdown" and "Handoff" commands; search results gain a **🗑 forget** action.
 
-### v2.5.0 (current)
+### v2.5.0
 - **UX (dashboard)**: light/dark theme toggle (header button or `T` key, persisted in `localStorage`), command palette (`Ctrl/⌘+K` or `/` to jump to search) with keyboard navigation, and toast notifications replacing silent failures. Overview and search show skeleton loaders while data loads.
 - **Search** (dashboard): live debounced input, advanced filters (project name, start/end date, result limit), result counter, and inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions on every result.
 - **Projects & memory** (dashboard): inline filter box with live count on the Projects section; project-memory cards gain **Copy / 👍 useful / ⭐ important** actions.
