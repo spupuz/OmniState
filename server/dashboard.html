@@ -223,23 +223,25 @@
     <section id="tab-search" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6">
         <h2 class="text-xl font-bold mb-4">Global Search</h2>
-        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); doSearch()">
-          <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
-          <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
-            <option value="all">All</option>
-            <option value="project">Projects</option>
-            <option value="shared">Shared</option>
-          </select>
-          <button type="submit" class="btn">Search</button>
-          <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
+        <form class="flex flex-col gap-4 mb-4" onsubmit="event.preventDefault(); doSearch()">
+          <div class="flex gap-3 flex-wrap">
+            <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
+            <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
+              <option value="all">All</option>
+              <option value="project">Projects</option>
+              <option value="shared">Shared</option>
+            </select>
+            <button type="submit" class="btn">Search</button>
+            <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
+          </div>
+          <div class="flex gap-3 flex-wrap">
+            <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48">
+            <input type="date" id="search-start" aria-label="Start date">
+            <input type="date" id="search-end" aria-label="End date">
+            <select id="search-limit" aria-label="Limit"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
+            <span id="search-count" class="text-xs text-slate-400 self-center"></span>
+          </div>
         </form>
-        <div class="flex gap-3 flex-wrap mb-4">
-          <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48">
-          <input type="date" id="search-start" aria-label="Start date">
-          <input type="date" id="search-end" aria-label="End date">
-          <select id="search-limit" aria-label="Limit"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
-          <span id="search-count" class="text-xs text-slate-400 self-center"></span>
-        </div>
         <div id="search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
       </div>
     </section>
@@ -333,9 +335,10 @@ async function loadOverview() {
       { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
     $('overview-stats').innerHTML = cards.map(c => `
-      <div class="glass p-8 stat-card">
+      <div class="glass p-8 stat-card" role="listitem">
         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p>
-        <p class="text-4xl font-black font-outfit ${c.c}">${c.v}</p>
+        <p class="text-4xl font-black font-outfit ${c.c} mb-1">${c.v}</p>
+        ${c.t ? `<p class="text-xs text-slate-500 mt-2 leading-relaxed">${c.t}</p>` : ''}
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     $('overview-projects').innerHTML = projects.length ? projects.map(p => `
