@@ -835,9 +835,21 @@ class Store:
 
     def export_memories_markdown(self, output_dir: str) -> dict[str, Any]:
         """Export shared memory + per-project decisions/notes as Markdown files."""
+        import os
+
         out_dir = Path(output_dir)
         if not out_dir.is_absolute():
             out_dir = self.db_path.parent / out_dir
+
+        try:
+            resolved_p = out_dir.resolve(strict=False)
+            resolved_parent = self.db_path.parent.resolve(strict=False)
+        except Exception as e:
+            raise ValueError(f"Invalid export path: {e}")
+
+        if not str(resolved_p).startswith(str(resolved_parent) + os.sep) and resolved_p != resolved_parent:
+            raise ValueError("Invalid export path: must be within the database directory")
+
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "decisions").mkdir(exist_ok=True)
         count = 0
