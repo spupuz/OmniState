@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
+import re
 import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -17,7 +18,7 @@ from pathlib import Path
 from typing import Any, Iterator
 
 _token_encoder = None
-
+_TOKENS_RE = re.compile(r"[a-zA-Z0-9_\-]+")
 
 def count_tokens(text: str) -> int:
     """Real token count using tiktoken cl100k_base (single cached encoding)."""
@@ -34,16 +35,18 @@ def _now() -> str:
 
 
 def _text_tokens(text: str) -> set[str]:
-    """Lower-cased meaningful tokens from free text (compounds expanded)."""
-    import re
+    """Lower-cased meaningful tokens from free text (compounds expanded).
 
+    ⚡ Optimized: Uses pre-compiled regex for initial extraction and native
+    string split for compound expansion to avoid loop overhead.
+    """
     out: set[str] = set()
-    for tok in re.findall(r"[a-zA-Z0-9_\-]+", text or ""):
+    for tok in _TOKENS_RE.findall(text or ""):
         tok = tok.lower()
         if len(tok) <= 1:
             continue
         out.add(tok)
-        for part in re.split(r"[_\-]", tok):
+        for part in tok.replace('-', '_').split('_'):
             if len(part) > 1 and part not in out:
                 out.add(part)
     return out
