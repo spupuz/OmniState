@@ -375,7 +375,7 @@ async function loadProjects() {
     _allProjects = projects;
     const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects';
     const rows = (list) => list.map(p => `
-      <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
+      <tr class="cursor-pointer hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" tabindex="0" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" onkeydown="if(event.key==='Enter'||event.key===' ') { event.preventDefault(); showProject(this.dataset.name); }" title="View project memory">
         <td class="font-semibold">${esc(p.name)}</td>
         <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
         <td class="num text-purple-300">${fmt(p.snapshots)}</td>

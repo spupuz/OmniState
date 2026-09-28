@@ -1,0 +1,3 @@
+## 2024-05-26 - Make project table rows keyboard accessible
+**Learning:** Binding `onclick` to a non-button element like a `<tr>` creates an interactive element that is inaccessible to keyboard-only and screen reader users. To make these actionable elements fully accessible, they must include `tabindex="0"`, focus-visible styles, and an `onkeydown` handler to execute logic on 'Enter' or 'Space' keypresses.
+**Action:** When adding interactive behaviors to non-interactive elements, ensure they are focusable and can be triggered via keyboard by adding `tabindex="0"`, appropriate focus styling, and an `onkeydown` handler mapping to Enter/Space.
