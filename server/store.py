@@ -14,9 +14,14 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import re
 from typing import Any, Iterator
 
 _token_encoder = None
+
+_TEXT_TOKENS_RE = re.compile(r"[a-zA-Z0-9_\-]+")
+_ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})")
+_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def count_tokens(text: str) -> int:
@@ -35,15 +40,13 @@ def _now() -> str:
 
 def _text_tokens(text: str) -> set[str]:
     """Lower-cased meaningful tokens from free text (compounds expanded)."""
-    import re
-
     out: set[str] = set()
-    for tok in re.findall(r"[a-zA-Z0-9_\-]+", text or ""):
+    for tok in _TEXT_TOKENS_RE.findall(text or ""):
         tok = tok.lower()
         if len(tok) <= 1:
             continue
         out.add(tok)
-        for part in re.split(r"[_\-]", tok):
+        for part in tok.replace('-', '_').split('_'):
             if len(part) > 1 and part not in out:
                 out.add(part)
     return out
@@ -72,14 +75,12 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
     Returns (start, end, remaining_query). Recognizes ISO ranges and simple
     phrases like "last week" / "in 2025". Falls back to dateparser.search.
     """
-    import re
-
-    iso = re.search(r"\b(\d{4})-(\d{2})-(\d{2})", query)
+    iso = _ISO_DATE_RE.search(query)
     if iso:
         day = f"{iso.group(1)}-{iso.group(2)}-{iso.group(3)}"
         start, end = f"{day}T00:00:00Z", f"{day}T23:59:59Z"
         rest = query[:iso.start()] + " " + query[iso.end():]
-        return start, end, re.sub(r"\s+", " ", rest).strip()
+        return start, end, _WHITESPACE_RE.sub(" ", rest).strip()
 
     try:
         import dateparser
@@ -92,7 +93,7 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
                 day = dt.strftime("%Y-%m-%d")
                 start, end = f"{day}T00:00:00Z", f"{day}T23:59:59Z"
                 rest = query.replace(phrase, "", 1)
-                return start, end, re.sub(r"\s+", " ", rest).strip()
+                return start, end, _WHITESPACE_RE.sub(" ", rest).strip()
     except Exception:
         pass
     return None, None, query
