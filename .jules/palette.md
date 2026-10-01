@@ -1,3 +1,3 @@
-## 2024-05-18 - Interactive Table Rows
-**Learning:** Binding `onclick` to a non-button element like a `<tr>` creates an interactive element that is inaccessible to keyboard-only and screen reader users.
-**Action:** Always add `tabindex="0"`, focus-visible styles, and an `onkeydown` handler to execute logic on 'Enter' or 'Space' keypresses to make these actionable elements fully accessible.
+## 2024-05-24 - Interactive Non-Button Elements Need Keyboard Support
+**Learning:** Binding `onclick` to non-interactive elements like `<tr>` or `<div>` (e.g. palette items) makes them completely inaccessible to keyboard and screen reader users, breaking usability and accessibility.
+**Action:** Always add `tabindex="0"`, `role="button"`, focus-visible styles, and an `onkeydown` handler supporting both 'Enter' and 'Space' when creating custom interactive elements out of non-semantic tags.
