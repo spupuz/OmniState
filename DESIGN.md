@@ -479,7 +479,7 @@ Consequences for the repo:
 | **4** | REST API + web dashboard v2 (aggregate + shared + search) | Live server dashboard |
 | **5** | **GitHub PR Health**: server-side REST/GraphQL client, `gh_*` tables, `github_*` tools, schedule, dashboard section | CheckGitHubRepo in central DB |
 | **6** | Skill replacement: legacy removal (skills/workflows/update/migrate/collect-dashboard) + `plugin.json` → MCP server + English-only docs | MCP-only |
-| **7** | Local-only tests (pytest store/API/MCP/GitHub) + version bump + release via `release-merge-prs` skill | v2.0.0 |
+| **7** | Local-only tests (pytest store/API/MCP/GitHub) + version bump + release via `pr-push` skill | v2.0.0 |
 
 Stack: **Python 3.12 + `mcp` (official SDK) + FastAPI/uvicorn + SQLite(FTS5)**, minimal dependencies.
 

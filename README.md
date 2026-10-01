@@ -1,4 +1,4 @@
-# OmniState v2.7.0
+# OmniState v2.8.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -180,7 +180,7 @@ Open **http://localhost:8347** in the browser:
 - **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key).
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
-- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids (overview stats, backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) are exposed as ARIA lists (`role="list"` / `role="listitem"`) so screen readers announce them as structured collections; Overview project cards are real `<button>` elements reachable and activatable by keyboard with a visible focus ring; actionable input groups (token, register, scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively; horizontally scrollable regions are focusable only while they actually overflow (the `tabindex` is removed in empty states to avoid focus traps); empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids (overview stats, backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) are exposed as ARIA lists (`role="list"` / `role="listitem"`) so screen readers announce them as structured collections; Overview project cards and command-palette items are real keyboard-operable controls (`role="button"`, `tabindex="0"`, Enter/Space activation with visible focus ring and `aria-label`s); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable input groups (token, register, GitHub scan, shared note, search, handoff) are wrapped in semantic `<form>` elements so **Enter** submits natively (search filters and register input also validate/live-update in place); horizontally scrollable regions are focusable only while they actually overflow (the `tabindex` is removed in empty states to avoid focus traps); empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
 
 ## GitHub PR Health
 
@@ -320,7 +320,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.7.0 (current)
+### v2.8.0 (current)
+- **Security (PR #119, #123, #125, #132)**: `Store.export_memories_markdown()` resolves and contains the export path to the database directory, blocking path-traversal writes (`../` escapes raise `ValueError`).
+- **Accessibility (PR #124, #126, #128, #131)**: Projects table rows are keyboard-operable (`tabindex="0"`, Enter/Space opens the project drill-down) with a visible focus ring; the richest variant adds `role="button"` + `aria-label="Open project …"`; DB-backups refresh gets an `aria-label`; the register-project input validates (`required`).
+- **UX (PR #118, #121)**: search filters (project, dates, limit) live inside the search `<form>` and update live (`oninput`/`onchange`); the handoff create box is a real `<form>` so Enter submits; Overview stat cards include tooltip descriptions.
+- **Performance (PR #120, #122, #127, #129, #130)**: `_text_tokens()` and `_parse_temporal()` use pre-compiled module-level regexes plus native string split instead of per-call `re` compilation, speeding up memory indexing and search.
+- **Tests**: fixed time-brittle `test_scan_graphql_parsing` — stale-PR fixtures are now relative to "now" instead of hardcoded 2026 dates. 82 passed.
+
+### v2.7.0
 - **Performance / DB**: composited indexes (`scope+lifecycle+updated_at`) on `memory`; `Store.purge_feedback()` retention audit; backup checksum rotation.
 - **API / Metrics**: `GET /api/metrics` endpoint; structured logging.
 - **UI / Access**: refined glass UI, accessible tab navigation (`aria-label`, `aria-live`), skip-link, PWA manifest (`/manifest.json`), theme-color meta.
@@ -372,7 +379,7 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ### v2.3.2
 - **Bugfix**: "Scan now" could leave the GitHub PR counts unchanged — the dashboard fired the reload without awaiting it and the browser could reuse a cached `/api/*` response. The scan button now awaits the reload (with a "Scanning…" state and an error message on failure), all API calls are made with `cache: 'no-store'`, and the server sends `Cache-Control: no-store` on `/api/*` and `/health`.
-- **Docs**: the session protocol now requires registering an MCP task for every significant activity (`task_add` before, `task_update` → `done` after, no batch at the end); the `commit-push` and `release-merge-prs` skills register and close their task accordingly.
+- **Docs**: the session protocol now requires registering an MCP task for every significant activity (`task_add` before, `task_update` → `done` after, no batch at the end); the `commit-push` and `pr-push` skills register and close their task accordingly.
 
 ### v2.3.1
 - **Bugfix**: "Only with open PRs" filter now actually persists — the dashboard had signed a note field the API doesn't accept (`content` instead of `text`), so every toggle failed with "Could not save preference". The preference is stored as a `GH_ONLY_PR_`-prefixed shared-memory note matching the API schema.
