@@ -235,10 +235,10 @@
             <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
           </div>
           <div class="flex gap-3 flex-wrap">
-            <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48" oninput="debouncedSearch()">
-            <input type="date" id="search-start" aria-label="Start date" onchange="doSearch()">
-            <input type="date" id="search-end" aria-label="End date" onchange="doSearch()">
-            <select id="search-limit" aria-label="Limit" onchange="doSearch()"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
+            <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48">
+            <input type="date" id="search-start" aria-label="Start date">
+            <input type="date" id="search-end" aria-label="End date">
+            <select id="search-limit" aria-label="Limit"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
             <span id="search-count" class="text-xs text-slate-400 self-center"></span>
           </div>
         </form>
@@ -335,9 +335,10 @@ async function loadOverview() {
       { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
     $('overview-stats').innerHTML = cards.map(c => `
-      <div class="glass p-8 stat-card">
+      <div class="glass p-8 stat-card" role="listitem">
         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p>
-        <p class="text-4xl font-black font-outfit ${c.c}">${c.v}</p>
+        <p class="text-4xl font-black font-outfit ${c.c} mb-1">${c.v}</p>
+        ${c.t ? `<p class="text-xs text-slate-500 mt-2 leading-relaxed">${c.t}</p>` : ''}
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     $('overview-projects').innerHTML = projects.length ? projects.map(p => `
@@ -467,7 +468,7 @@ function showHandoffForm() {
   if (!form) return;
   form.classList.remove('hidden');
   form.innerHTML = `
-    <form class="glass p-4 mb-3" role="listitem" onsubmit="event.preventDefault(); submitHandoff()">
+    <div class="glass p-4 mb-3" role="listitem">
       <h3 class="font-bold mb-2">Create Handoff</h3>
       <textarea id="hf-state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
       <textarea id="hf-next" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
@@ -475,10 +476,10 @@ function showHandoffForm() {
       <textarea id="hf-risks" class="w-full mb-2" rows="2" placeholder="Risks (one per line)…"></textarea>
       <textarea id="hf-valid" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
       <div class="flex gap-2">
-        <button type="submit" class="btn">Save handoff</button>
-        <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
+        <button class="btn" onclick="submitHandoff()">Save handoff</button>
+        <button class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
       </div>
-    </form>`;
+    </div>`;
   form.scrollIntoView({behavior:'smooth'});
 }
 

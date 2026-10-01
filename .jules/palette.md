@@ -1,3 +1,3 @@
-## 2024-03-20 - Ensure implicit submission across complex search and creation interfaces
-**Learning:** Grouping related filters (like date ranges and limits) in separate `<div>` containers rather than the main `<form>` breaks standard keyboard accessibility, preventing users from implicitly submitting changes by pressing "Enter". Additionally, dynamically injected input blocks (like handoff creation) often default to simple `<div>` wrapping with `onclick` bindings, causing identical a11y regressions.
-**Action:** Always verify that every input element related to a submission action is enclosed within a single `<form onsubmit="...">` element. For dynamically generated DOM blocks, inject `<form>` tags with native `type="submit"` buttons instead of arbitrary divs.
+## 2024-05-18 - Implicit form submission for grouped search filters
+**Learning:** Grouping advanced filter inputs (like dates or limits) outside a semantic `<form>` tag breaks the implicit submission pattern. Users expect to press `Enter` after modifying any input field (like `#search-project` or `#search-end`) to apply the filter.
+**Action:** Always wrap functionally grouped inputs and actionable elements within semantic `<form>` tags rather than generic `<div>` containers to ensure keyboard accessibility and native mobile keyboard support.
