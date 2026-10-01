@@ -1,3 +1,3 @@
-## 2024-05-18 - Text Tokenization Bottleneck
-**Learning:** In text-heavy search or memory systems (like OmniState's `Store`), token extraction is called frequently for deduping and hybrid recall. In `_text_tokens`, importing `re` inside the function, compiling the `re.findall` and `re.split` patterns implicitly on every call, and using `re.split` in an inner loop creates massive overhead when analyzing thousands of lines of text.
-**Action:** Always extract regex patterns as global compiled constants (`_WORD_RE = re.compile(...)`). Replace dynamic `re.split` in loops with simple string operations (`replace("-", "_").split("_")`) when the delimiters are known characters. This speeds up text processing loops by ~2x and reduces memory allocations.
+## 2024-05-24 - Pre-compile regex and avoid dynamic imports in hot loops
+**Learning:** In high-frequency Python text processing routines (e.g., tokenization in `server/store.py`), dynamic `import re` and implicit regex compilation inside loops (like `re.split()`) can introduce significant overhead.
+**Action:** Pre-compile regular expressions at the module level using `re.compile()` and replace `re.split()` with native string operations (e.g., `replace('-', '_').split('_')`) for known delimiters when possible.
