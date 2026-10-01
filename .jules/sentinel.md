@@ -1,4 +1,4 @@
-## 2024-09-26 - [Path Traversal in Export Memories Markdown]
-**Vulnerability:** The `Store.export_memories_markdown` function allowed path traversal via `../../../` resulting in arbitrary file write (and thus RCE or critical file overwrite possibilities) because the input `output_dir` was directly concatenated and mkdir'd without boundary checks.
-**Learning:** Functions parallel to an already-secured function (e.g. `export_memories` was secured, but its sibling `export_memories_markdown` wasn't) are high-probability vectors for overlooked vulnerabilities.
-**Prevention:** Whenever building a path from user input, universally resolve the path with `Path.resolve(strict=False)` and verify it resides strictly inside the base directory using string prefix matching (`startswith()`) alongside an exact match check.
+## 2025-02-15 - Inconsistent Path Traversal Protection
+**Vulnerability:** Path traversal in `export_memories_markdown` allowed writing files outside the intended data directory.
+**Learning:** Security validations are often missed when similar functions are implemented inconsistently (e.g. `export_memories` was safe, but `export_memories_markdown` lacked the `resolve(strict=False)` check).
+**Prevention:** Ensure all file I/O operations taking user input implement the same strict path validation logic, and extract this logic into a shared utility function where possible.
