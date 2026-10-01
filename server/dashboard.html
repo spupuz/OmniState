@@ -151,7 +151,7 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats" role="list"></div>
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-2">DB Backups</h2>
-        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button onclick="loadBackups()">↻ Refresh</button></p>
+        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button onclick="loadBackups()" class="btn ghost ml-2 px-2 py-1 text-xs" aria-label="Refresh backups">↻ Refresh</button></p>
         <div id="backups-list" class="flex gap-3 flex-wrap" role="list"></div>
       </div>
       <div class="glass p-6">
@@ -169,7 +169,7 @@
           <span id="projects-count" class="text-xs text-slate-400"></span>
         </div>
         <form class="flex gap-3 flex-wrap items-center mb-4" onsubmit="event.preventDefault(); registerProject()">
-          <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]">
+          <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]" required>
           <button type="submit" class="btn ghost">Register project</button>
           <button type="button" class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
         </form>
@@ -378,7 +378,7 @@ async function loadProjects() {
     _allProjects = projects;
     const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects';
     const rows = (list) => list.map(p => `
-      <tr class="cursor-pointer hover:bg-white/5" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" title="View project memory">
+      <tr class="cursor-pointer hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:bg-white/5" tabindex="0" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showProject(this.dataset.name);}" title="View project memory">
         <td class="font-semibold">${esc(p.name)}</td>
         <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
         <td class="num text-purple-300">${fmt(p.snapshots)}</td>
