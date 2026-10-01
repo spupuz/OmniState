@@ -18,10 +18,9 @@ import re
 from typing import Any, Iterator
 
 _token_encoder = None
-
-_TEXT_TOKENS_RE = re.compile(r"[a-zA-Z0-9_\-]+")
+_TOKEN_RE = re.compile(r"[a-zA-Z0-9_\-]+")
 _ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})")
-_WHITESPACE_RE = re.compile(r"\s+")
+_SPACE_RE = re.compile(r"\s+")
 
 
 def count_tokens(text: str) -> int:
@@ -41,7 +40,7 @@ def _now() -> str:
 def _text_tokens(text: str) -> set[str]:
     """Lower-cased meaningful tokens from free text (compounds expanded)."""
     out: set[str] = set()
-    for tok in _TEXT_TOKENS_RE.findall(text or ""):
+    for tok in _TOKEN_RE.findall(text or ""):
         tok = tok.lower()
         if len(tok) <= 1:
             continue
@@ -80,7 +79,7 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
         day = f"{iso.group(1)}-{iso.group(2)}-{iso.group(3)}"
         start, end = f"{day}T00:00:00Z", f"{day}T23:59:59Z"
         rest = query[:iso.start()] + " " + query[iso.end():]
-        return start, end, _WHITESPACE_RE.sub(" ", rest).strip()
+        return start, end, _SPACE_RE.sub(" ", rest).strip()
 
     try:
         import dateparser
@@ -93,7 +92,7 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
                 day = dt.strftime("%Y-%m-%d")
                 start, end = f"{day}T00:00:00Z", f"{day}T23:59:59Z"
                 rest = query.replace(phrase, "", 1)
-                return start, end, _WHITESPACE_RE.sub(" ", rest).strip()
+                return start, end, _SPACE_RE.sub(" ", rest).strip()
     except Exception:
         pass
     return None, None, query
