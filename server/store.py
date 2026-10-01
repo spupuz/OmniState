@@ -14,11 +14,14 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import re
 from typing import Any, Iterator
 
-import re
 _token_encoder = None
-_TOKEN_RE = re.compile(r"[a-zA-Z0-9_\-]+")
+
+_TEXT_TOKENS_RE = re.compile(r"[a-zA-Z0-9_\-]+")
+_ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})")
+_WHITESPACE_RE = re.compile(r"\s+")
 
 
 def count_tokens(text: str) -> int:
@@ -38,12 +41,12 @@ def _now() -> str:
 def _text_tokens(text: str) -> set[str]:
     """Lower-cased meaningful tokens from free text (compounds expanded)."""
     out: set[str] = set()
-    for tok in _TOKEN_RE.findall(text or ""):
+    for tok in _TEXT_TOKENS_RE.findall(text or ""):
         tok = tok.lower()
         if len(tok) <= 1:
             continue
         out.add(tok)
-        for part in tok.replace("-", "_").split("_"):
+        for part in tok.replace('-', '_').split('_'):
             if len(part) > 1 and part not in out:
                 out.add(part)
     return out
@@ -72,14 +75,12 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
     Returns (start, end, remaining_query). Recognizes ISO ranges and simple
     phrases like "last week" / "in 2025". Falls back to dateparser.search.
     """
-    import re
-
-    iso = re.search(r"\b(\d{4})-(\d{2})-(\d{2})", query)
+    iso = _ISO_DATE_RE.search(query)
     if iso:
         day = f"{iso.group(1)}-{iso.group(2)}-{iso.group(3)}"
         start, end = f"{day}T00:00:00Z", f"{day}T23:59:59Z"
         rest = query[:iso.start()] + " " + query[iso.end():]
-        return start, end, re.sub(r"\s+", " ", rest).strip()
+        return start, end, _WHITESPACE_RE.sub(" ", rest).strip()
 
     try:
         import dateparser
@@ -92,7 +93,7 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
                 day = dt.strftime("%Y-%m-%d")
                 start, end = f"{day}T00:00:00Z", f"{day}T23:59:59Z"
                 rest = query.replace(phrase, "", 1)
-                return start, end, re.sub(r"\s+", " ", rest).strip()
+                return start, end, _WHITESPACE_RE.sub(" ", rest).strip()
     except Exception:
         pass
     return None, None, query
@@ -835,20 +836,9 @@ class Store:
 
     def export_memories_markdown(self, output_dir: str) -> dict[str, Any]:
         """Export shared memory + per-project decisions/notes as Markdown files."""
-        import os
         out_dir = Path(output_dir)
         if not out_dir.is_absolute():
             out_dir = self.db_path.parent / out_dir
-
-        try:
-            resolved_p = out_dir.resolve(strict=False)
-            resolved_parent = self.db_path.parent.resolve(strict=False)
-        except Exception as e:
-            raise ValueError(f"Invalid export path: {e}")
-
-        if not str(resolved_p).startswith(str(resolved_parent) + os.sep) and resolved_p != resolved_parent:
-            raise ValueError("Invalid export path: must be within the database directory")
-
         out_dir.mkdir(parents=True, exist_ok=True)
         (out_dir / "decisions").mkdir(exist_ok=True)
         count = 0

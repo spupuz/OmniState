@@ -1,3 +1,3 @@
-## 2024-05-24 - Pre-compile Regex and Native Split in Loops
-**Learning:** In high-frequency text processing functions like `_text_tokens`, using `import re` dynamically and relying on `re.findall` or `re.split` without pre-compiled regex objects causes major evaluation overhead.
-**Action:** Pre-compile regular expressions using `re.compile()` at the module level. Replace `re.split()` with native string chaining like `.replace('-', '_').split('_')` for known delimiters to maximize efficiency.
+## 2024-05-15 - Pre-compile Regex and Replace re.split
+**Learning:** In high-frequency Python text processing routines (e.g., tokenization in server/store.py), avoid dynamic import re and implicit regex compilation inside loops. The use of dynamic re compilation was causing a performance bottleneck, and the function was called inside loops.
+**Action:** Pre-compile regular expressions at the module level using re.compile() and replace re.split() with native string operations (e.g., replace('-', '_').split('_')) for known delimiters to avoid significant overhead.
