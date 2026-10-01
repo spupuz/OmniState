@@ -169,7 +169,7 @@
           <span id="projects-count" class="text-xs text-slate-400"></span>
         </div>
         <form class="flex gap-3 flex-wrap items-center mb-4" onsubmit="event.preventDefault(); registerProject()">
-          <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]">
+          <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]" required>
           <button type="submit" class="btn ghost">Register project</button>
           <button type="button" class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
         </form>
@@ -210,7 +210,7 @@
       <div class="glass p-6 mb-6">
  <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
         <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
-          <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]">
+          <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]" required>
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
           <button type="submit" class="btn">Save</button>
           <button type="button" class="btn ghost" onclick="exportMemoryMarkdown()">Export Markdown</button>
@@ -484,7 +484,7 @@ function showHandoffForm() {
 
 async function submitHandoff() {
   const project = $('projects-filter')?.value || '';
-  if (!project) { alert('Select a project first'); return; }
+  if (!project) { toast('Select a project first', 'err'); return; }
   const state = $('hf-state')?.value || '';
   const next = $('hf-next')?.value || '';
   const done = $('hf-done')?.value || '';
@@ -499,20 +499,20 @@ async function submitHandoff() {
 
 async function registerProject() {
   const path = $('register-path').value.trim();
-  if (!path) { alert('Enter a path'); return; }
+  if (!path) return;
   try {
     await api('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
     $('register-path').value = '';
     loadProjects();
-  } catch (e) { alert(e.message); }
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 async function discoverProjects() {
   try {
     const r = await api('/api/discover', { method: 'POST' });
-    alert('Found and registered: ' + ((r.registered||[]).join(', ') || 'none'));
+    toast('Found and registered: ' + ((r.registered||[]).join(', ') || 'none'), 'info');
     loadProjects();
-  } catch (e) { alert(e.message); }
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 // ---------- Shared ----------
@@ -543,7 +543,7 @@ async function addShared() {
     await api('/api/shared', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text, tags}) });
     $('shared-text').value = ''; $('shared-tags').value = '';
     loadShared();
-  } catch (e) { alert(e.message); }
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 async function deleteShared(id) {
@@ -551,7 +551,7 @@ async function deleteShared(id) {
   try {
     await api('/api/shared/' + id, { method: 'DELETE' });
     loadShared();
-  } catch (e) { alert(e.message); }
+  } catch (e) { toast(e.message, 'err'); }
 }
 
 async function exportMemoryMarkdown() {
@@ -667,7 +667,7 @@ async function saveGithubPreference(checked) {
     });
   } catch (e) {
     console.error('Failed to save GitHub preference:', e);
-    alert('Could not save preference');
+    toast('Could not save preference', 'err');
   }
 }
 
@@ -681,7 +681,7 @@ async function runGhScan() {
     // Await the reload so the numbers are guaranteed to reflect the new scan.
     await loadGithub();
   } catch (e) {
-    alert('Scan failed: ' + e.message);
+    toast('Scan failed: ' + e.message, 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = label; }
   }
