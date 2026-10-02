@@ -1,4 +1,4 @@
-# OmniState v2.8.0
+# OmniState v2.9.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -23,7 +23,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
-- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with refined glass UI, accessible tab navigation and PWA manifest support.
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with refined glass UI, native form validation, non-blocking toasts, accessible tab navigation and PWA manifest support.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
@@ -181,6 +181,8 @@ Open **http://localhost:8347** in the browser:
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids (overview stats, backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) are exposed as ARIA lists (`role="list"` / `role="listitem"`) so screen readers announce them as structured collections; Overview project cards and command-palette items are real keyboard-operable controls (`role="button"`, `tabindex="0"`, Enter/Space activation with visible focus ring and `aria-label`s); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable input groups (token, register, GitHub scan, shared note, search, handoff) are wrapped in semantic `<form>` elements so **Enter** submits natively (search filters and register input also validate/live-update in place); horizontally scrollable regions are focusable only while they actually overflow (the `tabindex` is removed in empty states to avoid focus traps); empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
+- **Native form validation**: required inputs (register path, shared note text, handoff project) are validated by the browser itself through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are rejected with a localized tooltip on the offending field instead of being posted to the server.
+- **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info), so the page context is never interrupted by a modal dialog.
 
 ## GitHub PR Health
 
@@ -320,7 +322,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.8.0 (current)
+### v2.9.0 (current)
+- **UX (PR #133)**: every `alert()` in the dashboard is replaced by a non-blocking corner toast (`ok` / `err` / `info` kinds) — covering project registration, auto-discover, shared-note add/delete, GitHub preference saving, GitHub scan and handoff submission — so the page context is never interrupted by a modal dialog.
+- **UX (PR #133)**: form validation moved to native HTML5 constraints (`required` on the register-path and shared-note inputs) so empty submissions are blocked in place by the browser with a localized tooltip instead of a round-trip to the server.
+
+### v2.8.0
 - **Security (PR #119, #123, #125, #132)**: `Store.export_memories_markdown()` resolves and contains the export path to the database directory, blocking path-traversal writes (`../` escapes raise `ValueError`).
 - **Accessibility (PR #124, #126, #128, #131)**: Projects table rows are keyboard-operable (`tabindex="0"`, Enter/Space opens the project drill-down) with a visible focus ring; the richest variant adds `role="button"` + `aria-label="Open project …"`; DB-backups refresh gets an `aria-label`; the register-project input validates (`required`).
 - **UX (PR #118, #121)**: search filters (project, dates, limit) live inside the search `<form>` and update live (`oninput`/`onchange`); the handoff create box is a real `<form>` so Enter submits; Overview stat cards include tooltip descriptions.
