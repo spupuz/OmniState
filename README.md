@@ -1,4 +1,4 @@
-# OmniState v2.10.0
+# OmniState v2.10.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -324,7 +324,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.10.0 (current)
+### v2.10.1 (current)
+- **Performance (PR #134)**: `project_list` MCP tool reuses the TTL-cached `_project_metrics_list()` from the `App` instance instead of calling `store.project_metrics()` per project — removing the N+1 query bottleneck (falls back to per-project queries only when a project is missing from the cache).
+- **UX (dashboard)**: stat cards use smaller, consistent typography (`text-2xl`/`text-lg`/`text-sm` instead of `text-3xl`/`text-4xl`) with `break-words` and tighter padding, so long values like the GitHub "Last scan" timestamp no longer overflow their card.
+
+### v2.10.0
 - **UI (dashboard)**: unified design system — single `<style>` with CSS tokens (`--bg/--card/--border/--accent/--radius/--shadow`), radial gradients, blur/saturate glass cards with hover lift, pill tabs/buttons/inputs with focus ring, tabular-nums tables with sticky headers, pill chips and `health-*` badges, accent-bordered toasts, and blur-backed command palette.
 - **UX (dashboard)**: added **⭐ Saved** searches dropdown (auto-saves every query with scope, 15 max in `localStorage`, reload/remove/clear, Esc + outside-click to close) and dedicated polished menu styles with pop animation.
 - **Fix (dashboard)**: real app version in the header injected from `VERSION.txt` via `GET /health` (`server/app.py:index()` + `refreshVersionBadge()`) — was hardcoded `OMNISTATE v2`.

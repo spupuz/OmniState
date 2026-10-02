@@ -407,9 +407,9 @@ async function loadOverview() {
       { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
     $('overview-stats').innerHTML = cards.map(c => `
-      <div class="glass p-8 stat-card">
+      <div class="glass p-6 stat-card">
         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p>
-        <p class="text-4xl font-black font-outfit ${c.c}">${c.v}</p>
+        <p class="text-2xl font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p>
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     $('overview-projects').innerHTML = projects.length ? projects.map(p => `
@@ -486,10 +486,10 @@ async function showProject(name) {
         <span class="text-xs text-slate-500 truncate max-w-[280px]" title="${esc(d.project.host_path)}">${esc(d.project.host_path)}</span>
       </div>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Active tasks</p><p class="text-3xl font-black text-blue-300">${fmt(m.activeTasks)}</p></div>
-        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Done tasks</p><p class="text-3xl font-black text-emerald-300">${fmt(m.doneTasks)}</p></div>
-        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Snapshots</p><p class="text-3xl font-black text-purple-300">${fmt(m.snapshots)}</p></div>
-        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-3xl font-black">${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Active tasks</p><p class="text-2xl font-bold text-blue-300">${fmt(m.activeTasks)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Done tasks</p><p class="text-2xl font-bold text-emerald-300">${fmt(m.doneTasks)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Snapshots</p><p class="text-2xl font-bold text-purple-300">${fmt(m.snapshots)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-2xl font-bold">${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
       </div>
       <div class="flex gap-3 flex-wrap items-center mb-4 flex-wrap">
         <h3 class="font-bold">Memory entries</h3>
@@ -686,11 +686,11 @@ async function loadGithub() {
     $('gh-token-info').textContent = t.token_set ? ('token: ' + (t.login || '?') + ' · ' + (t.scopes||[]).join('+') + (t.valid === false ? ' (invalid)' : '')) : 'no token (REST mode)';
     if (metrics.error) { $('github-stats').innerHTML = '<p class="text-slate-400">No scans yet. Click "Scan now".</p>'; return; }
     $('github-stats').innerHTML = [
-      { l: 'Repos scanned', v: fmt(metrics.total_repos), c: 'text-blue-400' },
-      { l: 'Total open PRs', v: fmt(metrics.total_prs), c: 'text-emerald-400' },
-      { l: 'Method', v: esc(metrics.method), c: 'text-purple-400' },
-      { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300' },
-    ].map(c => `<div class="glass p-8 stat-card" role="listitem"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="text-3xl font-black font-outfit ${c.c}">${c.v}</p></div>`).join('');
+      { l: 'Repos scanned', v: fmt(metrics.total_repos), c: 'text-blue-400', s: 'text-2xl' },
+      { l: 'Total open PRs', v: fmt(metrics.total_prs), c: 'text-emerald-400', s: 'text-2xl' },
+      { l: 'Method', v: esc(metrics.method), c: 'text-purple-400', s: 'text-lg' },
+      { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300', s: 'text-sm md:text-base' },
+    ].map(c => `<div class="glass p-6 stat-card" role="listitem"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="${c.s} font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p></div>`).join('');
     $('gh-delta-text').textContent = delta.error ? delta.error : `Δ PR: ${delta.delta_prs >= 0 ? '+' : ''}${fmt(delta.delta_prs)} · Δ repos: ${delta.delta_repos >= 0 ? '+' : ''}${fmt(delta.delta_repos)} (${fmtDate(delta.latest)} vs ${fmtDate(delta.previous)})`;
     renderGhRepos();
     renderGhCharts(history, metrics);
