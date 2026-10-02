@@ -6,6 +6,10 @@ on:
     paths:
       - 'VERSION.txt'
       - 'plugin.json'
+  # Manual dispatch lets you regenerate the tag/release for the current
+  # VERSION.txt (e.g. after a follow-up commit on main). Safe to re-run: the
+  # "Check tag exists" step skips creation when the tag is already present.
+  workflow_dispatch:
 
 permissions:
   contents: write
