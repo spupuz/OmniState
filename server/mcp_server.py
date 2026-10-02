@@ -70,7 +70,7 @@ def _logged(fn: Any) -> Any:
     return wrapper
 
 
-def create_server(cfg: Config, store: Store) -> MCPServer:
+def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
     server = MCPServer(name="OmniState", version=get_version())
 
     def _resolve_project(project: str) -> dict[str, Any]:
@@ -85,9 +85,29 @@ def create_server(cfg: Config, store: Store) -> MCPServer:
     @_logged
     def project_list() -> str:
         """List registered projects with metrics."""
+        cached_metrics_by_name = {}
+        if app is not None and hasattr(app, "_project_metrics_list"):
+            try:
+                for p_metrics in app._project_metrics_list():
+                    cached_metrics_by_name[p_metrics["name"]] = {
+                        "activeTasks": p_metrics.get("activeTasks", 0),
+                        "doneTasks": p_metrics.get("doneTasks", 0),
+                        "totalTasks": p_metrics.get("totalTasks", 0),
+                        "snapshots": p_metrics.get("snapshots", 0),
+                        "storedTokens": p_metrics.get("storedTokens", 0),
+                        "loadedTokens": p_metrics.get("loadedTokens", 0),
+                        "tokenSavings": p_metrics.get("tokenSavings", 0),
+                    }
+            except Exception:
+                pass
+
         out = []
         for p in store.list_projects():
-            metrics = store.project_metrics(int(p["id"]))
+            if p["name"] in cached_metrics_by_name:
+                metrics = cached_metrics_by_name[p["name"]]
+            else:
+                metrics = store.project_metrics(int(p["id"]))
+
             out.append({
                 "name": p["name"],
                 "host_path": p["host_path"],

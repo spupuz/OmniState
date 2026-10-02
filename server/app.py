@@ -52,7 +52,7 @@ class App:
     def mount_mcp(self) -> None:
         """Mount the MCP Streamable HTTP app at / and compose its lifespan into
         the parent app, so the MCP session manager starts on uvicorn startup."""
-        mcp_server = create_server(self.cfg, self.store)
+        mcp_server = create_server(self.cfg, self.store, app=self)
         mcp_app = mcp_server.streamable_http_app(streamable_http_path="/mcp", host="0.0.0.0")
         self.fastapi.mount("/", mcp_app)
 
