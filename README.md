@@ -319,12 +319,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 - `server/` — Python server (MCP + FastAPI/uvicorn + SQLite FTS5).
 - `DESIGN.md` — full design document (architecture, DB schema, API, security).
 - `tests/` — local-only test suite (`pytest tests/ -q`), never published.
+- **Releases**: `.github/workflows/release.yml` auto-creates the annotated tag `vX.Y.Z` and the GitHub Release when a push to `main` changes `VERSION.txt`/`plugin.json`. It can also be re-dispatched manually (`gh workflow run release.yml`) to regenerate them for the current `VERSION.txt`; a re-run is a no-op when the tag already exists.
 
 ## Changelog
 
 ### v2.9.0 (current)
 - **UX (PR #133)**: every `alert()` in the dashboard is replaced by a non-blocking corner toast (`ok` / `err` / `info` kinds) — covering project registration, auto-discover, shared-note add/delete, GitHub preference saving, GitHub scan and handoff submission — so the page context is never interrupted by a modal dialog.
 - **UX (PR #133)**: form validation moved to native HTML5 constraints (`required` on the register-path and shared-note inputs) so empty submissions are blocked in place by the browser with a localized tooltip instead of a round-trip to the server.
+- **CI**: the release workflow accepts a manual `workflow_dispatch` trigger, so the tag and GitHub Release can be regenerated for the current `VERSION.txt` without tagging by hand (re-runs are no-ops once the tag exists).
 
 ### v2.8.0
 - **Security (PR #119, #123, #125, #132)**: `Store.export_memories_markdown()` resolves and contains the export path to the database directory, blocking path-traversal writes (`../` escapes raise `ValueError`).
