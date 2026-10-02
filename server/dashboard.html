@@ -15,109 +15,165 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --bg-dark: #070b14;
-    --card-bg: rgba(15, 23, 42, 0.6);
-    --accent: #3b82f6;
-    --accent-glow: rgba(59, 130, 246, 0.4);
-    --success: #10b981;
-    --warn: #f59e0b;
-    --danger: #ef4444;
+  /* ── Design tokens ── */
+  :root{
+    --bg:#070b14;
+    --bg-soft:#0b1224;
+    --card:rgba(15,23,42,.55);
+    --card-solid:#111d36;
+    --border:rgba(255,255,255,.08);
+    --border-strong:rgba(255,255,255,.14);
+    --text:#f1f5f9;
+    --muted:#94a3b8;
+    --muted-2:#64748b;
+    --accent:#3b82f6;
+    --accent-2:#60a5fa;
+    --accent-glow:rgba(59,130,246,.35);
+    --success:#10b981;
+    --warn:#f59e0b;
+    --danger:#ef4444;
+    --radius-sm:.5rem;
+    --radius:.75rem;
+    --radius-lg:1rem;
+    --shadow:0 8px 32px rgba(2,6,23,.45);
+    --shadow-sm:0 2px 10px rgba(2,6,23,.35);
   }
-  body {
-    background-color: var(--bg-dark);
-    color: #f1f5f9;
-    font-family: 'Inter', sans-serif;
-    background-image:
-      radial-gradient(circle at 10% 10%, rgba(59, 130, 246, 0.12) 0%, transparent 40%),
-      radial-gradient(circle at 90% 90%, rgba(139, 92, 246, 0.12) 0%, transparent 40%),
-      radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.05) 0%, transparent 60%);
-    min-height: 100vh;
-  }
-  h1, h2, h3, .font-outfit { font-family: 'Outfit', sans-serif; }
-  .glass {
-    background: linear-gradient(180deg, rgba(255,255,255,.08) 0%, var(--card-bg) 60%);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 1.5rem;
-    box-shadow: 0 10px 40px -12px rgba(59,130,246,.25), inset 0 1px 0 rgba(255,255,255,.06);
-  }
-  .stat-card { transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-  .stat-card:hover { transform: translateY(-8px); border-color: rgba(59,130,246,.6); box-shadow: 0 0 25px rgba(59,130,246,.35), 0 10px 30px -10px rgba(0,0,0,.4); }
-  .glow-text { text-shadow: 0 0 20px var(--accent-glow), 0 0 60px rgba(59,130,246,.15); letter-spacing: -0.03em; line-height: 1.05; }
-  .pulse { animation: pulse-subtle 3s infinite ease-in-out; }
-  @keyframes pulse-subtle { 0%,100%{opacity:1} 50%{opacity:.6} }
-  ::-webkit-scrollbar { width: 8px; }
-  ::-webkit-scrollbar-track { background: var(--bg-dark); }
-  ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-  ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
-  .tab-btn { padding: .5rem 1.25rem; border-radius: 9999px; font-size: .8rem; font-weight: 600; transition: all .2s; border: 1px solid rgba(255,255,255,.08); }
-  .tab-btn.active { background: linear-gradient(135deg, var(--accent) 0%, #6366f1 100%); color: #fff; border-color: rgba(59,130,246,.6); box-shadow: 0 4px 15px rgba(59,130,246,.35); }
-  .tab-btn:not(.active) { color: #94a3b8; }
-  .tab-btn:not(.active):hover { color: #f1f5f9; border-color: var(--accent); }
-  .chart-box { height: 320px; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: .6rem .8rem; font-size: .82rem; border-bottom: 1px solid rgba(255,255,255,.05); }
-  th { color: #94a3b8; font-weight: 700; text-transform: uppercase; font-size: .7rem; letter-spacing: .1em; background: linear-gradient(180deg, rgba(255,255,255,.06) 0%, transparent 100%); border-bottom: 2px solid rgba(59,130,246,.3); }
-  td.num, th.num { text-align: right; }
-  td a, .num a { color: inherit; text-decoration: none; }
-  td a:hover { text-decoration: underline; }
-  td a:focus-visible, .num a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
-  .section-row td { text-transform: uppercase; font-size: .68rem; letter-spacing: .1em; font-weight: 700; color: #94a3b8; background: rgba(255,255,255,.035); padding-top: 1rem; padding-bottom: .4rem; border-bottom: 1px solid rgba(255,255,255,.09); }
-  .chip { display: inline-flex; align-items: center; gap: 6px; padding: .3rem .7rem; border-radius: 9999px; font-size: .75rem; background: rgba(59,130,246,.12); border: 1px solid rgba(59,130,246,.25); margin: .2rem; }
-  input, select { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #f1f5f9; border-radius: .6rem; padding: .5rem .8rem; font-size: .85rem; outline: none; }
-  input:focus, select:focus { border-color: var(--accent); }
-  input:focus-visible, select:focus-visible, .btn:focus-visible, .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .btn { background: var(--accent); color: #fff; border: none; border-radius: .6rem; padding: .55rem 1.1rem; font-size: .82rem; font-weight: 600; cursor: pointer; transition: all .2s; }
-  .btn:hover { filter: brightness(1.15); }
-  .btn.ghost { background: rgba(15,23,42,.8); border: 1px solid rgba(255,255,255,.1); color: #94a3b8; }
-  .skip-link { position: absolute; left: -9999px; z-index: 100; }
-  .skip-link:focus { left: 1rem; top: 1rem; }
-  .tab-panel { animation: fadeIn .35s ease both; }
-  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-  [role="tabpanel"] { min-height: 60vh; }
-  .tab-btn { min-height: 44px; touch-action: manipulation; user-select: none; }
-  ::selection { background: rgba(59,130,246,.25); color: #fff; }
-  .hidden { display: none !important; }
+  *{scrollbar-width:thin;scrollbar-color:#1e293b transparent}
+  html{scroll-behavior:smooth}
+  body{background:radial-gradient(1200px 600px at 20% -10%,rgba(59,130,246,.10),transparent 60%),radial-gradient(900px 500px at 90% 0%,rgba(16,185,129,.06),transparent 60%),var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.font-outfit{font-family:'Outfit',sans-serif;letter-spacing:-.02em}
+  ::selection{background:rgba(59,130,246,.28);color:#fff}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#1e293b;border-radius:999px}
+  ::-webkit-scrollbar-thumb:hover{background:#334155}
+
+  /* Cards */
+  .glass{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(10px) saturate(1.15);box-shadow:var(--shadow-sm);transition:border-color .18s,box-shadow .18s,transform .18s}
+  .glass:hover{border-color:rgba(59,130,246,.18)}
+  .stat-card{position:relative;overflow:hidden}
+  .stat-card::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;background:radial-gradient(500px 200px at 80% 0%,rgba(59,130,246,.10),transparent 60%);transition:opacity .2s;pointer-events:none}
+  .stat-card:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(2,6,23,.35);border-color:rgba(59,130,246,.32)}
+  .stat-card:hover::after{opacity:1}
+  .glow-text{line-height:1.05;font-weight:800}
+
+  /* Tabs */
+  .tab-btn{padding:.58rem 1rem;border-radius:999px;font-size:.78rem;font-weight:650;letter-spacing:.02em;border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.02);transition:all .18s;display:inline-flex;align-items:center;gap:.45rem;min-height:40px}
+  .tab-btn:hover{color:var(--text);border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.08)}
+  .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 6px 18px var(--accent-glow)}
+  .tab-btn .icon-btn{width:1.05rem;height:1.05rem;opacity:.9}
+  .tab-panel{animation:fade .22s ease}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  [role="tabpanel"]{min-height:56vh}
+
+  /* Buttons */
+  .btn{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:.52rem 1rem;font-size:.8rem;font-weight:650;cursor:pointer;transition:all .16s;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;white-space:nowrap}
+  .btn:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 6px 16px var(--accent-glow)}
+  .btn:active{transform:none;filter:brightness(.98)}
+  .btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+  .btn.ghost{background:rgba(255,255,255,.04);color:var(--muted);border-color:var(--border)}
+  .btn.ghost:hover{background:rgba(255,255,255,.07);color:var(--text);border-color:rgba(255,255,255,.14);box-shadow:none}
+  .btn.small{padding:.32rem .62rem;font-size:.72rem}
+
+  /* Inputs */
+  input,select,textarea{background:rgba(15,23,42,.55);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:.52rem .85rem;font-size:.8rem;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;min-height:38px}
+  textarea{border-radius:var(--radius)}
+  input::placeholder,textarea::placeholder{color:#64748b}
+  input:focus,select:focus,textarea:focus{border-color:rgba(59,130,246,.55);box-shadow:0 0 0 3px rgba(59,130,246,.18);background:rgba(15,23,42,.72)}
+  input:focus-visible,select:focus-visible,.btn:focus-visible,.tab-btn:focus-visible{outline:none}
+
+  /* Tables */
+  table{width:100%;border-collapse:separate;border-spacing:0}
+  th,td{padding:.62rem .75rem;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
+  th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.08em;background:rgba(255,255,255,.02);position:sticky;top:0;backdrop-filter:blur(6px)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tbody tr{transition:background .12s}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+  .section-row td{text-transform:uppercase;font-size:.68rem;letter-spacing:.08em;font-weight:750;color:var(--muted);background:rgba(255,255,255,.03);padding-top:.9rem;padding-bottom:.4rem;border-bottom:1px solid rgba(255,255,255,.08)}
+  td a{color:inherit;text-decoration:none;border-bottom:1px dashed transparent}
+  td a:hover{color:var(--accent-2);border-bottom-color:rgba(59,130,246,.4)}
+
+  /* Chips / badges */
+  .chip{display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .6rem;border-radius:999px;font-size:.72rem;font-weight:600;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.22);color:#bfdbfe;line-height:1}
+  .chip.danger{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.24);color:#fecaca}
+  .chip.ok{background:rgba(16,185,129,.10);border-color:rgba(16,185,129,.22);color:#a7f3d0}
+  .health-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .55rem;border-radius:999px;font-size:.68rem;font-weight:700;letter-spacing:.02em}
+  .health-healthy{background:rgba(16,185,129,.14);color:#6ee7b7;border:1px solid rgba(16,185,129,.28)}
+  .health-attention{background:rgba(245,158,11,.14);color:#fcd34d;border:1px solid rgba(245,158,11,.28)}
+  .health-warning{background:rgba(249,115,22,.14);color:#fdba74;border:1px solid rgba(249,115,22,.28)}
+  .health-critical{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.30)}
+
+  /* Misc */
+  .chart-box{height:320px;position:relative}
+  .kbd{font-size:.68rem;padding:.18rem .38rem;border-radius:.38rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-family:ui-monospace,monospace;color:var(--muted)}
+  .copy-btn{font-size:.72rem;padding:.32rem .55rem;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer;transition:all .15s}
+  .copy-btn:hover{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.28);color:var(--text)}
+  .skel{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.11) 37%,rgba(255,255,255,.06) 63%);background-size:400% 100%;animation:shimmer 1.15s infinite;border-radius:.6rem}
+  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
+  #toast-wrap{position:fixed;bottom:1.2rem;right:1.2rem;display:flex;flex-direction:column;gap:.5rem;z-index:9999;pointer-events:none}
+  .toast{pointer-events:auto;padding:.7rem .9rem;border-radius:.8rem;font-size:.8rem;font-weight:600;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.10);animation:toastIn .20s ease;max-width:360px;border-left-width:3px}
+  .toast.ok{background:#0f766e;color:#fff;border-left-color:#2dd4bf}
+  .toast.err{background:#7f1d1d;color:#fecaca;border-left-color:#f87171}
+  .toast.info{background:#0f172a;color:#e2e8f0;border-left-color:var(--accent)}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
+  #palette{position:fixed;inset:0;background:rgba(2,6,23,.48);backdrop-filter:blur(10px);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding-top:18vh}
+  #palette.hidden{display:none !important}
+  #palette-box{width:min(640px,92vw);background:#0f172a;border:1px solid rgba(255,255,255,.10);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
+  #palette-input{width:100%;border:none;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;padding:.9rem 1.1rem;font-size:.95rem;background:transparent}
+  .palette-item{padding:.62rem 1rem;cursor:pointer;display:flex;justify-content:space-between;gap:.75rem;font-size:.84rem;border-bottom:1px solid rgba(255,255,255,.04)}
+  .palette-item:hover,.palette-item.active{background:rgba(59,130,246,.12)}
+  .palette-item kbd{font-size:.68rem;background:rgba(255,255,255,.07);padding:.15rem .35rem;border-radius:.3rem}
+  .hidden{display:none !important}
+
   /* Light theme */
-  [data-theme="light"] { --bg-dark:#f1f5f9; --card-bg:rgba(255,255,255,.92); }
-  [data-theme="light"] body { color:#0f172a; background-image: radial-gradient(circle at 10% 10%, rgba(59,130,246,.06) 0%, transparent 40%), radial-gradient(circle at 90% 90%, rgba(139,92,246,.06) 0%, transparent 40%);}
-  [data-theme="light"] .glass { border-color: rgba(15,23,42,.08); box-shadow: 0 10px 30px -10px rgba(15,23,42,.12);}
-  [data-theme="light"] th { color:#64748b; }
-  [data-theme="light"] td { border-color: rgba(15,23,42,.06); }
-  [data-theme="light"] input,[data-theme="light"] select { background:#fff; border-color: rgba(15,23,42,.12); color:#0f172a; }
-  [data-theme="light"] .text-slate-400 { color:#64748b !important; }
-  [data-theme="light"] .text-slate-500 { color:#94a3b8 !important; }
-  .skel { background: linear-gradient(90deg, rgba(255,255,255,.06) 25%, rgba(255,255,255,.12) 37%, rgba(255,255,255,.06) 63%); background-size:400% 100%; animation: shimmer 1.2s infinite; border-radius:.6rem; }
-  [data-theme="light"] .skel { background: linear-gradient(90deg, rgba(15,23,42,.06) 25%, rgba(15,23,42,.10) 37%, rgba(15,23,42,.06) 63%); background-size:400% 100%; }
-  @keyframes shimmer { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
-  #toast-wrap { position:fixed; bottom:1.25rem; right:1.25rem; display:flex; flex-direction:column; gap:.5rem; z-index:9999; pointer-events:none; }
-  .toast { pointer-events:auto; padding:.7rem 1rem; border-radius:.75rem; font-size:.82rem; font-weight:600; box-shadow:0 10px 30px rgba(0,0,0,.3); border:1px solid rgba(255,255,255,.1); animation: toastIn .22s ease; max-width: 360px; }
-  .toast.ok { background:#0f766e; color:#fff; } .toast.err { background:#7f1d1d; color:#fecaca; } .toast.info { background:#1e293b; color:#e2e8f0; }
-  @keyframes toastIn { from{opacity:0; transform:translateY(8px) scale(.98)} to{opacity:1; transform:none} }
-  #palette { position:fixed; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(4px); z-index:9998; display:flex; align-items:flex-start; justify-content:center; padding-top:18vh; }
-  #palette.hidden { display:none !important; }
-  #palette-box { width:min(640px,92vw); background:#0f172a; border:1px solid rgba(255,255,255,.1); border-radius:1rem; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,.5); }
-  [data-theme="light"] #palette-box { background:#fff; }
-  #palette-input { width:100%; border:none; border-bottom:1px solid rgba(255,255,255,.08); border-radius:0; padding:.9rem 1.1rem; font-size:.95rem; }
-  .palette-item { padding:.65rem 1rem; cursor:pointer; display:flex; justify-content:space-between; gap:.75rem; font-size:.85rem; }
-  .palette-item:hover,.palette-item.active { background:rgba(59,130,246,.15); }
-  .palette-item kbd { font-size:.7rem; background:rgba(255,255,255,.08); padding:.15rem .35rem; border-radius:.3rem; }
-  .copy-btn { font-size:.7rem; padding:.25rem .5rem; border-radius:.4rem; border:1px solid rgba(255,255,255,.1); background:rgba(255,255,255,.06); cursor:pointer; }
-  .copy-btn:hover { background:rgba(59,130,246,.2); }
-  .kbd { font-size:.68rem; padding:.15rem .35rem; border-radius:.3rem; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.12); font-family:monospace; }
+  [data-theme="light"]{--bg:#f1f5f9;--bg-soft:#eef2ff;--card:rgba(255,255,255,.96);--card-solid:#fff;--border:rgba(15,23,42,.10);--border-strong:rgba(15,23,42,.16);--text:#0f172a;--muted:#475569;--muted-2:#64748b;--accent:#2563eb}
+  [data-theme="light"] body{background:radial-gradient(1100px 560px at 16% -8%,rgba(37,99,235,.08),transparent 62%),radial-gradient(900px 520px at 92% 0%,rgba(14,165,233,.06),transparent 60%),#f1f5f9;color:var(--text)}
+  [data-theme="light"] .glass{background:rgba(255,255,255,.96);border-color:rgba(15,23,42,.08);box-shadow:0 8px 24px rgba(15,23,42,.06)}
+  [data-theme="light"] th{background:rgba(15,23,42,.03);color:#334155}
+  [data-theme="light"] td{border-color:rgba(15,23,42,.08);color:#1e293b}
+  [data-theme="light"] input,[data-theme="light"] select,[data-theme="light"] textarea{background:#fff;border-color:rgba(15,23,42,.14);color:#0f172a}
+  [data-theme="light"] .btn.ghost{background:#fff;border-color:rgba(15,23,42,.12);color:#334155}
+  [data-theme="light"] .chip{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.18);color:#1e40af}
+  [data-theme="light"] .chip.danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18);color:#991b1b}
+  [data-theme="light"] .skel{background:linear-gradient(90deg,rgba(15,23,42,.06) 25%,rgba(15,23,42,.10) 37%,rgba(15,23,42,.06) 63%);background-size:400% 100%}
+  [data-theme="light"] #palette-box{background:#fff}
+  [data-theme="light"] .text-slate-400{color:#475569 !important}
+  [data-theme="light"] .text-slate-300{color:#334155 !important}
+  [data-theme="light"] .text-blue-300{color:#1d4ed8 !important}
+  [data-theme="light"] .text-blue-400{color:#1e40af !important}
+  [data-theme="light"] .text-emerald-300{color:#047857 !important}
+  [data-theme="light"] .text-emerald-400{color:#065f46 !important}
+  [data-theme="light"] .text-purple-300{color:#6d28d9 !important}
+  [data-theme="light"] .text-purple-400{color:#5b21b6 !important}
+  [data-theme="light"] .glow-text{color:#0f172a}
+  [data-theme="light"] #server-status{color:#065f46 !important}
+
+  /* Saved searches — polished */
+  .saved-searches-dropdown{position:relative}
+  .saved-searches-menu{position:absolute;top:calc(100% + 8px);right:0;background:rgba(15,23,42,.96);border:1px solid rgba(59,130,246,.22);border-radius:var(--radius);box-shadow:var(--shadow);min-width:320px;max-height:380px;overflow:auto;z-index:30;display:none}
+  .saved-searches-menu.open{display:block;animation:pop .16s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+  .saved-search-item{padding:.6rem .85rem;display:flex;justify-content:space-between;align-items:center;gap:.6rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:.78rem;transition:background .12s}
+  .saved-search-item:hover{background:rgba(59,130,246,.08)}
+  .saved-search-item-delete{opacity:0;color:#f87171;cursor:pointer;padding:.2rem .35rem;border-radius:999px}
+  .saved-search-item:hover .saved-search-item-delete{opacity:1}
+  .saved-search-item-delete:hover{background:rgba(239,68,68,.12)}
+
+  /* Subtle future sections (timeline/comparison placeholders) */
+  .timeline-container{position:relative;padding:1rem 0}
+  .timeline-line{position:absolute;left:.42rem;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--accent),transparent)}
+  .timeline-item{position:relative;margin:0 0 1.1rem 2.6rem}
+  .timeline-dot{position:absolute;left:-1.85rem;top:.3rem;width:1.05rem;height:1.05rem;background:var(--bg);border:2.5px solid var(--accent);border-radius:50%}
 </style>
 </head>
-<body class="p-6 md:p-10">
-  <a href="#main-content" class="skip-link sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:bg-accent focus:text-white focus:px-4 focus:py-2 focus:rounded font-bold shadow-lg">Salta al contenuto</a>
+<body class="p-5 md:p-8">
 <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:font-bold focus:outline-none focus:ring-2 focus:ring-blue-400">Skip to main content</a>
 
 <div class="max-w-7xl mx-auto">
   <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
     <div>
       <div class="flex items-center gap-3 mb-3">
-        <span class="px-4 py-1.5 bg-blue-600/20 text-blue-400 text-xs font-bold rounded-full border border-blue-600/30 tracking-wider">OMNISTATE v2</span>
+        <span id="version-badge" class="px-3.5 py-1.5 bg-blue-600/10 text-blue-300 text-[11px] font-bold rounded-full border border-blue-600/20 tracking-widest uppercase" title="App version">OMNISTATE v2</span>
         <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-widest pulse" id="server-status">
           <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" aria-hidden="true"></span> Server
         </span>
@@ -126,7 +182,7 @@
       <p class="text-slate-400 mt-2 text-lg font-light" id="last-update">—</p>
     </div>
     <form class="flex gap-3 flex-wrap items-center" onsubmit="event.preventDefault(); saveToken()">
-        <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (se abilitato)" class="w-44 text-xs">
+        <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (if enabled)" class="w-44 text-xs">
         <button type="button" class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)" aria-label="Toggle theme">🌙</button>
         <span class="kbd hidden md:inline">⌘K</span>
         <button type="submit" class="btn ghost">Token</button>
@@ -135,13 +191,13 @@
   </header>
 
   <!-- Tabs -->
-  <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Sezioni dashboard">
-    <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" aria-label="Sezione Overview">Overview</button>
-    <button class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" aria-label="Sezione Progetti">Projects</button>
-    <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" aria-label="Sezione GitHub PR Health">GitHub PR Health</button>
-    <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Sezione Memoria condivisa">Shared Memory</button>
-    <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Sezione Ricerca">Search</button>
-    <button class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Sezione Handoff">Handoffs</button>
+  <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Dashboard sections">
+    <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" aria-label="Overview section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</button>
+    <button class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" aria-label="Projects section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h8v8H3V3m10 0h8v8h-8V3m0 10h8v8h-8v-8M3 13h8v8H3v-8"/></svg>Projects</button>
+    <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" aria-label="GitHub PR Health section"><svg class="icon-btn" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.004 12.004 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</button>
+    <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Shared Memory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Memory</button>
+    <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Search section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
+    <button class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Handoffs section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16L17 6m0 0l-4-4m4 4v10"/></svg>Handoffs</button>
   </nav>
 
   <main id="main-content" tabindex="-1" aria-live="polite" aria-atomic="false">
@@ -181,7 +237,7 @@
     <!-- GitHub -->
     <section id="tab-github" class="tab-panel hidden" role="tabpanel">
       <form class="flex gap-3 flex-wrap items-center mb-6" onsubmit="event.preventDefault(); runGhScan()">
-        <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (separati da virgola)" class="flex-1 min-w-[240px]">
+        <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (comma-separated)" class="flex-1 min-w-[240px]">
         <button type="submit" class="btn">Scan now</button>
         <button type="button" class="btn ghost" onclick="loadGithub()">Refresh</button>
         <span class="text-xs text-slate-400" id="gh-token-info"></span>
@@ -189,8 +245,8 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
       <div class="glass p-6 mb-6" id="gh-delta"><h2 class="text-xl font-bold mb-2">Delta vs previous scan</h2><p class="text-slate-400 text-sm" id="gh-delta-text">—</p></div>
       <div class="grid md:grid-cols-2 gap-6 mb-6">
-        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Top repositories per open PR</p><div class="chart-box"><canvas id="chartGhTop"></canvas></div></div>
-        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Trend storico open PR</p><div class="chart-box"><canvas id="chartGhTrend"></canvas></div></div>
+        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Top repos by open PRs</p><div class="chart-box"><canvas id="chartGhTop"></canvas></div></div>
+        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Open PR trend</p><div class="chart-box"><canvas id="chartGhTrend"></canvas></div></div>
       </div>
       <div class="glass p-6 mb-6">
         <div class="flex gap-3 flex-wrap mb-4">
@@ -226,6 +282,11 @@
         <form class="flex flex-col gap-4 mb-4" onsubmit="event.preventDefault(); doSearch()">
           <div class="flex gap-3 flex-wrap">
             <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
+
+            <div class="saved-searches-dropdown">
+              <button type="button" class="btn ghost text-xs" id="saved-searches-btn" onclick="toggleSavedSearchesMenu(event)">⭐ Saved</button>
+              <div id="saved-searches-menu" class="saved-searches-menu"></div>
+            </div>
             <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
               <option value="all">All</option>
               <option value="project">Projects</option>
@@ -319,7 +380,18 @@ async function loadBackups() {
   } catch (e) { console.error(e); }
 }
 
-async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadBackups()]); }
+async function refreshVersionBadge() {
+  try {
+    const h = await api('/health');
+    if (h && h.version) {
+      const el = $('version-badge');
+      if (el) el.textContent = 'OMNISTATE v' + h.version;
+      const status = $('server-status');
+      if (status && h.version) status.title = 'v' + h.version;
+    }
+  } catch(e) {}
+}
+async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadBackups(), refreshVersionBadge()]); }
 
 // ---------- Overview ----------
 async function loadOverview() {
@@ -328,7 +400,7 @@ async function loadOverview() {
     const stats = await api('/api/stats');
     $('last-update').textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
     const cards = [
-      { l: 'Progetti', v: fmt(stats.projects), c: 'text-blue-400' },
+      { l: 'Projects', v: fmt(stats.projects), c: 'text-blue-400' },
       { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
       { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
       { l: 'Token savings', v: fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300', t: 'Real measured saving: stored raw memory tokens minus what session_start actually loads.' },
@@ -611,12 +683,12 @@ async function loadGithub() {
     ]);
     $('gh-accounts').value = (cfg.accounts||[]).join(', ');
     const t = cfg.token || {};
-    $('gh-token-info').textContent = t.token_set ? ('token: ' + (t.login || '?') + ' · ' + (t.scopes||[]).join('+') || t.valid ? 'ok' : '') : 'nessun token (modalità REST)';
-    if (metrics.error) { $('github-stats').innerHTML = '<p class="text-slate-400">No scans yet. Avvia con "Scan now".</p>'; return; }
+    $('gh-token-info').textContent = t.token_set ? ('token: ' + (t.login || '?') + ' · ' + (t.scopes||[]).join('+') + (t.valid === false ? ' (invalid)' : '')) : 'no token (REST mode)';
+    if (metrics.error) { $('github-stats').innerHTML = '<p class="text-slate-400">No scans yet. Click "Scan now".</p>'; return; }
     $('github-stats').innerHTML = [
-      { l: 'Repos scansionati', v: fmt(metrics.total_repos), c: 'text-blue-400' },
-      { l: 'Open PR totali', v: fmt(metrics.total_prs), c: 'text-emerald-400' },
-      { l: 'Metodo', v: esc(metrics.method), c: 'text-purple-400' },
+      { l: 'Repos scanned', v: fmt(metrics.total_repos), c: 'text-blue-400' },
+      { l: 'Total open PRs', v: fmt(metrics.total_prs), c: 'text-emerald-400' },
+      { l: 'Method', v: esc(metrics.method), c: 'text-purple-400' },
       { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300' },
     ].map(c => `<div class="glass p-8 stat-card" role="listitem"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="text-3xl font-black font-outfit ${c.c}">${c.v}</p></div>`).join('');
     $('gh-delta-text').textContent = delta.error ? delta.error : `Δ PR: ${delta.delta_prs >= 0 ? '+' : ''}${fmt(delta.delta_prs)} · Δ repos: ${delta.delta_repos >= 0 ? '+' : ''}${fmt(delta.delta_repos)} (${fmtDate(delta.latest)} vs ${fmtDate(delta.previous)})`;
@@ -702,7 +774,7 @@ async function renderGhRepos() {
     $('github-repos').innerHTML = `
       <table><thead><tr>
         <th>Repo</th><th class="num">PR</th><th class="num">Draft</th><th class="num">No rev</th>
-        <th class="num">Stale</th><th class="num">Issues</th><th class="num">Stars</th><th>Lingua</th>
+        <th class="num">Stale</th><th class="num">Issues</th><th class="num">Stars</th><th>Language</th>
       </tr></thead><tbody>
       ${filtered.map(r => {
         const u = base(r);
@@ -731,7 +803,7 @@ function renderGhCharts(history, metrics) {
   const maxTrend = trendData.length ? Math.max(...trendData) : 0;
   const trendEl = $('chartGhTrend');
   trendEl.setAttribute('role', 'img');
-  trendEl.setAttribute('aria-label', `Trend storico open PR: min ${minTrend}, max ${maxTrend}`);
+  trendEl.setAttribute('aria-label', `Open PR trend: min ${minTrend}, max ${maxTrend}`);
 
   ghTrendChart = new Chart(trendEl, {
     type: 'line',
@@ -746,9 +818,9 @@ function renderGhCharts(history, metrics) {
     topEl.setAttribute('role', 'img');
     if (top.length > 0) {
       const topRepo = top.reduce((prev, current) => (prev.open_prs > current.open_prs) ? prev : current);
-      topEl.setAttribute('aria-label', `Top repositories per open PR. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
+      topEl.setAttribute('aria-label', `Top repos by open PRs. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
     } else {
-      topEl.setAttribute('aria-label', 'Top repositories per open PR. Nessun dato disponibile.');
+      topEl.setAttribute('aria-label', 'Top repos by open PRs. Nessun dato disponibile.');
     }
 
     ghTopChart = new Chart(topEl, {
@@ -817,7 +889,7 @@ const PALETTE_CMDS=[
 function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); }); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); closePalette(); }
 function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
-function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
+function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==\'Enter\' || event.key==\' \') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
 async function forgetMemory(id) {
   if (!confirm('Delete this memory entry?')) return;
   try {
@@ -878,6 +950,39 @@ document.addEventListener('keydown', e=>{
 })();
 
 loadAll();
+
+
+// ── Saved searches (single source) ──
+class SavedSearchesManager{
+  constructor(){this.k='omnistate_saved_searches';this.searches=this.load()}
+  load(){try{return JSON.parse(localStorage.getItem(this.k)||'[]')}catch{return[]}}
+  save(){localStorage.setItem(this.k, JSON.stringify(this.searches))}
+  add(q,scope='all'){
+    const ex=this.searches.find(s=>s.query===q&&s.scope===scope);
+    if(ex){ex.lastUsed=new Date().toISOString();this.save();return}
+    this.searches.unshift({id:Date.now(),query:q,scope,created:new Date().toISOString(),lastUsed:new Date().toISOString()});
+    if(this.searches.length>15) this.searches.pop(); this.save();
+  }
+  delete(id){this.searches=this.searches.filter(s=>s.id!==id);this.save()}
+  getAll(){return [...this.searches].sort((a,b)=>new Date(b.lastUsed)-new Date(a.lastUsed))}
+}
+const savedSearches=new SavedSearchesManager();
+function toggleSavedSearchesMenu(e){e.preventDefault();const m=$('saved-searches-menu');m.classList.toggle('open');if(m.classList.contains('open')) renderSavedSearches()}
+function renderSavedSearches(){
+  const m=$('saved-searches-menu');const list=savedSearches.getAll();
+  m.innerHTML=list.length?list.map(s=>`<div class="saved-search-item"><div style="flex:1;min-width:0;cursor:pointer" onclick="loadSavedSearch(${s.id})"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600">${esc(s.query.slice(0,42))}${s.query.length>42?'…':''}</div><div style="font-size:.68rem;color:var(--muted)">${esc(s.scope)}</div></div><span class="saved-search-item-delete" onclick="deleteSavedSearch(event,${s.id})" title="Remove">✕</span></div>`).join('')+'<div style="padding:.55rem;text-align:center"><button class="btn ghost small" onclick="clearAllSavedSearches()">Clear all</button></div>':'<div style="padding:1rem;text-align:center;color:var(--muted)">No saved searches yet</div>';
+}
+function loadSavedSearch(id){const s=savedSearches.searches.find(x=>x.id===id);if(!s) return;$('search-q').value=s.query;$('search-scope').value=s.scope;$('saved-searches-menu').classList.remove('open');doSearch()}
+function deleteSavedSearch(e,id){e.stopPropagation();savedSearches.delete(id);renderSavedSearches()}
+function clearAllSavedSearches(){if(!confirm('Delete all saved searches?')) return;savedSearches.searches=[];savedSearches.save();renderSavedSearches()}
+const _origDoSearch=window.doSearch;
+window.doSearch=async function(){const q=$('search-q')?.value?.trim();const sc=$('search-scope')?.value||'all';if(q) savedSearches.add(q,sc);return _origDoSearch.apply(this,arguments)};
+document.addEventListener('click',e=>{
+  const m=$('saved-searches-menu'),b=$('saved-searches-btn');
+  if(m&&b&&!m.contains(e.target)&&!b.contains(e.target)) m.classList.remove('open');
+});
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('saved-searches-menu')?.classList.remove('open') });
+
 </script>
 </body>
 </html>

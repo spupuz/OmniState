@@ -1,4 +1,4 @@
-# OmniState v2.9.0
+# OmniState v2.10.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -23,7 +23,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
-- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with refined glass UI, native form validation, non-blocking toasts, accessible tab navigation and PWA manifest support.
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with unified design tokens, pill tabs/buttons/inputs, glass cards with hover lift, health badges, saved-search dropdown, native form validation, non-blocking toasts, accessible tab navigation and PWA manifest support.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
@@ -176,13 +176,14 @@ Open **http://localhost:8347** in the browser:
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately), "Only with open PRs" filter (persisted via shared memory).
-- **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, and inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions on every result.
-- **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key).
+- **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions, and a **⭐ Saved** dropdown (persisted in `localStorage`, max 15, Esc/outside to close) that auto-saves every query and lets you reload or remove past searches.
+- **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) with refined light-theme overrides for glass, table and chip surfaces.
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
-- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids (overview stats, backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) are exposed as ARIA lists (`role="list"` / `role="listitem"`) so screen readers announce them as structured collections; Overview project cards and command-palette items are real keyboard-operable controls (`role="button"`, `tabindex="0"`, Enter/Space activation with visible focus ring and `aria-label`s); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable input groups (token, register, GitHub scan, shared note, search, handoff) are wrapped in semantic `<form>` elements so **Enter** submits natively (search filters and register input also validate/live-update in place); horizontally scrollable regions are focusable only while they actually overflow (the `tabindex` is removed in empty states to avoid focus traps); empty states show the exact next command to run (e.g. `omnistate index /path/to/project` or Auto-discover) instead of a dead end.
-- **Native form validation**: required inputs (register path, shared note text, handoff project) are validated by the browser itself through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are rejected with a localized tooltip on the offending field instead of being posted to the server.
-- **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info), so the page context is never interrupted by a modal dialog.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run.
+- **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
+- **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog.
+- **Dynamic version badge + English-only copy**: the header badge is injected from `VERSION.txt` via `GET /health` and kept in sync live (was hardcoded `v2`); all dashboard copy is English.
 
 ## GitHub PR Health
 
@@ -323,7 +324,15 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.9.0 (current)
+### v2.10.0 (current)
+- **UI (dashboard)**: unified design system — single `<style>` with CSS tokens (`--bg/--card/--border/--accent/--radius/--shadow`), radial gradients, blur/saturate glass cards with hover lift, pill tabs/buttons/inputs with focus ring, tabular-nums tables with sticky headers, pill chips and `health-*` badges, accent-bordered toasts, and blur-backed command palette.
+- **UX (dashboard)**: added **⭐ Saved** searches dropdown (auto-saves every query with scope, 15 max in `localStorage`, reload/remove/clear, Esc + outside-click to close) and dedicated polished menu styles with pop animation.
+- **Fix (dashboard)**: real app version in the header injected from `VERSION.txt` via `GET /health` (`server/app.py:index()` + `refreshVersionBadge()`) — was hardcoded `OMNISTATE v2`.
+- **Fix (dashboard)**: all remaining Italian copy translated to English; removed duplicate `Salta al contenuto` skip-link; translated aria-labels, placeholders and stats (`Repos scanned`/`Total open PRs`/`Method`/`Projects`/`Top repos by open PRs`/`Open PR trend`/`Language`/`no token (REST mode)`).
+- **Fix (dashboard)**: deduped 3 duplicated `SavedSearchesManager` injections (115KB -> 66KB), single CDN include for Tailwind + Chart.js, single `</script>` close.
+- **Cleanup**: removed transient patch scripts + backups (~120KB) from prior phases (`enhance-dashboard*.py`, `apply-enhancements.sh`, `ENHANCEMENTS.md`, `server/dashboard.html.backup.*`, `server/dashboard-features.js`).
+
+### v2.9.0
 - **UX (PR #133)**: every `alert()` in the dashboard is replaced by a non-blocking corner toast (`ok` / `err` / `info` kinds) — covering project registration, auto-discover, shared-note add/delete, GitHub preference saving, GitHub scan and handoff submission — so the page context is never interrupted by a modal dialog.
 - **UX (PR #133)**: form validation moved to native HTML5 constraints (`required` on the register-path and shared-note inputs) so empty submissions are blocked in place by the browser with a localized tooltip instead of a round-trip to the server.
 - **CI**: the release workflow accepts a manual `workflow_dispatch` trigger, so the tag and GitHub Release can be regenerated for the current `VERSION.txt` without tagging by hand (re-runs are no-ops once the tag exists).

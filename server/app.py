@@ -236,7 +236,15 @@ class App:
 
         @app.get("/", response_class=HTMLResponse)
         def index() -> str:
-            return DASHBOARD_HTML.read_text(encoding="utf-8") if DASHBOARD_HTML.exists() else "<h1>OmniState v2</h1>"
+            fallback = f"<h1>OmniState v{get_version()}</h1>"
+            if not DASHBOARD_HTML.exists():
+                return fallback
+            html = DASHBOARD_HTML.read_text(encoding="utf-8")
+            ver = get_version()
+            # Replace hardcoded badge with real version (keeps dashboard.html static for dev)
+            if "OMNISTATE v2</span>" in html:
+                html = html.replace("OMNISTATE v2</span>", f"OMNISTATE v{ver}</span>", 1)
+            return html
 
         @app.get("/favicon.svg")
         def favicon_svg() -> Response:
