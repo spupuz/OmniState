@@ -872,7 +872,7 @@ class Store:
             if kind == "decision":
                 path = out_dir / "decisions" / f"ADR-{int(m['id']):04d}.md"
             else:
-                safe = title.lower().replace(" ", "-")[:60]
+                safe = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
                 path = out_dir / f"{kind}-{safe}.md"
             path.write_text(body, encoding="utf-8")
             count += 1
