@@ -30,7 +30,8 @@ def count_tokens(text: str) -> int:
         import tiktoken
 
         _token_encoder = tiktoken.get_encoding("cl100k_base")
-    return len(_token_encoder.encode(text or ""))
+    # encode_ordinary is faster than encode and ignores special tokens
+    return len(_token_encoder.encode_ordinary(text or ""))
 
 
 def _now() -> str:
