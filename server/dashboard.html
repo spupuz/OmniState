@@ -156,7 +156,8 @@
   .saved-search-item{padding:.6rem .85rem;display:flex;justify-content:space-between;align-items:center;gap:.6rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:.78rem;transition:background .12s}
   .saved-search-item:hover{background:rgba(59,130,246,.08)}
   .saved-search-item-delete{opacity:0;color:#f87171;cursor:pointer;padding:.2rem .35rem;border-radius:999px}
-  .saved-search-item:hover .saved-search-item-delete{opacity:1}
+  .saved-search-item:hover .saved-search-item-delete,
+  .saved-search-item:focus-within .saved-search-item-delete {opacity:1}
   .saved-search-item-delete:hover{background:rgba(239,68,68,.12)}
 
   /* Subtle future sections (timeline/comparison placeholders) */
@@ -192,12 +193,12 @@
 
   <!-- Tabs -->
   <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Dashboard sections">
-    <button class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" aria-label="Overview section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</button>
-    <button class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" aria-label="Projects section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h8v8H3V3m10 0h8v8h-8V3m0 10h8v8h-8v-8M3 13h8v8H3v-8"/></svg>Projects</button>
-    <button class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" aria-label="GitHub PR Health section"><svg class="icon-btn" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.004 12.004 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</button>
-    <button class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Shared Memory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Memory</button>
-    <button class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Search section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
-    <button class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Handoffs section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16L17 6m0 0l-4-4m4 4v10"/></svg>Handoffs</button>
+    <button type="button" class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" aria-label="Overview section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</button>
+    <button type="button" class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" aria-label="Projects section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h8v8H3V3m10 0h8v8h-8V3m0 10h8v8h-8v-8M3 13h8v8H3v-8"/></svg>Projects</button>
+    <button type="button" class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" aria-label="GitHub PR Health section"><svg class="icon-btn" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.004 12.004 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</button>
+    <button type="button" class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Shared Memory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Memory</button>
+    <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Search section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
+    <button type="button" class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Handoffs section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16L17 6m0 0l-4-4m4 4v10"/></svg>Handoffs</button>
   </nav>
 
   <main id="main-content" tabindex="-1" aria-live="polite" aria-atomic="false">
@@ -207,7 +208,7 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats" role="list"></div>
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-2">DB Backups</h2>
-        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button onclick="loadBackups()">↻ Refresh</button></p>
+        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button type="button" class="btn ghost small ml-2" onclick="loadBackups()">↻ Refresh</button></p>
         <div id="backups-list" class="flex gap-3 flex-wrap" role="list"></div>
       </div>
       <div class="glass p-6">
@@ -264,7 +265,7 @@
 <!-- Shared -->
     <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
- <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
+ <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button type="button" class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
         <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
           <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]" required>
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
@@ -480,7 +481,7 @@ async function showProject(name) {
     el.classList.remove('hidden');
     el.innerHTML = `
       <div class="flex items-center gap-3 mb-5 flex-wrap">
-        <button class="btn ghost" onclick="backToProjects()">← Back</button>
+        <button type="button" class="btn ghost" onclick="backToProjects()">← Back</button>
         <h2 class="text-xl font-bold">${esc(name)}</h2>
         <span class="chip">${esc(d.category || 'active')}</span>
         <span class="text-xs text-slate-500 truncate max-w-[280px]" title="${esc(d.project.host_path)}">${esc(d.project.host_path)}</span>
@@ -494,7 +495,7 @@ async function showProject(name) {
       <div class="flex gap-3 flex-wrap items-center mb-4 flex-wrap">
         <h3 class="font-bold">Memory entries</h3>
         <input type="search" id="pm-filter" aria-label="Filter project memory entries" class="ml-auto" placeholder="Filter entries…" oninput="renderPmEntries()">
-        <button class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
+        <button type="button" class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
       </div>
       <div id="pm-entries" role="list"></div>
       <div id="handoff-form" class="hidden mt-4" role="list"></div>`;
@@ -512,7 +513,7 @@ function renderPmEntries() {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
     <div class="glass p-4 mb-3" role="listitem">
-      <div class="flex justify-end gap-2 mb-2"><button class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+      <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
           <span class="chip">${esc(e.kind)}</span>
@@ -541,11 +542,11 @@ function showHandoffForm() {
   form.innerHTML = `
     <form class="glass p-4 mb-3" role="listitem" onsubmit="event.preventDefault(); submitHandoff()">
       <h3 class="font-bold mb-2">Create Handoff</h3>
-      <textarea id="hf-state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
-      <textarea id="hf-next" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
-      <textarea id="hf-done" class="w-full mb-2" rows="2" placeholder="Completed (one per line)…"></textarea>
-      <textarea id="hf-risks" class="w-full mb-2" rows="2" placeholder="Risks (one per line)…"></textarea>
-      <textarea id="hf-valid" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
+      <textarea id="hf-state" aria-label="Current state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
+      <textarea id="hf-next" aria-label="Next steps" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
+      <textarea id="hf-done" aria-label="Completed steps" class="w-full mb-2" rows="2" placeholder="Completed (one per line)…"></textarea>
+      <textarea id="hf-risks" aria-label="Risks" class="w-full mb-2" rows="2" placeholder="Risks (one per line)…"></textarea>
+      <textarea id="hf-valid" aria-label="Validation steps" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
       <div class="flex gap-2">
         <button type="submit" class="btn">Save handoff</button>
         <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
@@ -666,10 +667,10 @@ async function doSearch() {
           <span class="chip">imp: ${Math.round((m.importance||0)*100)}%</span>
         </div>
         <div class="flex gap-2 mt-2 flex-wrap">
-          <button class="copy-btn" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
-          <button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button>
-          <button class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button>
-          <button class="copy-btn" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
+          <button type="button" class="copy-btn" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
+          <button type="button" class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button>
+          <button type="button" class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button>
+          <button type="button" class="copy-btn" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
         </div>
       </div>`).join('') : '<p class="text-slate-400 text-sm">No results. Try a broader query or change scope/project filter.</p>';
   } catch (e) { console.error(e); toast(String(e).slice(0,140),'err'); if($('search-count')) $('search-count').textContent='error'; }
