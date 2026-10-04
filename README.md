@@ -1,4 +1,4 @@
-# OmniState v2.10.1
+# OmniState v2.10.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -324,7 +324,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.10.1 (current)
+### v2.10.2 (current)
+- **Security (PR #135)**: `Store.export_memories_markdown()` now enforces a strict allowlist (`re.sub(r'[^a-z0-9]+', '-', ...)`) on memory titles used as filenames, closing a path-traversal vector that allowed `../` escapes to write outside the export directory.
+- **Performance (PR #137)**: `count_tokens()` uses `tiktoken.encode_ordinary()` instead of `encode()` — faster and immune to special-token collisions on arbitrary user input.
+- **UX (dashboard, PR #136)**: saved-search dropdown items are now native `<button type="button">` elements with `aria-label`s, restoring full keyboard navigability and screen-reader support.
+
+### v2.10.1
 - **Performance (PR #134)**: `project_list` MCP tool reuses the TTL-cached `_project_metrics_list()` from the `App` instance instead of calling `store.project_metrics()` per project — removing the N+1 query bottleneck (falls back to per-project queries only when a project is missing from the cache).
 - **UX (dashboard)**: stat cards use smaller, consistent typography (`text-2xl`/`text-lg`/`text-sm` instead of `text-3xl`/`text-4xl`) with `break-words` and tighter padding, so long values like the GitHub "Last scan" timestamp no longer overflow their card.
 
