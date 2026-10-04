@@ -1,4 +1,4 @@
-# OmniState v2.11.0
+# OmniState v2.11.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -324,7 +324,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.11.0 (current)
+### v2.11.1 (current)
+- **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
+
+### v2.11.0
 - **UX / Accessibility (dashboard, PR #139)**: every dashboard button is now an explicit `<button type="button">` (previously bare `<button>` elements, which could fall through to submit enclosing forms); hover-revealed controls (e.g. the saved-search delete button) also reveal on `:focus-within`, so keyboard users can reach them; the form textareas in the handoff and project-memory controls gained `aria-label`s for screen readers.
 
 ### v2.10.3 (current)
