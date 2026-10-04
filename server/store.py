@@ -1050,7 +1050,9 @@ class Store:
         }
 
         for r in self.q_iter(
-            "SELECT project_id, id, kind, content, title, tags, created_at, updated_at, lifecycle_state "
+            "SELECT project_id, id, kind, content, title, tags, created_at, updated_at, lifecycle_state, "
+            "CASE WHEN kind='task' AND json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status, "
+            "CASE WHEN kind='task' AND json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title "
             "FROM memory"
         ):
             if (pid := r["project_id"]) not in res:
@@ -1079,20 +1081,24 @@ class Store:
 
         for pid, m in res.items():
             open_tasks = []
-            for t in sorted(m["_tasks"], key=lambda x: x["created_at"], reverse=True):
-                try:
-                    meta = json.loads(t["content"])
-                except Exception:
-                    meta = {"title": t.get("title"), "status": "todo"}
-                if meta.get("status", "todo") == "done":
+            for t in m["_tasks"]:
+                status = t.get("task_status", "todo")
+                if status == "done":
                     m["doneTasks"] += 1
                     continue
                 m["activeTasks"] += 1
+                title = t.get("task_title") if t.get("task_title") is not None else t.get("title")
                 open_tasks.append({
                     "id": t["id"],
-                    "title": meta.get("title", t["title"]),
-                    "status": meta.get("status", "todo"),
+                    "title": title,
+                    "status": status,
+                    "created_at": t["created_at"],
                 })
+
+            open_tasks.sort(key=lambda x: x["created_at"], reverse=True)
+            for t in open_tasks:
+                t.pop("created_at", None)
+
             recent = sorted(m["_recent"], key=lambda x: x["created_at"], reverse=True)[:3]
             recall = sorted(m["_recall"], key=lambda x: x["updated_at"], reverse=True)[:8]
             ctx = {
