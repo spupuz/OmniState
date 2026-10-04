@@ -225,6 +225,13 @@ class App:
             return await call_next(request)
 
         @app.middleware("http")
+        async def _security_headers(request, call_next):
+            response = await call_next(request)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["X-Frame-Options"] = "DENY"
+            return response
+
+        @app.middleware("http")
         async def _no_store_api(request, call_next):
             """Never let a browser/proxy cache the dashboard API: a scan must be
             visible immediately after it finishes (stale PR counts otherwise)."""
@@ -412,7 +419,7 @@ class App:
             out = []
             for f in sorted(p.glob("index_*.db"), reverse=True)[:7]:
                 stat = f.stat()
-                conn = sqlite3.connect(str(f))
+                conn = sqlite3.connect(f"{f.resolve().as_uri()}?mode=ro", uri=True)
                 mems = conn.execute("SELECT COUNT(*) FROM memory").fetchone()[0]
                 conn.close()
                 out.append({
