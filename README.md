@@ -211,7 +211,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
-- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists) stream through `Store.q_iter()`, which materializes one chunk at a time under the lock and releases it before yielding, so a large index never has to be loaded into memory at once and downstream processing never blocks other queries.
+- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists) stream through `Store.q_iter()`, which materializes one chunk at a time under the lock and releases it before yielding, so a large index never has to be loaded into memory at once and downstream processing never blocks other queries. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
 - Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
 - Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
 
@@ -324,7 +324,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.10.2 (current)
+### v2.10.3 (current)
+- **Performance (PR #138)**: `all_project_metrics()` no longer calls `json.loads()` on every task row in Python — `status` and `title` are projected via SQLite `json_extract(content, '$.status')`/`$.title'` (guarded by `json_valid()`) inside the `q_iter()` SELECT, cutting per-row JSON parsing overhead in the dashboard's hot path.
+
+### v2.10.2
 - **Security (PR #135)**: `Store.export_memories_markdown()` now enforces a strict allowlist (`re.sub(r'[^a-z0-9]+', '-', ...)`) on memory titles used as filenames, closing a path-traversal vector that allowed `../` escapes to write outside the export directory.
 - **Performance (PR #137)**: `count_tokens()` uses `tiktoken.encode_ordinary()` instead of `encode()` — faster and immune to special-token collisions on arbitrary user input.
 - **UX (dashboard, PR #136)**: saved-search dropdown items are now native `<button type="button">` elements with `aria-label`s, restoring full keyboard navigability and screen-reader support.

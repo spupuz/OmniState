@@ -1,3 +1,0 @@
-## 2024-05-15 - [Optimize all_project_metrics with SQLite json_extract]
-**Learning:** Using Python's `json.loads` inside a tight O(N) loop to process thousands of database rows is extremely slow and a major performance bottleneck. Offloading JSON parsing to SQLite's C-based `json_extract()` during the `SELECT` query eliminates this overhead and speeds up processing significantly without requiring extra database scans.
-**Action:** When a Python script needs to read specific keys from JSON payloads stored in a database, use a hybrid approach: project the needed keys directly in the SQL query using `json_valid()` and `json_extract()`, and process the extracted strings in Python.
