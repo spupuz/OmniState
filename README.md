@@ -1,4 +1,4 @@
-# OmniState v2.12.0
+# OmniState v2.12.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -334,7 +334,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 ### v2.11.1
 - **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
 
-### v2.12.0 (current)
+### v2.12.1 (current)
+- **Docs**: DESIGN.md synced — content_hash DB schema, token validation, CSP/rate-limiting/Referrer-Policy, Prometheus /metrics, scheduled purge, expanded REST/MCP tables.
+
+### v2.12.0
 - **Security**: CSP headers (CDN sources allowed), Referrer-Policy, per-IP rate limiting (120 req/60s), oversized payload rejection (>1MB).
 - **Memory engine**: `content_hash` column (SHA-256 normalized content) with partial-index dedup; tag filtering on `memory_search` (comma-separated, AND logic); `memory_feedback_for` MCP tool.
 - **Ops**: async `db_backup_async`, scheduled purge (expired memories, feedback 90d, exposures 60d), Prometheus `/metrics` endpoint.
@@ -350,7 +353,7 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 ### v2.11.0
 - **UX / Accessibility (dashboard, PR #139)**: every dashboard button is now an explicit `<button type="button">` (previously bare `<button>` elements, which could fall through to submit enclosing forms); hover-revealed controls (e.g. the saved-search delete button) also reveal on `:focus-within`, so keyboard users can reach them; the form textareas in the handoff and project-memory controls gained `aria-label`s for screen readers.
 
-### v2.10.3 (current)
+### v2.10.3
 - **Performance (PR #138)**: `all_project_metrics()` no longer calls `json.loads()` on every task row in Python — `status` and `title` are projected via SQLite `json_extract(content, '$.status')`/`$.title'` (guarded by `json_valid()`) inside the `q_iter()` SELECT, cutting per-row JSON parsing overhead in the dashboard's hot path.
 
 ### v2.10.2

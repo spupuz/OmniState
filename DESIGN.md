@@ -1,6 +1,6 @@
 # OmniState v2 — Design: MCP Server + Web Dashboard (Docker)
 
-Status: **implemented (v2.11.2)** — data integrity, DB maintenance, kind-scoped dedup.
+Status: **implemented (v2.12.1)** — content_hash dedup, tag filtering, async backup, rate limiting, CSP, /metrics, token validation, scheduled purge, non-root entrypoint.
 Agreed decisions: **Docker** container, **MCP-only** (no more local skills: the MCP server is the single memory), **auto-registration** of projects when they use the MCP, **dashboard v2 only** (static generator removed), **English-only** project.
 
 ---
@@ -65,13 +65,13 @@ One Python process (uvicorn) in the container, two interfaces:
 
 ---
 
-## 2a. Operational notes (post-release improvements)
-- DB indices: composited (`scope+lifecycle+updated_at`) added; FTS5 batch deferred recommended at high frequency.
-- Backup: `scripts/db-backup.sh` now writes `.sha256` and rotates checksums; verify restore before production rely.
-- Auth: `localStorage` token + CSP strict recommended; add `HttpOnly` cookie path.
-- Monitoring: `/api/metrics` minimal added; Prometheus-style `/metrics` and structured JSON logging still needed.
-- Purge: `memory_feedback` retention 90-day purge method added (`Store.purge_feedback`).
-- Test: local-only regression (`tests/test_store_core.py`) verifies schema + indexes + purge; not published per privacy policy.
+## 2a. Operational notes (implemented in v2.12.1)
+- DB indices: composited (`scope+lifecycle+updated_at`); `idx_memory_content_hash` partial index on `content_hash`; FTS5 batch deferred recommended at high frequency.
+- Backup: `db_backup_async` (threaded, WAL-safe SQLite backup API) + `db_backup` with SHA-256 checksum + 7-day rotation; verify restore before production rely.
+- Auth: CSP headers (CDN-allowed sources), Referrer-Policy, per-IP rate limiting (120 req/60s on `/api/*` and `/mcp`), oversized payload rejection (>1MB).
+- Monitoring: `GET /metrics` Prometheus-style (`omnistate_projects_active`, `omnistate_memory_entries`, `omnistate_gh_scans`, `omnistate_version`); structured JSON access log.
+- Purge: scheduled auto-purge — expired memories (`valid_until`), feedback (90d), exposures (60d); `scheduled_purge` called by the background scheduler.
+- Test: local-only regression (`tests/`), 89 passing; not published per privacy policy.
 
 ## 3. Docker container
 
@@ -169,7 +169,15 @@ CREATE TABLE memory (
   tags        TEXT DEFAULT '[]',                -- JSON array
   source_file TEXT,                             -- origin file in the project
   created_at  TEXT,
-  updated_at  TEXT
+  updated_at  TEXT,
+  content_hash TEXT,                            -- SHA-256 normalized content (dedup)
+  valid_from  TEXT,                             -- temporal validity start
+  valid_until TEXT,                             -- temporal validity end
+  lifecycle_state TEXT DEFAULT 'active',        -- active|outdated|incorrect|archived
+  importance  REAL DEFAULT 0,                   -- decayed importance score
+  access_count INTEGER DEFAULT 0,               -- engagement counter
+  last_accessed TEXT,                           -- last recall time
+  reinforcement_count INTEGER DEFAULT 0         -- feedback signal count
 );
 
 CREATE VIRTUAL TABLE memory_fts USING fts5(content, title, tags, content='memory');
@@ -260,16 +268,18 @@ Every scan is stored as a `gh_scans` row with all its `gh_repos` + `gh_authors`/
 | `task_add(project, title, status?)` | Adds a task |
 | `task_update(project, id, status?)` | Updates a task (→ done ⇒ ready for snapshot) |
 | `task_list(project, status?)` | Lists tasks |
-| `memory_search(query, project?, scope=all\|project\|shared, limit=10)` | Cross-project + shared full-text search |
-| `memory_remember(text, project?, scope=shared\|project, tags?)` | Saves a note (shared or per-project) |
+| `memory_search(query, project?, scope=all\|project\|shared, limit=10, tags?, startDate?, endDate?)` | Cross-project + shared full-text search; tags=comma-separated AND logic |
+| `memory_remember(text, project?, scope=shared\|project, tags?)` | Saves a note (shared or per-project); insert-time content_hash dedup |
 | `memory_recall(project)` | Returns relevant memory for session start (reduced context) |
-| `memory_forget(id)` | Deletes an entry |
+| `memory_forget(id, reason?)` | Deletes an entry (audit reason) |
+| `memory_feedback_for(memory_id)` | Returns the feedback audit trail for a memory entry |
+| `memory_reinforce(id, signal)` | Applies feedback signal (used/important/irrelevant/incorrect/outdated) |
 | `github_scan(accounts?, extended?, include_forks?, include_archived?)` | Runs a GitHub scan (REST or GraphQL) and stores metrics in the DB |
 | `github_metrics()` | Latest scan totals (repos, PRs, drafts, no-reviewer, stale, issues) |
 | `github_delta()` | Delta vs previous scan |
 | `github_history(metric?, top_n?)` | Historical open-PR trend (total and per-repo) |
 | `github_top_authors()` / `github_top_labels()` | Aggregations |
-| `github_config(accounts?, token?, extended?)` | Stores accounts/token/config for automatic scans |
+| `github_config(accounts?, token?, extended?, validate?)` | Stores accounts/token/config; validate=true (default) checks token against GitHub API first |
 
 > The old skills `start-session`, `snapshot-session`, `cost-setup`, `dashboard-omnistate` are no longer distributed as code: their flows are MCP tools. Thin wrapper skills (markdown-only) remain available in `skills/` for familiar UX. Existing skills in projects can stay until migration, but are no longer part of the product.
 
@@ -323,15 +333,20 @@ The dashboard is no longer a static per-project file: it is the **server UI**, s
 | `POST /api/register` | Registers a project by host path |
 | `POST /api/discover` | Runs discovery of mounted roots |
 | `GET /api/projects/{name}` | Detail: timeline, architecture, costs, tasks |
-| `GET /api/memory?q=&project=&scope=` | Cross-project search |
+| `GET /api/memory?q=&project=&scope=&tags=&startDate=&endDate=` | Cross-project search; tags=comma-separated AND logic |
 | `GET /api/shared` + `POST /api/shared` | Shared memory (list / add) |
 | `GET /api/stats` | Server totals (projects, memories, token savings, last sync) |
+| `GET /api/metrics` | Aggregated metrics (active projects, memory entries, GH scans, version) |
+| `GET /metrics` | Prometheus-style metrics (text) |
 | `POST /api/github/scan` | Runs a GitHub scan (accounts/token from config or body) |
 | `GET /api/github/metrics` | Latest GitHub scan |
 | `GET /api/github/delta` | Delta vs previous scan |
 | `GET /api/github/history?metric=&top_n=` | Historical open-PR trend |
 | `GET /api/github/repos?scan_id=` | Repos table of a scan |
 | `GET /api/github/authors` / `GET /api/github/labels` | Aggregations |
+| `GET /api/memory/:id/feedback` | Feedback audit trail for a memory entry |
+| `POST /api/backups/create` | Async DB backup (SHA-256 + rotation) |
+| `POST /api/backups/maintain` | WAL checkpoint + VACUUM + purge |
 
 ### New dashboard layout
 
@@ -387,6 +402,7 @@ The functionality of [CheckGitHubRepo](https://github.com/spupuz/CheckGitHubRepo
 ### Token security
 
 - The token is **written only by the admin** (`GITHUB_TOKEN` in `.env` at boot, or `github_config` MCP → `/data/config.json`).
+- `github_config` **validates the token against the GitHub API** before saving (default `validate=true`; opt-out with `validate=false`).
 - REST APIs and the dashboard **never return the token**; they return only metadata (`token_set: true/false`, login, scopes).
 - No token → scans run in REST mode (public, no extended metrics).
 
@@ -426,14 +442,18 @@ Consequences for the repo:
 
 ## 11. Security (host safety)
 
-- The server runs in an **isolated container**: no skill scripts run on the host anymore (one less host risk).
+- The server runs as **non-root** container user (`omnistate` uid 1001); entrypoint fixes `/data` ownership automatically.
 - The server **never executes** shell commands from user input (no `subprocess` with unsanitized paths).
 - File reads **only inside mounted roots** (resolve + prefix check), never outside.
 - SQLite with **parameterized queries** (no SQL injection), FTS5.
 - Dashboard: JSON escape (`<`→`\u003c`) as already done; no `innerHTML` with user input.
 - No tool writes outside `/data` or the registered project.
 - Optional authenticated dashboard access (defaults to localhost listen).
-- **GitHub token**: only in `.env` or `/data/config.json`; never exposed via API/MCP/dashboard (only `token_set` flag + login). GitHub API calls go to `api.github.com` only (whitelist, as per host-security review).
+- **Content-Security-Policy**: `default-src 'self'`; script/style/fonts/connect restricted to trusted CDNs (`cdn.tailwindcss.com`, `cdn.jsdelivr.net`, `fonts.googleapis.com`, `fonts.gstatic.com`).
+- **Referrer-Policy**: `strict-origin-when-cross-origin`.
+- **Rate limiting**: per-IP, 120 requests / 60s on `/api/*` and `/mcp` (429 with `Retry-After`).
+- **Request size limit**: JSON bodies >1MB rejected (413).
+- **GitHub token**: only in `.env` or `/data/config.json`; validated against GitHub API before saving; never exposed via API/MCP/dashboard (only `token_set` flag + login). GitHub API calls go to `api.github.com` only (whitelist, as per host-security review).
 
 ---
 
@@ -456,7 +476,8 @@ Consequences for the repo:
 ### Operational guarantees
 
 - **Dashboard/API/MCP**: read the DB but never export it as a downloadable file into a repo.
-- **No automatic dumps** into the workspace: files from any backup command go to `/data/backups/`, outside the repo.
+- **Backups**: `db_backup_async` / `db_backup` write to `/data/backups/` (outside the repo) with SHA-256 checksum + 7-day rotation.
+- **Auto-purge**: expired memories, stale feedback (90d), old exposures (60d) purged automatically by the scheduler.
 - **GitHub PR Health**: scan results (`gh_scans`, `gh_repos`, `gh_authors`, `gh_labels`) stay in `/data/index.db` only. The dashboard renders them at runtime; no export, no writes into repos.
 
 ### Protection against accidental commits
@@ -496,4 +517,4 @@ Stack: **Python 3.12 + `mcp` (official SDK) + FastAPI/uvicorn + SQLite(FTS5)**, 
 
 ---
 
-*Design v1 — English-only. Approved for implementation.*
+*Design v2.12.1 — English-only. Implemented and deployed.*
