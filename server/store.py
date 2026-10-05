@@ -941,7 +941,8 @@ class Store:
                 path = out_dir / "decisions" / f"ADR-{int(m['id']):04d}.md"
             else:
                 safe = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:60]
-                path = out_dir / f"{kind}-{safe}.md"
+                safe_kind = re.sub(r"[^a-z0-9]+", "-", kind.lower()).strip("-")
+                path = out_dir / f"{safe_kind}-{safe}.md"
             path.write_text(body, encoding="utf-8")
             count += 1
         return {"output_dir": str(out_dir), "exported": count}
