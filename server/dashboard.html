@@ -80,7 +80,7 @@
   textarea{border-radius:var(--radius)}
   input::placeholder,textarea::placeholder{color:#64748b}
   input:focus,select:focus,textarea:focus{border-color:rgba(59,130,246,.55);box-shadow:0 0 0 3px rgba(59,130,246,.18);background:rgba(15,23,42,.72)}
-  input:focus-visible,select:focus-visible,.btn:focus-visible,.tab-btn:focus-visible{outline:none}
+  input:focus-visible,select:focus-visible{outline:none}
 
   /* Tables */
   table{width:100%;border-collapse:separate;border-spacing:0}
@@ -108,6 +108,7 @@
   .kbd{font-size:.68rem;padding:.18rem .38rem;border-radius:.38rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-family:ui-monospace,monospace;color:var(--muted)}
   .copy-btn{font-size:.72rem;padding:.32rem .55rem;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer;transition:all .15s}
   .copy-btn:hover{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.28);color:var(--text)}
+  .btn:focus-visible,.tab-btn:focus-visible,.copy-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.55);border-color:rgba(59,130,246,.8)}
   .skel{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.11) 37%,rgba(255,255,255,.06) 63%);background-size:400% 100%;animation:shimmer 1.15s infinite;border-radius:.6rem}
   @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
   #toast-wrap{position:fixed;bottom:1.2rem;right:1.2rem;display:flex;flex-direction:column;gap:.5rem;z-index:9999;pointer-events:none}
