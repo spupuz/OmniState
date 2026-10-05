@@ -1,4 +1,4 @@
-# OmniState v2.11.1
+# OmniState v2.11.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -324,8 +324,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.11.1 (current)
+### v2.11.1
 - **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
+
+### v2.11.2 (current)
+- **Data integrity (task archiving)**: `session_snapshot` now archives done tasks (`lifecycle_state='archived'`) instead of deleting them — they remain consultable in the project drill-down and counted in `doneTasks`. The new `archive_done_tasks()` method handles the move; `list_tasks()` excludes archived rows by default (`include_archived=True` to restore).
+- **Summary sync**: `session_snapshot` now keeps the project summary (`kind='summary'`) in sync with the distilled context, so `project_summary()` returns the latest snapshot content.
+- **DB maintenance**: new `db_backup()` (SHA-256 checksum + 7-day rotation, WAL-safe SQLite backup API) and `db_maintenance()` (WAL checkpoint + VACUUM + purge of stale `memory_feedback` / `memory_recall_exposures`) — exposed as MCP tools and REST endpoints (`POST /api/backups/create`, `POST /api/backups/maintain`).
+- **Dedup kind-scoped**: `_find_near_duplicate(kind=...)` now filters by `kind`, so a chunk and a summary with the same text no longer collapse into each other.
 
 ### v2.11.0
 - **UX / Accessibility (dashboard, PR #139)**: every dashboard button is now an explicit `<button type="button">` (previously bare `<button>` elements, which could fall through to submit enclosing forms); hover-revealed controls (e.g. the saved-search delete button) also reveal on `:focus-within`, so keyboard users can reach them; the form textareas in the handoff and project-memory controls gained `aria-label`s for screen readers.

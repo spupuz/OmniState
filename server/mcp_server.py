@@ -203,10 +203,7 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         """Archive done tasks, distill progress and create a session chunk."""
         row = _resolve_project(project)
         pid = int(row["id"])
-        done = []
-        for t in store.list_tasks(pid, status="done"):
-            done.append(t["title"])
-            store.delete_memory(int(t["id"]))
+        done = store.archive_done_tasks(pid)
         content = summary or f"Session snapshot for {project}."
         chunk_count = store.one(
             "SELECT COUNT(*) AS c FROM memory WHERE kind = 'chunk' AND project_id = ?",
@@ -217,9 +214,23 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             title=f"Session {chunk_count + 1}",
             content=content[:4000],
         )
+        # Refresh the project summary so project_summary() reflects the latest state
+        if summary.strip():
+            existing = store.one(
+                "SELECT id FROM memory WHERE project_id = ? AND kind = 'summary' "
+                "ORDER BY updated_at DESC LIMIT 1",
+                (pid,),
+            )
+            if existing:
+                store.update_memory(int(existing["id"]), content=summary[:4000])
+            else:
+                store.add_memory(
+                    project_id=pid, scope="project", kind="summary",
+                    title="Project Summary", content=summary[:4000],
+                )
         return json.dumps({
             "snapshot_created": chunk_id,
-            "archived_tasks": done,
+            "archived_tasks": [t["title"] for t in done],
             "archived_count": len(done),
         }, indent=2)
 
@@ -373,6 +384,23 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         """Delete a memory entry by id with optional audit reason."""
         ok = store.delete_memory(memory_id, reason=reason)
         return json.dumps({"deleted": ok, "memory_id": memory_id}, indent=2)
+
+    @server.tool()
+    @_logged
+    def db_backup() -> str:
+        """Create a consistent SQLite backup (WAL-safe) in /data/backups with a
+        SHA-256 checksum and 7-day rotation. Returns the backup file and size."""
+        return json.dumps(store.db_backup(), indent=2)
+
+    @server.tool()
+    @_logged
+    def db_maintenance(vacuum: bool = True, purge_days: int = 90,
+                       purge_exposures_days: int = 60) -> str:
+        """Compact the DB (WAL checkpoint + VACUUM) and purge stale audit rows
+        (memory_feedback older than purge_days, recall exposures older than
+        purge_exposures_days)."""
+        return json.dumps(store.db_maintenance(vacuum=vacuum, purge_days=purge_days,
+                                               purge_exposures_days=purge_exposures_days), indent=2)
 
     # ---------- memory resources (read-only, JSON) ----------
 

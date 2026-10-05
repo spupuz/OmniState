@@ -1,6 +1,6 @@
 # OmniState v2 — Design: MCP Server + Web Dashboard (Docker)
 
-Status: **implemented (v2.6.1)** — code live, review complete, improvement cycle ongoing.
+Status: **implemented (v2.11.2)** — data integrity, DB maintenance, kind-scoped dedup.
 Agreed decisions: **Docker** container, **MCP-only** (no more local skills: the MCP server is the single memory), **auto-registration** of projects when they use the MCP, **dashboard v2 only** (static generator removed), **English-only** project.
 
 ---

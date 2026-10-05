@@ -431,6 +431,21 @@ class App:
                 })
             return out
 
+        @app.post("/api/backups/create")
+        def api_backup_create() -> dict[str, Any]:
+            """Create a new DB backup (SHA-256 checksum + rotation to last 7)."""
+            return self.store.db_backup()
+
+        @app.post("/api/backups/maintain")
+        def api_backup_maintain(body: dict[str, Any] | None = None) -> dict[str, Any]:
+            """Compact the DB (WAL checkpoint + VACUUM) and purge stale audit rows."""
+            body = body or {}
+            return self.store.db_maintenance(
+                vacuum=bool(body.get("vacuum", True)),
+                purge_days=int(body.get("purge_days", 90)),
+                purge_exposures_days=int(body.get("purge_exposures_days", 60)),
+            )
+
         @app.get("/api/metrics")
         def api_metrics_route() -> dict[str, Any]:
             return {

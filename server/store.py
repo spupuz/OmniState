@@ -420,7 +420,7 @@ class Store:
         dedup: bool = True,
     ) -> int:
         if dedup:
-            existing = self._find_near_duplicate(content)
+            existing = self._find_near_duplicate(content, kind=kind)
             if existing:
                 return int(existing["id"])
         now = _now()
@@ -476,14 +476,42 @@ class Store:
             self._delete_shared_file(mem_id)
         return ok
 
-    def _find_near_duplicate(self, content: str) -> dict[str, Any] | None:
+    def archive_done_tasks(self, project_id: int) -> list[dict[str, Any]]:
+        """Move done tasks to lifecycle_state='archived' instead of deleting them.
+
+        session_snapshot calls this so completed work stays consultable in the
+        project drill-down and in the doneTasks metric, while no longer polluting
+        the open-tasks list of every future session_start.
+        """
+        now = _now()
+        rows = self.list_tasks(project_id, status="done")
+        archived: list[dict[str, Any]] = []
+        with self.tx() as conn:
+            for t in rows:
+                conn.execute(
+                    "UPDATE memory SET lifecycle_state = 'archived', updated_at = ? WHERE id = ?",
+                    (now, int(t["id"])),
+                )
+                archived.append({"id": t["id"], "title": t.get("title")})
+        return archived
+
+    def _find_near_duplicate(self, content: str, kind: str = "") -> dict[str, Any] | None:
+        """Find a near-identical memory (token Jaccard >= 0.9) to avoid duplicates.
+
+        `kind` is used to scope the comparison: a note is never collapsed into a
+        chunk or a task, so session_snapshot can write both a chunk and a summary
+        with the same text without one swallowing the other.
+        """
         tokens = _text_tokens(content)
         if len(tokens) < 3:
             return None
-        rows = self.q(
-            "SELECT id, content FROM memory WHERE length(content) > 0 ORDER BY created_at DESC LIMIT 200"
-        )
-        for r in rows:
+        sql = "SELECT id, content, kind FROM memory WHERE length(content) > 0"
+        params: list = []
+        if kind:
+            sql += " AND kind = ?"
+            params.append(kind)
+        sql += " ORDER BY created_at DESC LIMIT 200"
+        for r in self.q(sql, tuple(params)):
             rt = _text_tokens(r["content"] or "")
             if not rt:
                 continue
@@ -991,15 +1019,18 @@ class Store:
 
     # ---------- sessions / tasks (memory kinds) ----------
 
-    def list_tasks(self, project_id: int, status: str | None = None) -> list[dict[str, Any]]:
+    def list_tasks(self, project_id: int, status: str | None = None, include_archived: bool = False) -> list[dict[str, Any]]:
+        """List tasks, excluding archived ones by default (open-task view)."""
+        archived_filter = "" if include_archived else "AND lifecycle_state != 'archived'"
         if status:
             return self.q(
-                "SELECT * FROM memory WHERE project_id = ? AND kind = 'task' "
-                "AND json_extract(content, '$.status') = ? ORDER BY created_at DESC",
+                f"SELECT * FROM memory WHERE project_id = ? AND kind = 'task' "
+                f"AND json_extract(content, '$.status') = ? {archived_filter} ORDER BY created_at DESC",
                 (project_id, status),
             )
         return self.q(
-            "SELECT * FROM memory WHERE project_id = ? AND kind = 'task' ORDER BY created_at DESC",
+            f"SELECT * FROM memory WHERE project_id = ? AND kind = 'task' {archived_filter} "
+            "ORDER BY created_at DESC",
             (project_id,),
         )
 
@@ -1203,6 +1234,67 @@ class Store:
             (int(top_n * limit),),
         )
         return rows
+
+    def db_backup(self, backup_dir: Path | str | None = None) -> dict[str, Any]:
+        """Create a consistent backup of the SQLite DB using the SQLite backup API.
+
+        Safe while the server is running (WAL mode): the backup API handles the
+        transaction boundary correctly. Writes to /data/backups/index_YYYY-MM-DD_HHMMSS.db
+        plus a SHA-256 checksum, then rotates to keep the most recent 7 backups.
+        """
+        import hashlib
+        import os as _os
+        bdir = Path(backup_dir) if backup_dir else self.db_path.parent / "backups"
+        bdir.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
+        out = bdir / f"index_{stamp}.db"
+        # Use SQLite's backup API for a consistent snapshot under WAL.
+        with self._lock:
+            dest = sqlite3.connect(str(out))
+            try:
+                self._conn.backup(dest)
+            finally:
+                dest.close()
+        checksum = hashlib.sha256(out.read_bytes()).hexdigest()
+        (out.with_suffix(out.suffix + ".sha256")).write_text(f"{checksum}  {out.name}\n", encoding="utf-8")
+        # Rotation: keep the 7 most recent backups + their checksums.
+        backups = sorted(bdir.glob("index_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
+        for old in backups[7:]:
+            old.unlink(missing_ok=True)
+            old.with_suffix(old.suffix + ".sha256").unlink(missing_ok=True)
+        size = out.stat().st_size
+        return {
+            "file": out.name,
+            "size_bytes": size,
+            "size_mb": round(size / 1024 / 1024, 2),
+            "sha256": checksum,
+            "kept": min(len(backups), 7),
+        }
+
+    def db_maintenance(self, *, vacuum: bool = True, purge_days: int = 90,
+                       purge_exposures_days: int = 60) -> dict[str, Any]:
+        """Compact the DB and purge stale audit rows.
+
+        - VACUUM: reclaims disk space and defragments (WAL checkpointed first).
+        - purge_feedback: removes memory_feedback rows older than purge_days.
+        - purge_exposures: removes memory_recall_exposures rows older than purge_exposures_days.
+        """
+        report: dict[str, Any] = {}
+        with self._lock:
+            self._conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            if vacuum:
+                self._conn.execute("VACUUM")
+            report["wal_checkpointed"] = True
+            report["vacuumed"] = vacuum
+        report["feedback_purged"] = self.purge_feedback(older_than_days=purge_days)
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=purge_exposures_days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM memory_recall_exposures WHERE created_at < ?", (cutoff,))
+            self._conn.commit()
+            report["exposures_purged"] = cur.rowcount
+        report["db_size_bytes"] = self.db_path.stat().st_size
+        report["db_size_mb"] = round(self.db_path.stat().st_size / 1024 / 1024, 2)
+        return report
 
     def stats(self) -> dict[str, Any]:
         projects = self.one("SELECT COUNT(*) AS c FROM projects WHERE status='active'")["c"]
