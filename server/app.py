@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -11,9 +12,6 @@ from typing import Any
 
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
-import time
-import logging
-import json as _json
 
 from .config import Config, GithubConfig
 from .github_client import GithubClient
@@ -38,9 +36,6 @@ class App:
         self._stop_event = threading.Event()
         self._rate_limit_store: dict[str, list[float]] = {}
         self._rate_limit_lock = threading.Lock()
-        self._metrics_cache: dict[int, dict[str, Any]] | None = None
-        self._metrics_cache_ts = 0.0
-        self._metrics_lock = threading.Lock()
         # Dashboard list cache: all_project_metrics() runs tiktoken on every
         # memory row, which is wasteful on every poll. TTL-bounded + explicitly
         # invalidated by writes/scans so a "Scan now" always shows fresh counts.

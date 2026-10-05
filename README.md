@@ -1,4 +1,4 @@
-# OmniState v2.12.1
+# OmniState v2.12.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -334,7 +334,13 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 ### v2.11.1
 - **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
 
-### v2.12.1 (current)
+### v2.12.2 (current)
+- **Perf**: `store._find_near_duplicate` checks `content_hash` index for exact dupes before the Jaccard scan (200-row); `store._record_exposures` batches inserts with `executemany` + single `UPDATE` in one lock hold.
+- **Fix**: `app.py` duplicate `import time` + unused `json as _json` removed; duplicate `_metrics_cache`/`_metrics_cache_ts`/`_metrics_lock` declarations deduped in `App.__init__`.
+- **Fix**: `config.py` `GITHUB_TOKEN` env override now uses key-presence (`"GITHUB_TOKEN" in env`) so an empty value can clear the token (consistent with `GITHUB_ACCOUNTS`).
+- **Docs**: `DESIGN.md` §7 adds `POST /api/memory/:id/reinforce`, `DELETE /api/memory/:id`, `GET /api/memory/export`, `GET /api/memory/export-markdown`, `DELETE /api/shared/:id`, `GET /api/github/config` to the REST table.
+
+### v2.12.1
 - **Docs**: DESIGN.md synced — content_hash DB schema, token validation, CSP/rate-limiting/Referrer-Policy, Prometheus /metrics, scheduled purge, expanded REST/MCP tables.
 
 ### v2.12.0

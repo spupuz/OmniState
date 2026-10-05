@@ -144,9 +144,9 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
     env_roots = _parse_roots(env.get("OMNISTATE_ROOTS"))
     if env_roots:
         cfg.roots = env_roots
-    if env.get("GITHUB_TOKEN"):
+    if "GITHUB_TOKEN" in env:
         cfg.github.token = env["GITHUB_TOKEN"]
-    if env.get("GITHUB_ACCOUNTS") is not None:
+    if "GITHUB_ACCOUNTS" in env:
         cfg.github.accounts = [
             a.strip() for a in env["GITHUB_ACCOUNTS"].split(",") if a.strip()
         ]

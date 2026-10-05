@@ -1,6 +1,6 @@
 # OmniState v2 — Design: MCP Server + Web Dashboard (Docker)
 
-Status: **implemented (v2.12.1)** — content_hash dedup, tag filtering, async backup, rate limiting, CSP, /metrics, token validation, scheduled purge, non-root entrypoint.
+Status: **implemented (v2.12.2)** — content_hash dedup, tag filtering, async backup, rate limiting, CSP, /metrics, token validation, scheduled purge, non-root entrypoint, batched exposures, content_hash exact-dedup fast path.
 Agreed decisions: **Docker** container, **MCP-only** (no more local skills: the MCP server is the single memory), **auto-registration** of projects when they use the MCP, **dashboard v2 only** (static generator removed), **English-only** project.
 
 ---
@@ -65,7 +65,7 @@ One Python process (uvicorn) in the container, two interfaces:
 
 ---
 
-## 2a. Operational notes (implemented in v2.12.1)
+## 2a. Operational notes (implemented in v2.12.2)
 - DB indices: composited (`scope+lifecycle+updated_at`); `idx_memory_content_hash` partial index on `content_hash`; FTS5 batch deferred recommended at high frequency.
 - Backup: `db_backup_async` (threaded, WAL-safe SQLite backup API) + `db_backup` with SHA-256 checksum + 7-day rotation; verify restore before production rely.
 - Auth: CSP headers (CDN-allowed sources), Referrer-Policy, per-IP rate limiting (120 req/60s on `/api/*` and `/mcp`), oversized payload rejection (>1MB).
@@ -344,7 +344,13 @@ The dashboard is no longer a static per-project file: it is the **server UI**, s
 | `GET /api/github/history?metric=&top_n=` | Historical open-PR trend |
 | `GET /api/github/repos?scan_id=` | Repos table of a scan |
 | `GET /api/github/authors` / `GET /api/github/labels` | Aggregations |
+| `GET /api/github/config` | Current GitHub config (token masked) |
 | `GET /api/memory/:id/feedback` | Feedback audit trail for a memory entry |
+| `POST /api/memory/:id/reinforce` | Apply feedback signal (used/important/irrelevant/incorrect/outdated/restore) |
+| `DELETE /api/memory/:id` | Delete a memory (forget) |
+| `GET /api/memory/export` | Export all memories + feedback as JSON |
+| `GET /api/memory/export-markdown` | Export memories as Markdown (decisions as ADR-XXXX.md) |
+| `DELETE /api/shared/:id` | Delete a shared memory entry |
 | `POST /api/backups/create` | Async DB backup (SHA-256 + rotation) |
 | `POST /api/backups/maintain` | WAL checkpoint + VACUUM + purge |
 
@@ -403,6 +409,7 @@ The functionality of [CheckGitHubRepo](https://github.com/spupuz/CheckGitHubRepo
 
 - The token is **written only by the admin** (`GITHUB_TOKEN` in `.env` at boot, or `github_config` MCP → `/data/config.json`).
 - `github_config` **validates the token against the GitHub API** before saving (default `validate=true`; opt-out with `validate=false`).
+- `github_config` returns only metadata (`token_set: true/false`, login, scopes) — the raw token is never returned.
 - REST APIs and the dashboard **never return the token**; they return only metadata (`token_set: true/false`, login, scopes).
 - No token → scans run in REST mode (public, no extended metrics).
 
@@ -517,4 +524,4 @@ Stack: **Python 3.12 + `mcp` (official SDK) + FastAPI/uvicorn + SQLite(FTS5)**, 
 
 ---
 
-*Design v2.12.1 — English-only. Implemented and deployed.*
+*Design v2.12.2 — English-only. Implemented and deployed.*

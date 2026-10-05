@@ -518,6 +518,16 @@ class Store:
         tokens = _text_tokens(content)
         if len(tokens) < 3:
             return None
+        # Exact content_hash match first — cheap index lookup for the common case.
+        ch = _content_hash(content)
+        if ch:
+            exact = self.one(
+                "SELECT id, content, kind FROM memory WHERE content_hash = ?"
+                + (" AND kind = ?" if kind else ""),
+                (ch, kind) if kind else (ch,),
+            )
+            if exact:
+                return exact
         sql = "SELECT id, content, kind FROM memory WHERE length(content) > 0"
         params: list = []
         if kind:
@@ -744,17 +754,17 @@ class Store:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         qhash = _query_hash(query)
         now = _now()
-        for mid in mem_ids:
-            self.execute(
+        with self._lock:
+            self._conn.executemany(
                 "INSERT OR IGNORE INTO memory_recall_exposures(memory_id, query_hash, recalled_on, created_at) "
                 "VALUES(?,?,?,?)",
-                (mid, qhash, today, now),
+                [(mid, qhash, today, now) for mid in mem_ids],
             )
-        self.execute(
-            f"UPDATE memory SET access_count = access_count + 1, last_accessed = ? "
-            f"WHERE id IN ({','.join('?' * len(mem_ids))})",
-            (now, *mem_ids),
-        )
+            self._conn.execute(
+                f"UPDATE memory SET access_count = access_count + 1, last_accessed = ? "
+                f"WHERE id IN ({','.join('?' * len(mem_ids))})",
+                (now, *mem_ids),
+            )
 
     # ---------- reinforcement lifecycle ----------
 
