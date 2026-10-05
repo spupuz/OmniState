@@ -1,4 +1,4 @@
-# OmniState v2.11.2
+# OmniState v2.12.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -19,7 +19,12 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Cross-project search**: full-text across all projects and the shared memory.
 - **Sessions**: `session_start` / `session_snapshot` replace the old `/start-session` and `/snapshot-session` skills.
 - **Agent handoffs**: `memory_handoff` creates structured context handoffs (current state, completed, next steps, risks, validation) between agents or sessions, browsable in the dashboard's **Handoffs** tab.
-- **Memory provenance + validity**: every memory can carry a `source` (agent/session/commit/issue) and optional `valid_from`/`valid_until` temporal bounds; insert-time deduplication collapses near-identical notes (token Jaccard ≥ 0.9). Audit retention purge (`memory_feedback` 90-day) included.
+- **Memory provenance + validity**: every memory can carry a `source` (agent/session/commit/issue) and optional `valid_from`/`valid_until` temporal bounds; insert-time deduplication via `content_hash` (SHA-256, normalized content) collapses near-identical notes (token Jaccard ≥ 0.9). Audit retention purge (`memory_feedback` 90-day) included.
+- **Tag filtering**: `memory_search` accepts a `tags` parameter (comma-separated, AND logic) to narrow results to memories carrying all specified tags.
+- **Memory feedback audit**: `memory_feedback_for(memory_id)` returns the full feedback audit trail for any memory entry.
+- **Async backup + scheduled purge**: `db_backup_async` runs SQLite backup in a thread (non-blocking); the scheduler auto-purges expired memories (`valid_until`), old feedback (90d) and exposure records (60d).
+- **Prometheus `/metrics` endpoint**: `GET /metrics` exposes `omnistate_projects_active`, `omnistate_memory_entries`, `omnistate_gh_scans`, `omnistate_version`.
+- **Security headers + rate limiting**: CSP (CDN-allowed sources), Referrer-Policy, per-IP rate limit (120 req/60s on `/api/*` and `/mcp`), oversized-payload rejection (>1MB).
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
@@ -85,7 +90,7 @@ Inside `DATA_HOST_DIR`:
 
 ```
 data/
-├── index.db      ← SQLite: projects, memory (FTS5), gh_* GitHub scan tables
+├── index.db      ← SQLite: projects, memory (FTS5, content_hash dedup), gh_* GitHub scan tables
 ├── shared/       ← shared memory entries as readable files
 ├── config.json   ← runtime config incl. GitHub token (local only, never committed)
 └── logs/
@@ -155,10 +160,11 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 | `session_start` | Loads relevant memory, starts a session |
 | `session_snapshot` | Archives done tasks, distills progress, creates a chunk |
 | `task_add` / `task_update` / `task_list` | Task management |
-| `memory_search` | Scored hybrid recall across projects + shared (keyword coverage, tag boost, decayed importance, familiarity); accepts `startDate`/`endDate` and natural-language dates |
+| `memory_search` | Scored hybrid recall across projects + shared (keyword coverage, tag boost, decayed importance, familiarity); accepts `startDate`/`endDate`, `tags` (comma-separated, AND logic), and natural-language dates |
 | `memory_remember` | Saves a note (per-project or shared) |
 | `memory_recall` / `memory_forget` | Recall and delete memory |
 | `memory_reinforce` | Applies feedback signals (`used`/`important`/`irrelevant`/`incorrect`/`outdated`) that tune recall without deleting |
+| `memory_feedback_for` | Returns the feedback audit trail for a memory entry |
 | `memory_recent` | Lists the latest active memories (optionally per project) |
 | `memory_export` | Dumps all memories + feedback to a JSON backup file |
 | `project_summary` / `project_metrics` | Project state and metrics |
@@ -193,6 +199,7 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 - **GraphQL** (with PAT via `GITHUB_TOKEN` or `github_config`): up to 50 repos/request, private repos included, extended metrics (drafts, PR age, no-reviewer, stale >30d, open issues, stars).
 - **Automatic scan** every 6h (configurable) + manual scans; a manual "Scan now" waits for the reload and the API is served `Cache-Control: no-store`, so the dashboard never shows a stale count.
 - **Delta** and **historical trend** computed from scans stored in the DB.
+- **Token validation**: `github_config` validates the PAT against the GitHub API before saving (opt-out with `validate=false`).
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
 ## Architecture
@@ -327,7 +334,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 ### v2.11.1
 - **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
 
-### v2.11.2 (current)
+### v2.12.0 (current)
+- **Security**: CSP headers (CDN sources allowed), Referrer-Policy, per-IP rate limiting (120 req/60s), oversized payload rejection (>1MB).
+- **Memory engine**: `content_hash` column (SHA-256 normalized content) with partial-index dedup; tag filtering on `memory_search` (comma-separated, AND logic); `memory_feedback_for` MCP tool.
+- **Ops**: async `db_backup_async`, scheduled purge (expired memories, feedback 90d, exposures 60d), Prometheus `/metrics` endpoint.
+- **GitHub**: token validation in `github_config` before saving.
+- **Deploy**: entrypoint.sh with automatic `/data` ownership fix for non-root container.
+
+### v2.11.2
 - **Data integrity (task archiving)**: `session_snapshot` now archives done tasks (`lifecycle_state='archived'`) instead of deleting them — they remain consultable in the project drill-down and counted in `doneTasks`. The new `archive_done_tasks()` method handles the move; `list_tasks()` excludes archived rows by default (`include_archived=True` to restore).
 - **Summary sync**: `session_snapshot` now keeps the project summary (`kind='summary'`) in sync with the distilled context, so `project_summary()` returns the latest snapshot content.
 - **DB maintenance**: new `db_backup()` (SHA-256 checksum + 7-day rotation, WAL-safe SQLite backup API) and `db_maintenance()` (WAL checkpoint + VACUUM + purge of stale `memory_feedback` / `memory_recall_exposures`) — exposed as MCP tools and REST endpoints (`POST /api/backups/create`, `POST /api/backups/maintain`).

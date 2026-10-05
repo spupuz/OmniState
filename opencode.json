@@ -1,3 +1,9 @@
 {
-  "$schema": "https://opencode.ai/config.json"
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "omnistate": {
+      "type": "remote",
+      "url": "http://localhost:8347/mcp"
+    }
+  }
 }

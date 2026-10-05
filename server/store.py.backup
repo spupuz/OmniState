@@ -210,6 +210,7 @@ CREATE INDEX IF NOT EXISTS idx_gh_repos_scan ON gh_repos(scan_id);
 CREATE INDEX IF NOT EXISTS idx_gh_scans_ts ON gh_scans(timestamp);
 CREATE INDEX IF NOT EXISTS idx_gh_authors_scan ON gh_authors(scan_id);
 CREATE INDEX IF NOT EXISTS idx_gh_labels_scan ON gh_labels(scan_id);
+ CREATE INDEX IF NOT EXISTS idx_memory_content_hash ON memory(content_hash);
 """
 
 # FTS triggers keep the external-content table in sync
@@ -294,9 +295,6 @@ class Store:
                 continue
             with self.tx() as conn:
                 conn.execute(f"ALTER TABLE memory ADD COLUMN {col} DEFAULT {default}")
-            if col == "content_hash":
-                with self.tx() as conn:
-                    conn.execute("CREATE INDEX IF NOT EXISTS idx_memory_content_hash ON memory(content_hash)")
 
     # ---------- shared memory file mirror ----------
 

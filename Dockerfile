@@ -23,10 +23,15 @@ COPY server/ ./server/
 COPY VERSION.txt ./VERSION.txt
 
 RUN mkdir -p /data && chmod 755 /data
+# Create non-root user
+RUN useradd -m -u 1001 omnistate
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 EXPOSE 8347
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
     CMD curl -fsS http://localhost:8347/health || exit 1
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["python", "-m", "uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8347"]

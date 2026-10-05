@@ -9,8 +9,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, JSONResponse
+import time
+import logging
+import json as _json
 
 from .config import Config, GithubConfig
 from .github_client import GithubClient
@@ -24,6 +27,8 @@ DASHBOARD_HTML = Path(__file__).parent / "dashboard.html"
 
 class App:
     METRICS_TTL_SECONDS = 60.0
+    RATE_LIMIT_WINDOW = 60.0
+    RATE_LIMIT_MAX_REQUESTS = 120
 
     def __init__(self, cfg: Config, store: Store):
         self.cfg = cfg
@@ -31,6 +36,11 @@ class App:
         self.fastapi = FastAPI(title="OmniState", version=get_version())
         self._scan_lock = threading.Lock()
         self._stop_event = threading.Event()
+        self._rate_limit_store: dict[str, list[float]] = {}
+        self._rate_limit_lock = threading.Lock()
+        self._metrics_cache: dict[int, dict[str, Any]] | None = None
+        self._metrics_cache_ts = 0.0
+        self._metrics_lock = threading.Lock()
         # Dashboard list cache: all_project_metrics() runs tiktoken on every
         # memory row, which is wasteful on every poll. TTL-bounded + explicitly
         # invalidated by writes/scans so a "Scan now" always shows fresh counts.
@@ -194,6 +204,23 @@ class App:
         app = self.fastapi
 
         @app.middleware("http")
+        async def _structured_log(request: Request, call_next):
+            """Structured JSON access log."""
+            start = time.time()
+            response = await call_next(request)
+            duration = round(time.time() - start, 4)
+            log_entry = {
+                "time": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": round(duration * 1000, 2),
+                "client": request.client.host if request.client else None,
+            }
+            logging.getLogger("omnistate.access").info(json.dumps(log_entry))
+            return response
+
+        @app.middleware("http")
         async def _auth_required(request, call_next):
             """Optional network auth (OMNISTATE_AUTH_TOKEN): everything reachable
             from the LAN must present a Bearer token when one is configured.
@@ -229,7 +256,50 @@ class App:
             response = await call_next(request)
             response.headers["X-Content-Type-Options"] = "nosniff"
             response.headers["X-Frame-Options"] = "DENY"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com https://cdn.jsdelivr.net; "
+                "font-src 'self' data: https://fonts.gstatic.com; "
+                "img-src 'self' data: https:; "
+                "connect-src 'self' https:; "
+                "frame-ancestors 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'"
+            )
+            response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             return response
+
+        @app.middleware("http")
+        async def _rate_limit(request: Request, call_next):
+            """Simple IP-based rate limiter for /api/* and /mcp."""
+            path = request.url.path
+            if not (path.startswith("/api/") or path == "/mcp"):
+                return await call_next(request)
+            if path == "/mcp" and "mcp-session-id" in request.headers:
+                return await call_next(request)
+            client = request.client.host or "unknown"
+            now = time.time()
+            with self._rate_limit_lock:
+                window = self._rate_limit_store.get(client, [])
+                window = [t for t in window if now - t < self.RATE_LIMIT_WINDOW]
+                if len(window) >= self.RATE_LIMIT_MAX_REQUESTS:
+                    return JSONResponse(
+                        {"error": "rate limited"},
+                        status_code=429,
+                        headers={"Retry-After": str(int(self.RATE_LIMIT_WINDOW))},
+                    )
+                window.append(now)
+                self._rate_limit_store[client] = window
+            return await call_next(request)
+
+        @app.middleware("http")
+        async def _request_size(request: Request, call_next):
+            """Reject oversized JSON bodies (>1MB)."""
+            content_length = request.headers.get("content-length")
+            if content_length and int(content_length) > 1_000_000:
+                return JSONResponse({"error": "payload too large"}, status_code=413)
+            return await call_next(request)
 
         @app.middleware("http")
         async def _no_store_api(request, call_next):
@@ -315,11 +385,13 @@ class App:
 
         @app.get("/api/memory")
         def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20,
-                       startDate: str = "", endDate: str = "", include_outdated: bool = False) -> list[dict[str, Any]]:
+                       startDate: str = "", endDate: str = "", include_outdated: bool = False,
+                       tags: str = "") -> list[dict[str, Any]]:
             return self.store.search_memory(
                 q, project=project or None, scope=scope, limit=limit,
                 start_date=startDate or None, end_date=endDate or None,
                 include_outdated=include_outdated,
+                tags=tags.split(",") if tags else None,
             )
 
         @app.get("/api/memory/recent")
@@ -448,10 +520,40 @@ class App:
 
         @app.get("/api/metrics")
         def api_metrics_route() -> dict[str, Any]:
+            stats = self.store.stats()
+            metrics_list = self._project_metrics_list()
+            active = sum(1 for p in metrics_list if p["category"] == "active")
             return {
                 "db_path": str(self.store.db_path),
                 "writable": self.store.db_path.parent.exists(),
+                "projects_active": active,
+                "projects_total": len(metrics_list),
+                "memory_entries": stats["memoryEntries"],
+                "gh_scans": stats["ghScans"],
+                "version": get_version(),
             }
+
+        @app.get("/metrics")
+        def metrics_prometheus() -> Response:
+            """Prometheus-style metrics endpoint."""
+            stats = self.store.stats()
+            metrics_list = self._project_metrics_list()
+            active = sum(1 for p in metrics_list if p["category"] == "active")
+            lines = [
+                "# HELP omnistate_projects_active Number of active projects",
+                "# TYPE omnistate_projects_active gauge",
+                f"omnistate_projects_active {active}",
+                "# HELP omnistate_memory_entries Total memory entries",
+                "# TYPE omnistate_memory_entries gauge",
+                f"omnistate_memory_entries {stats['memoryEntries']}",
+                "# HELP omnistate_gh_scans Total GitHub scans",
+                "# TYPE omnistate_gh_scans counter",
+                f"omnistate_gh_scans {stats['ghScans']}",
+                "# HELP omnistate_version Server version",
+                "# TYPE omnistate_version gauge",
+                f'omnistate_version{{version="{get_version()}"}} 1',
+            ]
+            return Response(content="\n".join(lines) + "\n", media_type="text/plain")
 
         @app.get("/api/stats")
         def api_stats() -> dict[str, Any]:
@@ -640,6 +742,10 @@ class App:
                         last_scan = now
                     except Exception:
                         pass
+                try:
+                    self.store.scheduled_purge(feedback_days=90, exposures_days=60)
+                except Exception:
+                    pass
                 self._stop_event.wait(discovery_interval)
 
         thread = threading.Thread(target=loop, daemon=True, name="omnistate-scheduler")

@@ -215,12 +215,12 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             content=content[:4000],
         )
         # Refresh the project summary so project_summary() reflects the latest state
+        existing = store.one(
+            "SELECT id FROM memory WHERE project_id = ? AND kind = 'summary' "
+            "ORDER BY updated_at DESC LIMIT 1",
+            (pid,),
+        )
         if summary.strip():
-            existing = store.one(
-                "SELECT id FROM memory WHERE project_id = ? AND kind = 'summary' "
-                "ORDER BY updated_at DESC LIMIT 1",
-                (pid,),
-            )
             if existing:
                 store.update_memory(int(existing["id"]), content=summary[:4000])
             else:
@@ -228,6 +228,9 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
                     project_id=pid, scope="project", kind="summary",
                     title="Project Summary", content=summary[:4000],
                 )
+        elif existing:
+            # Refresh stale summary timestamp even without new content
+            store.update_memory(int(existing["id"]))
         return json.dumps({
             "snapshot_created": chunk_id,
             "archived_tasks": [t["title"] for t in done],
@@ -288,13 +291,15 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
     @_logged
     def memory_search(query: str, project: str = "", scope: str = "all", limit: int = 10,
                       startDate: str = "", endDate: str = "", include_outdated: bool = False,
-                      debug: bool = False) -> str:
+                      tags: str = "", debug: bool = False) -> str:
         """Hybrid search: FTS5 + coverage + tags + decayed importance + familiarity.
-        Temporal filters (startDate/endDate, ISO or YYYY-MM-DD) apply to created_at."""
+        Temporal filters (startDate/endDate, ISO or YYYY-MM-DD) apply to created_at.
+        Tags filter: comma-separated list, all tags must be present (AND logic)."""
         results = store.search_memory(
             query, project=project or None, scope=scope, limit=min(limit, 50),
             start_date=startDate or None, end_date=endDate or None,
-            include_outdated=include_outdated, debug=debug,
+            include_outdated=include_outdated, tags=tags.split(",") if tags else None,
+            debug=debug,
         )
         return json.dumps(results, indent=2)
 
@@ -384,6 +389,13 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         """Delete a memory entry by id with optional audit reason."""
         ok = store.delete_memory(memory_id, reason=reason)
         return json.dumps({"deleted": ok, "memory_id": memory_id}, indent=2)
+
+    @server.tool()
+    @_logged
+    def memory_feedback_for(memory_id: int) -> str:
+        """Return the feedback audit trail for a memory entry."""
+        feedback = store.memory_feedback_for(memory_id)
+        return json.dumps(feedback, indent=2)
 
     @server.tool()
     @_logged
@@ -513,11 +525,19 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
 
     @server.tool()
     @_logged
-    def github_config(accounts: str = "", token: str = "", extended: bool = True) -> str:
-        """Save GitHub accounts/token/config for automatic scans. Token is stored in /data/config.json only."""
+    async def github_config(accounts: str = "", token: str = "", extended: bool = True, validate: bool = True) -> str:
+        """Save GitHub accounts/token/config for automatic scans. Token is stored in /data/config.json only.
+        If validate=true (default), the token is validated against GitHub API before saving.
+        """
         if accounts:
             cfg.github.accounts = [a.strip() for a in accounts.split(",") if a.strip()]
         if token:
+            # Validate token against GitHub API before saving
+            if validate:
+                client = GithubClient(token, stale_days=cfg.github.stale_days)
+                info = await asyncio.to_thread(client.token_info)
+                if not info.get("token_set"):
+                    raise ToolError("Token validation failed: invalid or insufficient permissions")
             cfg.github.token = token
         cfg.github.extended = extended
         save_config(cfg)
@@ -526,7 +546,7 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             "saved": True,
             "accounts": cfg.github.accounts,
             "extended": cfg.github.extended,
-            "token": info,  # token metadata only, never the token itself
+            "token": info,
         }, indent=2)
 
     @server.tool()
