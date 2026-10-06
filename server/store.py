@@ -358,9 +358,8 @@ class Store:
                     rows = cur.fetchmany(chunk_size)
                 if not rows:
                     break
-                chunk = [dict(r) for r in rows]
-                for row in chunk:
-                    yield row
+                # Fast C-level iteration and mapping
+                yield from map(dict, rows)
         finally:
             with self._lock:
                 cur.close()
@@ -1119,27 +1118,41 @@ class Store:
             for r in self.q("SELECT id FROM projects")
         }
 
-        for r in self.q_iter(
+        # Optimized native sqlite3.Row iteration avoiding q_iter generic dict allocations
+        sql = (
             "SELECT project_id, id, kind, content, title, tags, created_at, updated_at, lifecycle_state, "
             "CASE WHEN kind='task' AND json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status, "
             "CASE WHEN kind='task' AND json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title "
             "FROM memory"
-        ):
-            if (pid := r["project_id"]) not in res:
-                continue
-            m = res[pid]
-            m["totalTasks"] += 1
-            m["storedTokens"] += count_tokens(r["content"] or "")
-            kind = r["kind"]
-            if kind == "task":
-                m["_tasks"].append(r)
-            elif kind == "chunk":
-                m["snapshots"] += 1
-            if r["lifecycle_state"] == "active":
-                if kind in ("chunk", "summary"):
-                    m["_recent"].append(r)
-                elif kind not in ("chunk", "summary", "task"):
-                    m["_recall"].append(r)
+        )
+        with self._lock:
+            cur = self._conn.execute(sql)
+        try:
+            while True:
+                with self._lock:
+                    rows = cur.fetchmany(1000)
+                if not rows:
+                    break
+                for r in rows:
+                    if (pid := r["project_id"]) not in res:
+                        continue
+                    m = res[pid]
+                    m["totalTasks"] += 1
+                    kind = r["kind"]
+                    m["storedTokens"] += count_tokens(r["content"] or "")
+
+                    if kind == "task":
+                        m["_tasks"].append(dict(r))
+                    elif kind == "chunk":
+                        m["snapshots"] += 1
+                    if r["lifecycle_state"] == "active":
+                        if kind in ("chunk", "summary"):
+                            m["_recent"].append(dict(r))
+                        elif kind not in ("chunk", "summary", "task"):
+                            m["_recall"].append(dict(r))
+        finally:
+            with self._lock:
+                cur.close()
 
         shared_dump = [
             {"title": m["title"], "content": _clip(m["content"], 200), "tags": m["tags"]}
