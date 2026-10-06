@@ -5,5 +5,14 @@
       "type": "remote",
       "url": "http://localhost:8347/mcp"
     }
-  }
+  },
+  "plugins": [
+    {
+      "package": "./.opencode/plugins/omnistate",
+      "options": {
+        "url": "http://localhost:8347",
+        "project": ""
+      }
+    }
+  ]
 }

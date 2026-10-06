@@ -190,6 +190,40 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 | `github_metrics` / `github_delta` / `github_history` | GitHub scan results |
 | `github_config` | Configures accounts/token for automatic scans |
 
+## OpenCode plugin — auto-population hooks
+
+When OmniState is used with OpenCode, the bundled plugin (`.opencode/plugins/omnistate/`) hooks into the session lifecycle and **auto-populates memory** so you never have to remember `memory_remember` / `session_start` / `session_snapshot`:
+
+| Hook | When | Action |
+|---|---|---|
+| `prompt` | Every user message (≥10 chars) | Saves the prompt text as a shared memory entry (tag `opencode-prompt`) |
+| `context` | On agent-loop context build | Records which tools were used (tag `opencode-tools`) |
+| `compaction` | Session compaction | Auto-snapshots the summary into the project's memory |
+| `session.remove` | Session ends | Auto-snapshots any pending work |
+
+### Configuration
+
+In `opencode.json` (or `opencode.jsonc`):
+
+```jsonc
+{
+  "plugins": [
+    {
+      "package": "./.opencode/plugins/omnistate",
+      "options": {
+        "url": "http://localhost:8347",
+        "project": ""          // default project for snapshot (empty = shared-only)
+      }
+    }
+  ]
+}
+```
+
+- `url` — OmniState server URL (default `http://localhost:8347`).
+- `project` — default project name for session snapshots. Leave empty for shared-scope-only memory.
+
+The plugin is **fire-and-forget**: if the OmniState server is unreachable, prompts are silently skipped (non-blocking).
+
 ## Web dashboard
 
 Open **http://localhost:8347** in the browser:
@@ -349,7 +383,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.14.0 (current)
+### v2.15.0 (current)
+- **Auto-population hooks**: OpenCode plugin (`.opencode/plugins/omnistate/`) hooks into session events — `prompt` auto-remembers user messages, `context` tracks tool usage, `compaction`/`session.remove` auto-snapshot. Fire-and-forget, non-blocking.
+- New REST endpoints `POST /api/hooks/remember`, `/session/start`, `/session/snapshot`, `/task/add`, `/task/update` for plugin ↔ server communication.
+- README documents the hooks feature with configuration options.
+
+### v2.14.0
 - **UX**: `install.sh` / `install.ps1` interactive installers generate `.env` with guided prompts (PROJECTS_ROOT, GitHub PAT); Windows path guidance added to README.
 - **UX**: Docker `healthcheck` added to `docker-compose.yml`; dashboard welcome card when no projects exist; inline error banners with Retry on Overview/Projects load failures.
 - **UX**: version badge uses `data-version` attribute (robust replacement instead of fragile string match).

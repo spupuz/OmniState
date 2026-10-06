@@ -10,7 +10,9 @@ node_modules/
 .omnistate/
 .kilo/
 .roo/
-.opencode/
+.opencode/*
+!.opencode/plugins/
+!.opencode/plugins/**
 
 # v2 server data — NEVER commit user data/metrics (DESIGN.md §10b)
 .env

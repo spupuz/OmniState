@@ -637,6 +637,122 @@ class App:
         def api_github_config() -> dict[str, Any]:
             return self._github_config_view()
 
+        # ---------- hooks endpoints (auto-population via OpenCode plugin) ----------
+
+        @app.post("/api/hooks/remember")
+        def api_hooks_remember(body: dict[str, Any]) -> dict[str, Any]:
+            """Auto-remember: called by the OpenCode plugin on user prompts."""
+            text = (body.get("text") or "").strip()
+            if not text:
+                return {"remembered": False, "reason": "empty text"}
+            scope = body.get("scope", "shared")
+            if scope not in ("shared", "project"):
+                scope = "shared"
+            tags = body.get("tags") or []
+            source = body.get("source") or "opencode-session"
+            project = (body.get("project") or "").strip()
+            if scope == "project" and project:
+                row = self.store.get_project(project)
+                if row is None:
+                    return JSONResponse({"error": "project not found"}, status_code=404)
+                pid = int(row["id"])
+                mem_id = self.store.add_memory(project_id=pid, scope="project", kind="note",
+                                               title=text[:120], content=text, tags=tags, source=source)
+            else:
+                mem_id = self.store.add_memory(project_id=None, scope="shared", kind="note",
+                                               title=text[:120], content=text, tags=tags, source=source)
+            self.invalidate_metrics_cache()
+            return {"remembered": True, "memory_id": mem_id}
+
+        @app.post("/api/hooks/session/start")
+        def api_hooks_session_start(body: dict[str, Any]) -> dict[str, Any]:
+            """Auto session-start: called when a new OpenCode session begins."""
+            project = (body.get("project") or "").strip()
+            if not project:
+                return JSONResponse({"error": "project required"}, status_code=400)
+            row = self.store.get_project(project)
+            if row is None:
+                return JSONResponse({"error": "project not found"}, status_code=404)
+            ctx = self.store.session_context(int(row["id"]))
+            return json.dumps({"session_started": True, "project": project, **ctx})
+
+        @app.post("/api/hooks/session/snapshot")
+        def api_hooks_session_snapshot(body: dict[str, Any]) -> dict[str, Any]:
+            """Auto session-snapshot: called on session end/compaction."""
+            project = (body.get("project") or "").strip()
+            if not project:
+                return JSONResponse({"error": "project required"}, status_code=400)
+            row = self.store.get_project(project)
+            if row is None:
+                return JSONResponse({"error": "project not found"}, status_code=404)
+            pid = int(row["id"])
+            done = self.store.archive_done_tasks(pid)
+            content = body.get("summary") or f"Auto-snapshot for {project}."
+            chunk_count = self.store.one(
+                "SELECT COUNT(*) AS c FROM memory WHERE kind = 'chunk' AND project_id = ?",
+                (pid,),
+            )["c"]
+            chunk_id = self.store.add_memory(
+                project_id=pid, scope="project", kind="chunk",
+                title=f"Session {chunk_count + 1}",
+                content=content[:4000],
+            )
+            existing = self.store.one(
+                "SELECT id FROM memory WHERE project_id = ? AND kind = 'summary' "
+                "ORDER BY updated_at DESC LIMIT 1",
+                (pid,),
+            )
+            if body.get("summary", "").strip():
+                if existing:
+                    self.store.update_memory(int(existing["id"]), content=body["summary"][:4000])
+                else:
+                    self.store.add_memory(project_id=pid, scope="project", kind="summary",
+                                          title="Project Summary", content=body["summary"][:4000])
+            elif existing:
+                self.store.update_memory(int(existing["id"]))
+            self.invalidate_metrics_cache()
+            return {"snapshot_created": chunk_id, "archived_tasks": [t["title"] for t in done], "archived_count": len(done)}
+
+        @app.post("/api/hooks/task/add")
+        def api_hooks_task_add(body: dict[str, Any]) -> dict[str, Any]:
+            """Auto-task: create a task for a project."""
+            project = (body.get("project") or "").strip()
+            title = (body.get("title") or "").strip()
+            if not project or not title:
+                return JSONResponse({"error": "project and title required"}, status_code=400)
+            row = self.store.get_project(project)
+            if row is None:
+                return JSONResponse({"error": "project not found"}, status_code=404)
+            mem_id = self.store.add_memory(
+                project_id=int(row["id"]), scope="project", kind="task",
+                title=title[:120], content=json.dumps({"title": title, "status": "todo"}),
+            )
+            self.invalidate_metrics_cache()
+            return {"task_id": mem_id, "status": "todo"}
+
+        @app.post("/api/hooks/task/update")
+        def api_hooks_task_update(body: dict[str, Any]) -> dict[str, Any]:
+            """Auto-task update: change task status."""
+            project = (body.get("project") or "").strip()
+            task_id = body.get("task_id")
+            status = (body.get("status") or "").strip()
+            if not project or task_id is None or status not in ("todo", "in_progress", "done"):
+                return JSONResponse({"error": "project, task_id, valid status required"}, status_code=400)
+            row = self.store.get_project(project)
+            if row is None:
+                return JSONResponse({"error": "project not found"}, status_code=404)
+            mem = self.store.get_memory(task_id)
+            if mem is None or mem.get("project_id") != int(row["id"]):
+                return JSONResponse({"error": "task not found in this project"}, status_code=404)
+            try:
+                meta = json.loads(mem["content"])
+            except Exception:
+                meta = {"title": mem.get("title", "")}
+            meta["status"] = status
+            self.store.update_memory(task_id, json.dumps(meta), title=meta.get("title"))
+            self.invalidate_metrics_cache()
+            return {"task_id": task_id, "status": status}
+
     # ---------- background work ----------
 
     def sweep_missing_projects(self) -> list[str]:
