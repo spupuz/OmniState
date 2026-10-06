@@ -286,6 +286,12 @@ class App:
                     )
                 window.append(now)
                 self._rate_limit_store[client] = window
+                # cleanup stale IPs to prevent unbounded growth
+                if len(self._rate_limit_store) > 5000:
+                    cutoff = now - self.RATE_LIMIT_WINDOW * 2
+                    stale = [ip for ip, w in self._rate_limit_store.items() if w and w[-1] < cutoff]
+                    for ip in stale:
+                        del self._rate_limit_store[ip]
             return await call_next(request)
 
         @app.middleware("http")
@@ -314,8 +320,7 @@ class App:
             html = DASHBOARD_HTML.read_text(encoding="utf-8")
             ver = get_version()
             # Replace hardcoded badge with real version (keeps dashboard.html static for dev)
-            if "OMNISTATE v2</span>" in html:
-                html = html.replace("OMNISTATE v2</span>", f"OMNISTATE v{ver}</span>", 1)
+            html = html.replace('data-version="v2"', f'data-version="v{ver}"').replace('>v2</span>', f'>v{ver}</span>', 1)
             return html
 
         @app.get("/favicon.svg")

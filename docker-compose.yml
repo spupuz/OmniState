@@ -18,3 +18,8 @@ services:
       - OMNISTATE_SCAN_INTERVAL_SECONDS=${OMNISTATE_SCAN_INTERVAL_SECONDS:-}
       - OMNISTATE_AUTO_IMPORT_LEGACY=${OMNISTATE_AUTO_IMPORT_LEGACY:-}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8347/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

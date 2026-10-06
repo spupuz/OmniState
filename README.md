@@ -35,6 +35,24 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Favicon + branding**: `server/favicon.svg` served at `/favicon.svg` and `/favicon.ico` (exempt from auth) and shown in the README and dashboard.
 - **Privacy-first**: the DB, the metrics and the token **never leave your data folder** and never end up on GitHub.
 
+## Quick Start (Linux/macOS)
+
+```bash
+git clone https://github.com/spupuz/OmniState.git && cd OmniState
+cp .env.example .env && nano .env   # set PROJECTS_ROOT to your projects folder
+docker compose up -d --build
+# open http://localhost:8347  (dashboard)
+```
+
+For a guided install (interactive `.env` generator), use:
+
+```bash
+bash install.sh       # Linux/macOS
+./install.ps1         # Windows PowerShell
+```
+
+> **Windows users:** Docker Desktop (WSL2 backend) required. Use PowerShell in the repo root. Paths use backslashes: `C:\Users\you\projects`.
+
 ## Installation (Docker)
 
 ```bash
@@ -318,7 +336,7 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Requirements
 
-- Docker (with docker compose).
+- Docker (with docker compose). On Windows: Docker Desktop + WSL2 backend. On Mac: Docker Desktop / OrbStack / colima.
 - An MCP client with Streamable HTTP support (opencode, Claude Code, etc.).
 - A modern browser for the dashboard.
 
@@ -331,7 +349,15 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.13.0 (current)
+### v2.14.0 (current)
+- **UX**: `install.sh` / `install.ps1` interactive installers generate `.env` with guided prompts (PROJECTS_ROOT, GitHub PAT); Windows path guidance added to README.
+- **UX**: Docker `healthcheck` added to `docker-compose.yml`; dashboard welcome card when no projects exist; inline error banners with Retry on Overview/Projects load failures.
+- **UX**: version badge uses `data-version` attribute (robust replacement instead of fragile string match).
+- **Security**: `store.search_memory` tag filtering moved from Python post-filter to SQL `json_each` subquery (proper AND logic, no TODO `pass`); `github_client.scan_graphql` hardcoded values documented as safe.
+- **Performance**: shared-memory backfill runs in a daemon thread (non-blocking boot); rate-limit store auto-cleans stale IPs.
+- **Cleanup**: removed dead `server/store.py.backup` from repo.
+
+### v2.13.0
 - **Perf (PR #143)**: `Store.all_project_metrics()` now streams through native `sqlite3.Row` + `fetchmany(1000)` instead of `q_iter()` dictionaries, and `q_iter()` uses `yield from map(dict, rows)` — cutting dashboard bulk-read CPU time by ~40–45% for ~1500-row datasets. Only rows kept for `_tasks`/`_recent`/`_recall` are cast to `dict`.
 
 ### v2.12.3

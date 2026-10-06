@@ -592,12 +592,21 @@ class Store:
         if end:
             where.append("m.created_at <= ?")
             params.append(end)
-        # Tag filtering: if tags provided, require that all tags are present (JSON array contains)
+        # Tag filtering: if tags provided, require that all tags are present (JSON array contains).
+        # Build a subquery that filters at the DB level using JSON_EACH, avoiding a full Python scan.
+        tag_filter_sql = ""
+        tag_params: list = []
         if tags:
-            # We'll do a simple approach: filter in Python after fetching candidates.
-            # For performance, we could use JSON_EXTRACT but SQLite's JSON1 extension may not be enabled.
-            # We'll fetch candidates and then filter by tags.
-            pass  # We'll handle tags after the query
+            for t in tags:
+                tag_params.append(t.lower().strip())
+            placeholders = ",".join("?" * len(tag_params))
+            tag_filter_sql = (
+                " AND m.id IN ("
+                "  SELECT m2.id FROM memory m2, json_each(CASE WHEN json_valid(m2.tags) THEN m2.tags ELSE '[]' END) AS j"
+                "  WHERE lower(j.value) IN (" + placeholders + ") GROUP BY m2.id HAVING COUNT(DISTINCT lower(j.value)) = " + str(len(tag_params)) +
+                ")"
+            )
+            params.extend(tag_params)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
         pool = max(20, min(200, limit * 4))
         rows = self.q(
@@ -605,7 +614,7 @@ class Store:
             "(SELECT rowid, bm25(memory_fts) AS rank FROM memory_fts WHERE memory_fts MATCH ?) f "
             "JOIN memory m ON m.id = f.rowid "
             "LEFT JOIN projects p ON m.project_id = p.id "
-            f"{where_sql} "
+            f"{where_sql} {tag_filter_sql} "
             "ORDER BY f.rank LIMIT ?",
             tuple(params) + (pool,),
         )

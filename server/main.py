@@ -33,9 +33,15 @@ def build_app() -> FastAPI:
         )
     cfg = load_config()
     store = Store(cfg.db_path, shared_dir=cfg.shared_dir)
-    # Backfill: write shared files for pre-existing DB entries (mirror feature added later)
-    for row in store.shared_memory(limit=100000):
-        store._write_shared_file(row)
+    # Backfill shared files in a background thread (non-blocking boot)
+    def _backfill_shared() -> None:
+        try:
+            for row in store.shared_memory(limit=100000):
+                store._write_shared_file(row)
+        except Exception as e:
+            logger.warning("shared backfill skipped: %s", e)
+
+    threading.Thread(target=_backfill_shared, name="shared-backfill", daemon=True).start()
     app_holder = App(cfg, store)
 
     # MCP Streamable HTTP at /mcp (lifespan composed into the FastAPI app)

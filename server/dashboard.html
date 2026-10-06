@@ -175,7 +175,7 @@
   <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
     <div>
       <div class="flex items-center gap-3 mb-3">
-        <span id="version-badge" class="px-3.5 py-1.5 bg-blue-600/10 text-blue-300 text-[11px] font-bold rounded-full border border-blue-600/20 tracking-widest uppercase" title="App version">OMNISTATE v2</span>
+        <span id="version-badge" class="px-3.5 py-1.5 bg-blue-600/10 text-blue-300 text-[11px] font-bold rounded-full border border-blue-600/20 tracking-widest uppercase" title="App version" data-version="v2">v2</span>
         <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-widest pulse" id="server-status">
           <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" aria-hidden="true"></span> Server
         </span>
@@ -408,6 +408,9 @@ async function loadOverview() {
       { l: 'Token savings', v: fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300', t: 'Real measured saving: stored raw memory tokens minus what session_start actually loads.' },
       { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
+    if (stats.projects === 0) {
+      cards.push({ l: 'Welcome', v: 'Let\'s go', c: 'text-amber-400', t: 'Register your first project: click "Projects" tab → "Register a project", or run the CLI: omnistate index /path/to/project' });
+    }
     $('overview-stats').innerHTML = cards.map(c => `
       <div class="glass p-6 stat-card">
         <p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p>
@@ -424,7 +427,11 @@ async function loadOverview() {
           <span class="text-purple-300">${fmt(p.snapshots)} snap</span>
         </div>
       </button>`).join('') : '<p class="text-slate-400 text-sm">No active projects. Check the Projects tab for archived/deleted ones.</p>';
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+    const ov = $('overview-stats');
+    if (ov) ov.innerHTML = '<p class="text-red-300 text-sm col-span-2 md:col-span-4">Could not load overview: ' + esc(e.message) + ' — <button type="button" onclick="loadOverview()" class="text-blue-300 underline">Retry</button></p>';
+  }
 }
 
 async function openProject(name) {
@@ -469,7 +476,11 @@ async function loadProjects() {
         return `<tr class="section-row"><td colspan="5">${s.label} <span class="text-slate-500 font-normal">(${list.length})</span></td></tr>${rows(list)}`;
       }).join('')}
       </tbody></table>`;
-  } catch (e) { console.error(e); }
+  } catch (e) {
+    console.error(e);
+    const wrap = $('projects-table-wrap');
+    if (wrap) wrap.innerHTML = '<p class="text-red-300 text-sm">Could not load projects: ' + esc(e.message) + ' — <button type="button" onclick="loadProjects()" class="text-blue-300 underline">Retry</button></p>';
+  }
 }
 
 async function showProject(name) {

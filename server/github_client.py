@@ -105,6 +105,8 @@ class GithubClient:
         )
         issue_part = "issues(states:OPEN){totalCount}" if extended else ""
         per_page = 100 if extended else 100
+        per_page = 100
+        # % formatting is safe here: per_page/pr_part/issue_part are hardcoded constants, not user input
         query = (
             "query($login:String!,$cursor:String){repositoryOwner(login:$login){__typename "
             "repositories(first:%d,after:$cursor,orderBy:{field:NAME,direction:ASC}){pageInfo{hasNextPage endCursor} "
