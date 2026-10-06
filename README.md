@@ -1,4 +1,4 @@
-# OmniState v2.13.0
+# OmniState v2.16.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -241,6 +241,9 @@ Open **http://localhost:8347** in the browser:
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
 - **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog.
+- **Responsive mobile layout**: tables collapse into stacked cards under 640px (`data-label` header attributes), tabs scroll horizontally, toast wraps full-width, inputs go full-width.
+- **Virtual scroll**: memory-entry lists over 50 items render via chunked scroll-based windowing (only visible rows are in the DOM), keeping large project drills smooth.
+- **Deep-linking**: the active tab is mirrored into the URL hash (`#overview`, `#projects`, …) so tabs survive refresh, bookmarking and back/forward navigation.
 - **Dynamic version badge + English-only copy**: the header badge is injected from `VERSION.txt` via `GET /health` and kept in sync live (was hardcoded `v2`); all dashboard copy is English.
 
 ## GitHub PR Health
@@ -383,7 +386,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.15.0 (current)
+### v2.16.0 (current)
+- **UX**: dashboard redesign — responsive tables with `data-label` card layout on mobile, virtual scroll (chunked rendering) for memory lists >50 entries, hash-based deep-linking (URL tab state), improved skeleton loading, undo-capable toast, focus-visible rings.
+- **UX**: undo toast infrastructure (Toast with Undo action) for reversible operations.
+- **UX**: design tokens CSS variables (`:root`) fully adopted; skeleton variants (`skel-card`, `skel-text`, `skel-row`).
+
+### v2.15.0
 - **Auto-population hooks**: OpenCode plugin (`.opencode/plugins/omnistate/`) hooks into session events — `prompt` auto-remembers user messages, `context` tracks tool usage, `compaction`/`session.remove` auto-snapshot. Fire-and-forget, non-blocking.
 - New REST endpoints `POST /api/hooks/remember`, `/session/start`, `/session/snapshot`, `/task/add`, `/task/update` for plugin ↔ server communication.
 - README documents the hooks feature with configuration options.

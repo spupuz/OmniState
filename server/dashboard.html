@@ -166,6 +166,41 @@
   .timeline-line{position:absolute;left:.42rem;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--accent),transparent)}
   .timeline-item{position:relative;margin:0 0 1.1rem 2.6rem}
   .timeline-dot{position:absolute;left:-1.85rem;top:.3rem;width:1.05rem;height:1.05rem;background:var(--bg);border:2.5px solid var(--accent);border-radius:50%}
+
+  /* ── Responsive ── */
+  @media(max-width:640px){
+    .tab-btn{padding:.45rem .65rem;font-size:.7rem;min-width:0}
+    nav[role="tablist"]{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.25rem;gap:.5rem}
+    .stat-card .text-2xl{font-size:1.25rem}
+    table.responsive thead{display:none}
+    table.responsive tbody tr{display:block;margin-bottom:.75rem;border:1px solid var(--border);border-radius:var(--radius);padding:.5rem}
+    table.responsive td{display:flex;justify-content:space-between;gap:.5rem;padding:.35rem .5rem;border-bottom:none}
+    table.responsive td::before{content:attr(data-label);color:var(--muted);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
+    #toast-wrap{bottom:.6rem;right:.6rem;left:.6rem;max-width:none}
+    .toast{max-width:none}
+    .glass{padding:.75rem}
+    header .flex{gap:.5rem}
+    input.w-56,input.w-48{width:100%}
+  }
+
+  /* ── Undo toast ── */
+  .toast-undo{display:flex;align-items:center;gap:.45rem}
+  .toast-undo button{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:.18rem .55rem;font-size:.7rem;font-weight:700;cursor:pointer;transition:background .12s}
+  .toast-undo button:hover{background:rgba(255,255,255,.22)}
+
+  /* ── Virtual scroll container ── */
+  .virtual-scroll{overflow-y:auto;contain:strict}
+  .virtual-scroll-inner{position:relative}
+  .virtual-item{position:absolute;left:0;right:0}
+
+  /* ── Skeleton variants ── */
+  .skel-card{height:80px;border-radius:var(--radius)}
+  .skel-text{height:.9rem;border-radius:.5rem}
+  .skel-row{height:2.4rem;border-radius:.35rem}
+
+  /* ── Focus visible ring ── */
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+  .skip-link:focus{position:fixed;top:0;left:0;z-index:99999}
 </style>
 </head>
 <body class="p-5 md:p-8">
@@ -397,7 +432,7 @@ async function loadAll() { await Promise.all([loadOverview(), loadProjects(), lo
 
 // ---------- Overview ----------
 async function loadOverview() {
-  const ov=$('overview-stats'); if(ov && !ov.innerHTML.trim()) ov.innerHTML = [1,2,3,4].map(()=>`<div class="glass p-8">`+skel('0.7rem','40%')+`<div style="height:.6rem"></div>`+skel('2rem','30%')+`</div>`).join('');
+  const ov=$('overview-stats'); if(ov && !ov.innerHTML.trim()) ov.innerHTML = [1,2,3,4].map(()=>`<div class="glass p-6 skel-card"><div class="skel skel-text" style="width:40%;height:.7rem;margin-bottom:.5rem"></div><div class="skel" style="width:30%;height:2rem"></div></div>`).join('');
   try {
     const stats = await api('/api/stats');
     $('last-update').textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
@@ -459,14 +494,14 @@ async function loadProjects() {
     const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects';
     const rows = (list) => list.map(p => `
       <tr class="cursor-pointer hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:bg-white/5 transition-colors" tabindex="0" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); showProject(this.dataset.name); }" title="View project memory" role="button" aria-label="Open project ${esc(p.name)}">
-        <td class="font-semibold">${esc(p.name)}</td>
-        <td class="num text-emerald-300">${fmt(p.doneTasks)}</td>
-        <td class="num text-purple-300">${fmt(p.snapshots)}</td>
-        <td class="num">${fmt(Math.round(p.tokenSavings/1000))}k</td>
-        <td class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
+        <td data-label="Project" class="font-semibold">${esc(p.name)}</td>
+        <td data-label="Done" class="num text-emerald-300">${fmt(p.doneTasks)}</td>
+        <td data-label="Snapshots" class="num text-purple-300">${fmt(p.snapshots)}</td>
+        <td data-label="Token savings" class="num">${fmt(Math.round(p.tokenSavings/1000))}k</td>
+        <td data-label="Path" class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
       </tr>`).join('');
     $('projects-table-wrap').innerHTML = `
-      <table><thead><tr>
+      <table class="responsive"><thead><tr>
         <th>Project</th><th class="num">Done</th>
         <th class="num">Snapshots</th><th class="num">Token savings</th><th>Path</th>
       </tr></thead><tbody>
@@ -520,8 +555,33 @@ function renderPmEntries() {
   window._pmEntriesFiltered = (window._pmEntries || []).filter(e =>
     !q || (e.title||'').toLowerCase().includes(q) || (e.content||'').toLowerCase().includes(q));
   const list = window._pmEntriesFiltered;
+  const container = $('pm-entries');
+  if(!container) return;
+  if(list.length > 50){
+    renderChunked(container, list, (e, idx) => {
+      let tags = '';
+      try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
+      const div = document.createElement('div'); div.className='glass p-4 mb-3'; div.setAttribute('role','listitem'); div.style.position='absolute'; div.style.left='0'; div.style.right='0'; div.style.top=(idx*64)+'px';
+      div.innerHTML = `
+        <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" onclick="copyText(window._pmEntriesFiltered[${idx}].content||window._pmEntriesFiltered[${idx}].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+        <div class="flex justify-between gap-4 items-center flex-wrap">
+          <div class="flex items-center gap-2">
+            <span class="chip">${esc(e.kind)}</span>
+            ${e.lifecycle_state && e.lifecycle_state !== 'active' ? `<span class="chip danger">${esc(e.lifecycle_state)}</span>` : ''}
+            <p class="font-semibold">${esc(e.title || '(untitled)')}</p>
+          </div>
+          <span class="text-xs text-slate-500">${fmtDate(e.created_at)}</span>
+        </div>
+        ${(e.importance ?? e.importance !== undefined) ? `<div class="mt-1 text-xs text-slate-500">importance ${Math.round((e.importance||0)*100)}% · exposed ${e.access_count||0}x</div>` : ''}
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((e.content||'').slice(0, 300))}${(e.content||'').length > 300 ? '…' : ''}</p>
+        ${tags ? `<div class="mt-2">${tags}</div>` : ''}
+      `;
+      return div;
+    }, 40, 600);
+    return;
+  }
   let tags = '';
-  $('pm-entries').innerHTML = list.length ? list.map((e, idx) => {
+  container.innerHTML = list.length ? list.map((e, idx) => {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
     <div class="glass p-4 mb-3" role="listitem">
@@ -785,7 +845,7 @@ async function renderGhRepos() {
       ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(title || u)}">${text}</a>`
       : `${text}`;
     $('github-repos').innerHTML = `
-      <table><thead><tr>
+      <table class="responsive"><thead><tr>
         <th>Repo</th><th class="num">PR</th><th class="num">Draft</th><th class="num">No rev</th>
         <th class="num">Stale</th><th class="num">Issues</th><th class="num">Stars</th><th>Language</th>
       </tr></thead><tbody>
@@ -793,14 +853,14 @@ async function renderGhRepos() {
         const u = base(r);
         return `
         <tr>
-          <td class="font-semibold">${link(u, esc(r.full_name), 'Open repository')}</td>
+          <td data-label="Repo" class="font-semibold">${link(u, esc(r.full_name), 'Open repository')}</td>
           <td class="num text-emerald-300">${link(u + '/pulls', r.open_prs ?? '—', 'Open pull requests')}</td>
-          <td class="num">${link(u + '/pulls?q=is%3Apr+is%3Aopen+draft%3Atrue', r.draft_prs ?? '—', 'Draft pull requests')}</td>
-          <td class="num text-amber-300">${link(u + '/pulls?q=is%3Apr+is%3Aopen+no%3Areview', r.no_reviewer ?? '—', 'Pull requests with no review')}</td>
-          <td class="num text-red-300">${link(u + '/pulls?sort=created&direction=asc', r.stale_prs ?? '—', 'Oldest open pull requests')}</td>
-          <td class="num">${link(u + '/issues', r.open_issues ?? '—', 'Open issues')}</td>
-          <td class="num">${link(u + '/stargazers', r.stars ?? 0, 'Stargazers')}</td>
-          <td class="text-slate-400">${esc(r.language || '')}</td>
+          <td data-label="Draft" class="num">${link(u + '/pulls?q=is%3Apr+is%3Aopen+draft%3Atrue', r.draft_prs ?? '—', 'Draft pull requests')}</td>
+          <td data-label="No rev" class="num text-amber-300">${link(u + '/pulls?q=is%3Apr+is%3Aopen+no%3Areview', r.no_reviewer ?? '—', 'Pull requests with no review')}</td>
+          <td data-label="Stale" class="num text-red-300">${link(u + '/pulls?sort=created&direction=asc', r.stale_prs ?? '—', 'Oldest open pull requests')}</td>
+          <td data-label="Issues" class="num">${link(u + '/issues', r.open_issues ?? '—', 'Open issues')}</td>
+          <td data-label="Stars" class="num">${link(u + '/stargazers', r.stars ?? 0, 'Stargazers')}</td>
+          <td data-label="Language" class="text-slate-400">${esc(r.language || '')}</td>
         </tr>`;
       }).join('')}
       </tbody></table>`;
@@ -874,7 +934,45 @@ function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); 
 function toggleTheme(){ applyTheme((localStorage.getItem('omnistate_theme')||'dark')==='dark'?'light':'dark'); }
 applyTheme(localStorage.getItem('omnistate_theme')||'dark');
 // ---------- toast ----------
-function toast(msg, kind='info'){ const w=$('toast-wrap'); if(!w) return; const d=document.createElement('div'); d.className='toast '+kind; d.textContent=msg; w.appendChild(d); setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateY(6px)'; setTimeout(()=>d.remove(), 220); }, 3000); }
+function toast(msg, kind='info', undoFn=null){
+  const w=$('toast-wrap'); if(!w) return;
+  const d=document.createElement('div'); d.className='toast '+kind;
+  if(undoFn){
+    d.className+=' toast-undo';
+    const btn=document.createElement('button'); btn.textContent='Undo'; btn.onclick=()=>{ undoFn(); d.remove(); };
+    d.appendChild(btn);
+  }
+  d.textContent=msg; w.appendChild(d);
+  const tid=setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateY(6px)'; setTimeout(()=>d.remove(),220); }, 5000);
+  d._tid=tid;
+}
+function clearToastTimers(){ const w=$('toast-wrap'); if(!w) return; w.querySelectorAll('.toast').forEach(d=>{ if(d._tid) clearTimeout(d._tid); })}
+
+// ---------- virtual scroll (chunked rendering for large lists) ----------
+function renderChunked(container, items, renderFn, batchSize=40, containerHeight=600){
+  if(!items.length){ container.innerHTML='<p class="text-slate-400 text-sm">No items.</p>'; return; }
+  container.innerHTML='';
+  const wrapper=document.createElement('div'); wrapper.style.position='relative'; wrapper.style.width='100%';
+  const totalH=items.length*64; // estimated row height
+  wrapper.style.height=totalH+'px'; wrapper.style.overflowY='auto'; wrapper.style.contain='strict';
+  const visible=document.createElement('div'); visible.style.position='relative'; visible.style.width='100%';
+  wrapper.appendChild(visible);
+  container.appendChild(wrapper);
+  let rendered=0;
+  function renderBatch(){
+    const scrollTop=wrapper.scrollTop;
+    const start=Math.max(0, Math.floor(scrollTop/64)-2);
+    const end=Math.min(items.length, start+batchSize+4);
+    visible.innerHTML='';
+    visible.style.height=totalH+'px';
+    const inner=document.createElement('div'); inner.style.position='absolute'; inner.style.top=(start*64)+'px'; inner.style.left=0; inner.style.right=0;
+    for(let i=start;i<end;i++) inner.appendChild(renderFn(items[i], i));
+    rendered=end;
+    if(rendered<items.length) requestAnimationFrame(renderBatch);
+  }
+  wrapper.addEventListener('scroll', ()=>{ if(rendered<items.length||wrapper.scrollTop<rendered*batchSize*64) renderBatch(); }, {passive:true});
+  renderBatch();
+}
 // ---------- clipboard ----------
 async function copyText(t){ try{ await navigator.clipboard.writeText(t); toast('Copied','ok'); } catch{ const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); toast('Copied','ok'); } }
 // ---------- skeleton ----------
@@ -899,7 +997,13 @@ const PALETTE_CMDS=[
   {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
   {id:'export-md', label:'Export memory as Markdown', run:()=>exportMemoryMarkdown()},
 ];
-function switchTab(name){ document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); }); document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden')); const el=$('tab-'+name); if(el) el.classList.remove('hidden'); if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); closePalette(); }
+function switchTab(name){
+  document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); });
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
+  const el=$('tab-'+name); if(el) el.classList.remove('hidden');
+  if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs();
+  location.hash = name; closePalette();
+}
 function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
 function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==\'Enter\' || event.key==\' \') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
@@ -960,6 +1064,17 @@ document.addEventListener('keydown', e=>{
     }
     if(e.key==='Escape') closePalette();
   });
+})();
+
+// ── Hash routing (deep-link support) ──
+window.addEventListener('hashchange', () => {
+  const tab = location.hash.replace('#', '');
+  const valid = ['overview','projects','github','shared','search','handoffs'];
+  if (valid.includes(tab)) switchTab(tab);
+});
+(function(){
+  const tab = location.hash.replace('#', '');
+  if (tab) switchTab(tab);
 })();
 
 loadAll();
