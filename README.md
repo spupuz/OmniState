@@ -1,4 +1,4 @@
-# OmniState v2.12.3
+# OmniState v2.13.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -218,7 +218,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
-- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists) stream through `Store.q_iter()`, which materializes one chunk at a time under the lock and releases it before yielding, so a large index never has to be loaded into memory at once and downstream processing never blocks other queries. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
+- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists) stream natively via `cursor.execute()` + `fetchmany(1000)` over `sqlite3.Row`, avoiding generic `q_iter()` dictionary allocations (only rows that are actually kept are cast with `dict(r)`), so allocation overhead is minimal even on large indexes and the lock is released between chunks. `Store.q_iter()` itself uses `yield from map(dict, rows)` (C-level `map`) to cut Python interpreter overhead for any remaining callers. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
 - Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
 - Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
 
@@ -331,7 +331,10 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.12.3 (current)
+### v2.13.0 (current)
+- **Perf (PR #143)**: `Store.all_project_metrics()` now streams through native `sqlite3.Row` + `fetchmany(1000)` instead of `q_iter()` dictionaries, and `q_iter()` uses `yield from map(dict, rows)` — cutting dashboard bulk-read CPU time by ~40–45% for ~1500-row datasets. Only rows kept for `_tasks`/`_recent`/`_recall` are cast to `dict`.
+
+### v2.12.3
 - **Security (PR #141)**: `Store.export_memories_markdown()` now sanitizes the `kind` field with the same allowlist used for titles, closing a path-traversal vector in markdown export filename construction.
 - **Accessibility (PR #142)**: visible `:focus-visible` indicators (box-shadow ring) for `.btn`, `.tab-btn`, `.copy-btn` in the dashboard palette and keyboard navigation.
 
