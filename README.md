@@ -1,4 +1,4 @@
-# OmniState v2.12.2
+# OmniState v2.12.3
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -186,7 +186,7 @@ Open **http://localhost:8347** in the browser:
 - **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) with refined light-theme overrides for glass, table and chip surfaces.
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
-- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, and form controls that lack a visible label carry an `aria-label`.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
 - **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog.
 - **Dynamic version badge + English-only copy**: the header badge is injected from `VERSION.txt` via `GET /health` and kept in sync live (was hardcoded `v2`); all dashboard copy is English.
@@ -331,10 +331,14 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
+### v2.12.3 (current)
+- **Security (PR #141)**: `Store.export_memories_markdown()` now sanitizes the `kind` field with the same allowlist used for titles, closing a path-traversal vector in markdown export filename construction.
+- **Accessibility (PR #142)**: visible `:focus-visible` indicators (box-shadow ring) for `.btn`, `.tab-btn`, `.copy-btn` in the dashboard palette and keyboard navigation.
+
 ### v2.11.1
 - **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
 
-### v2.12.2 (current)
+### v2.12.2
 - **Perf**: `store._find_near_duplicate` checks `content_hash` index for exact dupes before the Jaccard scan (200-row); `store._record_exposures` batches inserts with `executemany` + single `UPDATE` in one lock hold.
 - **Fix**: `app.py` duplicate `import time` + unused `json as _json` removed; duplicate `_metrics_cache`/`_metrics_cache_ts`/`_metrics_lock` declarations deduped in `App.__init__`.
 - **Fix**: `config.py` `GITHUB_TOKEN` env override now uses key-presence (`"GITHUB_TOKEN" in env`) so an empty value can clear the token (consistent with `GITHUB_ACCOUNTS`).
