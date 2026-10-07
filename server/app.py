@@ -674,7 +674,10 @@ class App:
             if row is None:
                 return JSONResponse({"error": "project not found"}, status_code=404)
             ctx = self.store.session_context(int(row["id"]))
-            return json.dumps({"session_started": True, "project": project, **ctx})
+            # Return the dict, not a JSON string: FastAPI serializes it once.
+            # Returning json.dumps() here produced a double-encoded body that
+            # every client (the OpenCode plugin included) could not parse.
+            return {"session_started": True, "project": project, **ctx}
 
         @app.post("/api/hooks/session/snapshot")
         def api_hooks_session_snapshot(body: dict[str, Any]) -> dict[str, Any]:
