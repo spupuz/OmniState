@@ -1017,6 +1017,19 @@ async function forgetMemory(id) {
   } catch (e) { toast(String(e), 'err'); }
 }
 
+async function reinforceMemory(id, signal) {
+  try {
+    await api('/api/memory/' + id + '/reinforce', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({signal})
+    });
+    toast('Feedback recorded: ' + signal, 'ok');
+  } catch (e) {
+    toast('Failed to save feedback: ' + String(e), 'err');
+  }
+}
+
 async function loadHandoffs() {
   try {
     const list = await api('/api/handoffs');
