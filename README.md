@@ -1,4 +1,4 @@
-# OmniState v2.16.0
+# OmniState v2.17.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -386,7 +386,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.16.0 (current)
+### v2.17.0 (current)
+- **Plugin**: rewritten `.opencode/plugins/omnistate/` with automatic session lifecycle hooks (`context` recall injection, `prompt` auto-remember, `execute.after` file tracking, `compaction`/`session.idle` snapshots); fire-and-forget REST to `/api/hooks/*`; tolerates legacy double-encoded JSON bodies.
+- **UI**: palette fix for broken `reinforceMemory` button and improved feedback UI.
+- **Server**: fixed double-encoded response in `/api/hooks/session/start` (return dict, not `json.dumps()` string).
+
+### v2.16.0
 - **UX**: dashboard redesign — responsive tables with `data-label` card layout on mobile, virtual scroll (chunked rendering) for memory lists >50 entries, hash-based deep-linking (URL tab state), improved skeleton loading, undo-capable toast, focus-visible rings.
 - **UX**: undo toast infrastructure (Toast with Undo action) for reversible operations.
 - **UX**: design tokens CSS variables (`:root`) fully adopted; skeleton variants (`skel-card`, `skel-text`, `skel-row`).
