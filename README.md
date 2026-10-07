@@ -696,3 +696,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 ---
 
 *OmniState v2 — Multi-project persistent memory MCP server.*
+## Security & Data Protection
+
+**NEVER commit sensitive information.** The repository has strict safeguards:
+
+- `.env` files, database files (`*.db`, `*.sqlite3`), and runtime data (`/data/`) are **gitignored** and never leave your machine.
+- The `.gitignore` explicitly excludes secrets, local configs, and all runtime state (see DESIGN.md §10b).
+- Tests are local-only and gitignored.
+- GitHub CI runs in isolated environments and never accesses your local data.
