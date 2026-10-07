@@ -413,6 +413,24 @@ class Store:
     def mark_project_removed(self, name: str) -> None:
         self.set_project_status(name, "removed")
 
+    def touch_last_indexed(self, name: str) -> None:
+        """Bump last_indexed_at for a registered project without full re-discovery."""
+        self.execute(
+            "UPDATE projects SET last_indexed_at=? WHERE name = ?",
+            (_now(), name),
+        )
+
+    def touch_all_last_indexed(self) -> int:
+        """Bump last_indexed_at for all active projects. Returns count."""
+        row = self.one("SELECT COUNT(*) as c FROM projects WHERE status='active'")
+        count = row["c"] if row else 0
+        if count > 0:
+            self.execute(
+                "UPDATE projects SET last_indexed_at=? WHERE status='active'",
+                (_now(),),
+            )
+        return count
+
     # ---------- memory ----------
 
     def add_memory(

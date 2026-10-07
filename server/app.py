@@ -783,7 +783,9 @@ class App:
     def run_discovery(self) -> list[str]:
         found = discover_projects(self.cfg)
         registered = []
+        discovered_names = set()
         for p in found:
+            discovered_names.add(p.name)
             existing = self.store.get_project(p.name)
             project = register_project(self.cfg, self.store, str(p))
             if project:
@@ -801,7 +803,31 @@ class App:
                     except Exception:
                         pass
                 registered.append(project["name"])
+
+        # FIX: Update last_indexed_at for ALL registered projects under the roots,
+        # even if not discovered this run (e.g., no markers, moved, or renamed).
+        # This ensures auto-reindex happens on every scheduler tick.
+        for root in self.cfg.roots:
+            try:
+                host_root = Path(root.host)
+                if host_root.exists():
+                    for entry in host_root.iterdir():
+                        if entry.is_dir() and not entry.name.startswith("."):
+                            cp = root.host_to_container(str(entry))
+                            if cp:
+                                proj = self.store.get_project(entry.name)
+                                if proj and proj["name"] not in discovered_names:
+                                    self.store.touch_last_indexed(proj["name"])
+            except Exception:
+                pass
+
         self.sweep_missing_projects()
+        try:
+            # FIX: Always touch ALL active projects to keep last_indexed_at current
+            # This ensures auto-reindex happens even for existing projects
+            self.store.touch_all_last_indexed()
+        except Exception:
+            pass
         try:
             self.check_projects_github_state()
         except Exception:
