@@ -47,9 +47,11 @@ def _text_tokens(text: str) -> set[str]:
         if len(tok) <= 1:
             continue
         out.add(tok)
-        for part in tok.replace('-', '_').split('_'):
-            if len(part) > 1 and part not in out:
-                out.add(part)
+        # Avoid unnecessary string allocation (replace and split) for simple words
+        if '-' in tok or '_' in tok:
+            for part in tok.replace('-', '_').split('_'):
+                if len(part) > 1 and part not in out:
+                    out.add(part)
     return out
 
 
