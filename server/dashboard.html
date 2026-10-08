@@ -666,7 +666,7 @@ async function loadShared() {
     const list = await api('/api/shared');
     const sc=$('shared-count'); if(sc) sc.textContent = list.length + ' notes';
     $('shared-list').innerHTML = list.length ? list.map(m => `
-      <div class="glass p-4 mb-3" role="listitem">
+      <div class="glass p-4 mb-3" role="listitem" id="shared-item-${m.id}">
         <div class="flex justify-between gap-4">
           <p class="font-semibold">${esc(m.title)}</p>
           <div class="flex items-center gap-3 shrink-0">
@@ -692,11 +692,24 @@ async function addShared() {
 }
 
 async function deleteShared(id) {
-  if (!confirm('Delete this shared memory entry?')) return;
-  try {
-    await api('/api/shared/' + id, { method: 'DELETE' });
-    loadShared();
-  } catch (e) { toast(e.message, 'err'); }
+  const el = $('shared-item-' + id);
+  if (el) { el.style.opacity = '0.5'; el.style.pointerEvents = 'none'; }
+  let aborted = false;
+  toast('Memory entry deleted.', 'info', () => {
+    aborted = true;
+    if (el) { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; }
+  });
+
+  setTimeout(async () => {
+    if (aborted) return;
+    try {
+      await api('/api/shared/' + id, { method: 'DELETE' });
+      loadShared(); // reload to update count
+    } catch (e) {
+      toast(e.message, 'err');
+      if (el) { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; }
+    }
+  }, 5200); // Wait slightly longer than the 5000ms toast timeout to ensure undo is not clicked late
 }
 
 async function exportMemoryMarkdown() {
@@ -937,12 +950,13 @@ applyTheme(localStorage.getItem('omnistate_theme')||'dark');
 function toast(msg, kind='info', undoFn=null){
   const w=$('toast-wrap'); if(!w) return;
   const d=document.createElement('div'); d.className='toast '+kind;
+  const s=document.createElement('span'); s.textContent=msg; d.appendChild(s);
   if(undoFn){
     d.className+=' toast-undo';
     const btn=document.createElement('button'); btn.textContent='Undo'; btn.onclick=()=>{ undoFn(); d.remove(); };
     d.appendChild(btn);
   }
-  d.textContent=msg; w.appendChild(d);
+  w.appendChild(d);
   const tid=setTimeout(()=>{ d.style.opacity='0'; d.style.transform='translateY(6px)'; setTimeout(()=>d.remove(),220); }, 5000);
   d._tid=tid;
 }
@@ -1115,7 +1129,17 @@ function renderSavedSearches(){
 }
 function loadSavedSearch(id){const s=savedSearches.searches.find(x=>x.id===id);if(!s) return;$('search-q').value=s.query;$('search-scope').value=s.scope;$('saved-searches-menu').classList.remove('open');doSearch()}
 function deleteSavedSearch(e,id){e.stopPropagation();savedSearches.delete(id);renderSavedSearches()}
-function clearAllSavedSearches(){if(!confirm('Delete all saved searches?')) return;savedSearches.searches=[];savedSearches.save();renderSavedSearches()}
+function clearAllSavedSearches(){
+  const prev = [...savedSearches.searches];
+  savedSearches.searches=[];
+  savedSearches.save();
+  renderSavedSearches();
+  toast('All saved searches cleared.', 'info', () => {
+    savedSearches.searches = prev;
+    savedSearches.save();
+    renderSavedSearches();
+  });
+}
 const _origDoSearch=window.doSearch;
 window.doSearch=async function(){const q=$('search-q')?.value?.trim();const sc=$('search-scope')?.value||'all';if(q) savedSearches.add(q,sc);return _origDoSearch.apply(this,arguments)};
 document.addEventListener('click',e=>{
