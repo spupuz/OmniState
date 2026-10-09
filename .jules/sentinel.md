@@ -1,4 +1,0 @@
-## 2024-05-18 - Path Traversal bypass via Directory Symlink
-**Vulnerability:** A path traversal / arbitrary file read vulnerability was possible in `server/indexer.py` due to inadequate path validation when reading files (e.g. `_read_safe(path)`).
-**Learning:** The existing validation relied on checking `os.path.realpath(path) == str(path.resolve())` to prevent symlinked files. However, this logic failed to prevent reading from a symlinked directory pointing outside the root. `resolve()` followed the directory symlink in the middle of the path and the check succeeded, bypassing the validation.
-**Prevention:** Always require a strict prefix match between the fully resolved target path and the fully resolved allowed base directory (e.g. `str(resolved).startswith(str(resolved_base) + os.sep)`).

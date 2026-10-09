@@ -1,4 +1,4 @@
-# OmniState v2.18.0
+# OmniState v2.18.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -386,7 +386,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.18.0 (current)
+### v2.18.1 (current)
+
+- **Security**: Fix Path Traversal bypass via Directory Symlink (HIGH)
+
+### v2.18.0
 
 - **Performance**: Optimized _text_tokens processing to avoid unnecessary string allocations in hot loops (~35% speedup).
 - **Dashboard**: Replace blocking confirm dialogs with seamless optimistic undo toasts for delete and clear operations.
