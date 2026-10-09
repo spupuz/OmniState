@@ -1021,14 +1021,57 @@ function switchTab(name){
 function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
 function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==\'Enter\' || event.key==\' \') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
-async function forgetMemory(id) {
-  if (!confirm('Delete this memory entry?')) return;
+let _forgetTarget = null;
+function showForgetModal(id) {
+  _forgetTarget = id;
+  const m = document.getElementById('forget-modal');
+  if (!m) {
+    const d = document.createElement('div');
+    d.id = 'forget-modal';
+    d.className = 'fixed inset-0 bg-black/60 flex items-center justify-center z-50';
+    d.setAttribute('role', 'dialog');
+    d.setAttribute('aria-modal', 'true');
+    d.setAttribute('aria-labelledby', 'forget-modal-title');
+    d.innerHTML = `
+      <form class="glass p-6 max-w-sm w-full" onsubmit="event.preventDefault(); doForgetMemory()">
+        <h3 id="forget-modal-title" class="text-xl font-bold mb-4">Delete Memory</h3>
+        <p class="text-sm text-slate-300 mb-4">Are you sure you want to delete this entry?</p>
+        <label class="block text-sm font-medium mb-2" for="forget-reason">Reason for deletion (audit trail)</label>
+        <input type="text" id="forget-reason" class="w-full mb-6" placeholder="Reason..." required>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn ghost" onclick="closeForgetModal()">Cancel</button>
+          <button type="submit" class="btn danger focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400">Delete</button>
+        </div>
+      </form>
+    `;
+    document.body.appendChild(d);
+  }
+  document.getElementById('forget-modal').classList.remove('hidden');
+  const inp = document.getElementById('forget-reason');
+  inp.value = '';
+  inp.focus();
+}
+
+function closeForgetModal() {
+  const m = document.getElementById('forget-modal');
+  if (m) m.classList.add('hidden');
+  _forgetTarget = null;
+}
+
+async function doForgetMemory() {
+  if (!_forgetTarget) return;
+  const reason = document.getElementById('forget-reason').value.trim();
+  const id = _forgetTarget;
+  closeForgetModal();
   try {
-    const reason = prompt('Reason for deletion (audit trail):') || '';
     await api('/api/memory/' + id, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({reason}) });
     toast('Memory deleted', 'ok');
     doSearch();
   } catch (e) { toast(String(e), 'err'); }
+}
+
+async function forgetMemory(id) {
+  showForgetModal(id);
 }
 
 async function reinforceMemory(id, signal) {
