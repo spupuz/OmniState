@@ -1,0 +1,3 @@
+## 2024-10-09 - Replaced Blocking Dialog with Custom Modal for Deletions
+**Learning:** Replacing native browser dialogs like `prompt()` and `confirm()` with custom HTML modals significantly improves the user experience by avoiding main thread blocking. However, it's crucial to ensure any required backend data (like an audit trail reason previously collected by `prompt()`) is still collected by the new modal, rather than silently removed for the sake of optimistic UI.
+**Action:** When refactoring destructive actions, verify all required data points before moving to optimistic UI; use custom modals with form inputs when data collection is necessary.
