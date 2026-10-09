@@ -144,7 +144,7 @@ def import_legacy(cfg: Config, store: Store, container_path: str) -> dict[str, A
     # project-summary.md -> summary
     summary = project_dir / "project-summary.md"
     if summary.exists():
-        content = _read_safe(summary)
+        content = _read_safe(summary, project_dir)
         if content:
             store.add_memory(
                 project_id=pid, scope="project", kind="summary",
@@ -159,7 +159,7 @@ def import_legacy(cfg: Config, store: Store, container_path: str) -> dict[str, A
         if not path.exists():
             continue
         try:
-            data = json.loads(_read_safe(path) or "{}")
+            data = json.loads(_read_safe(path, project_dir) or "{}")
         except Exception:
             continue
         for task in data.get("tasks", []):
@@ -178,7 +178,7 @@ def import_legacy(cfg: Config, store: Store, container_path: str) -> dict[str, A
     chunks_dir = project_dir / "chunks"
     if chunks_dir.exists():
         for chunk in sorted(chunks_dir.glob("*.md")):
-            content = _read_safe(chunk)
+            content = _read_safe(chunk, project_dir)
             if not content:
                 continue
             first = content.strip().splitlines()[0] if content.strip() else "Session"
@@ -193,17 +193,21 @@ def import_legacy(cfg: Config, store: Store, container_path: str) -> dict[str, A
     return {"imported": imported, "project": project.get("name")}
 
 
-def _read_safe(path: Path) -> str | None:
+def _read_safe(path: Path, base_dir: Path) -> str | None:
     """Read a file, refusing symlinks and paths outside the project dir (SECURITY)."""
     try:
         if path.is_symlink():
             return None
-        resolved = path.resolve()
+
+        resolved = path.resolve(strict=False)
         if resolved.is_symlink():
             return None
-        # do not follow symlinked parents
-        if os.path.realpath(path) != str(resolved):
+
+        resolved_base = base_dir.resolve(strict=False)
+
+        if not str(resolved).startswith(str(resolved_base) + os.sep) and resolved != resolved_base:
             return None
+
         if resolved.stat().st_size > 2_000_000:
             return None
         return resolved.read_text(encoding="utf-8", errors="ignore")
