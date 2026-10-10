@@ -1,0 +1,3 @@
+## 2024-10-10 - Replace blocking native dialogs with custom accessible modals
+**Learning:** Native blocking dialogs (`confirm()`, `prompt()`) are inaccessible, disrupt workflow, and block the main UI thread. When destructive actions require data (like an audit trail reason), optimistic UI approaches that completely remove the dialog can accidentally skip required data collection.
+**Action:** Replace blocking native dialogs with custom, accessible HTML modals (`<dialog>` or `role="dialog"`) that preserve required data collection (like audit reasons) while offering a non-blocking, accessible user experience.
