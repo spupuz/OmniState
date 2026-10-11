@@ -79,12 +79,17 @@ class App:
         if scan is None:
             return set()
         names: set[str] = set()
-        for r in self.store.gh_scan_repos(int(scan["id"])):
-            if r.get("is_archived"):
-                if r.get("name"):
-                    names.add(str(r["name"]).lower())
-                if r.get("full_name"):
-                    names.add(str(r["full_name"]).lower())
+        # Optimization: Fetch only archived repos directly using SQL to avoid materializing
+        # thousands of unused repo dictionaries in Python during every dashboard poll.
+        rows = self.store.q(
+            "SELECT name, full_name FROM gh_repos WHERE scan_id = ? AND is_archived = 1",
+            (int(scan["id"]),)
+        )
+        for r in rows:
+            if r.get("name"):
+                names.add(str(r["name"]).lower())
+            if r.get("full_name"):
+                names.add(str(r["full_name"]).lower())
         return names
 
     @staticmethod
