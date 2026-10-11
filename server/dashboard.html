@@ -357,6 +357,24 @@
 
 <div id="toast-wrap" aria-live="polite"></div>
 <div id="palette" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette"><div id="palette-box"><input id="palette-input" placeholder="Type a command… (e.g. overview, projects, search, reload)" autocomplete="off"><div id="palette-list"></div></div></div>
+
+<div id="forget-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="forget-modal-title">
+  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
+    <div class="glass w-[92vw] max-w-md p-6 relative">
+      <h3 id="forget-modal-title" class="text-xl font-bold mb-3 text-red-400">Delete Memory Entry</h3>
+      <p class="text-sm text-slate-300 mb-4">Are you sure you want to delete this memory entry? This action cannot be undone.</p>
+      <form id="forget-form" onsubmit="event.preventDefault(); submitForget()">
+        <label for="forget-reason" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Reason for deletion (audit trail)</label>
+        <input type="text" id="forget-reason" class="w-full mb-5" placeholder="e.g. Obsolete information" required>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn ghost" onclick="closeForgetModal()">Cancel</button>
+          <button type="submit" class="btn bg-red-600/20 text-red-400 border-red-500/50 hover:bg-red-600 hover:text-white focus-visible:ring-red-400">Delete Entry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
 const $ = (id) => document.getElementById(id);
 let ghTopChart = null, ghTrendChart = null;
@@ -1021,10 +1039,27 @@ function switchTab(name){
 function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
 function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==\'Enter\' || event.key==\' \') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
-async function forgetMemory(id) {
-  if (!confirm('Delete this memory entry?')) return;
+let _pendingForgetId = null;
+function forgetMemory(id) {
+  _pendingForgetId = id;
+  const modal = $('forget-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    const input = $('forget-reason');
+    if(input) { input.value = ''; input.focus(); }
+  }
+}
+function closeForgetModal() {
+  _pendingForgetId = null;
+  const modal = $('forget-modal');
+  if (modal) modal.classList.add('hidden');
+}
+async function submitForget() {
+  if (!_pendingForgetId) return;
+  const id = _pendingForgetId;
+  const reason = $('forget-reason')?.value || '';
+  closeForgetModal();
   try {
-    const reason = prompt('Reason for deletion (audit trail):') || '';
     await api('/api/memory/' + id, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({reason}) });
     toast('Memory deleted', 'ok');
     doSearch();
@@ -1070,7 +1105,7 @@ async function loadHandoffs() {
 }
 document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const pal=$('palette'); if(pal && !pal.classList.contains('hidden')) closePalette(); else openPalette(); }
-  else if(e.key==='Escape'){ closePalette(); }
+  else if(e.key==='Escape'){ closePalette(); closeForgetModal(); }
   else if(e.key==='t' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='SELECT'){ toggleTheme(); }
   else if(e.key==='/' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){ e.preventDefault(); switchTab('search'); const q=$('search-q'); if(q) q.focus(); }
 });

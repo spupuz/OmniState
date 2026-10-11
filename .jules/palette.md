@@ -1,0 +1,3 @@
+## 2024-05-24 - Replace blocking confirm() with custom modal
+**Learning:** Using native browser dialogs like `confirm()` and `prompt()` creates poor UX and accessibility by blocking the main thread and disrupting the user workflow. Replacing them with custom HTML modals improves accessibility (allowing keyboard navigation and proper ARIA labels) while preserving necessary functionality like context collection (e.g. audit trail reasons).
+**Action:** When implementing destructive actions that require backend data or user confirmation, use custom HTML dialogs/modals instead of native `confirm()` or `prompt()`. Ensure these modals support keyboard dismissal (Escape key) and proper focus management.
