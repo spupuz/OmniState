@@ -1,4 +1,4 @@
-# OmniState v2.18.1
+# OmniState v2.19.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -240,7 +240,9 @@ Open **http://localhost:8347** in the browser:
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
-- **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog. Toasts may include optional undo actions for certain operations.
+- **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog. Toasts may include optional undo actions for certain operations. For destructive actions like memory deletion, custom accessible HTML modals replace native `confirm()` and `prompt()` dialogs, preserving required audit trail data (like deletion reasons) while improving accessibility with keyboard navigation and proper ARIA labels.
+
+The dashboard includes accessible modals for memory deletion that support keyboard dismissal (Escape key), proper focus management and maintain all required data collection functionality.
 - **Responsive mobile layout**: tables collapse into stacked cards under 640px (`data-label` header attributes), tabs scroll horizontally, toast wraps full-width, inputs go full-width.
 - **Virtual scroll**: memory-entry lists over 50 items render via chunked scroll-based windowing (only visible rows are in the DOM), keeping large project drills smooth.
 - **Deep-linking**: the active tab is mirrored into the URL hash (`#overview`, `#projects`, …) so tabs survive refresh, bookmarking and back/forward navigation.
@@ -256,6 +258,8 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 - **Delta** and **historical trend** computed from scans stored in the DB.
 - **Token validation**: `github_config` validates the PAT against the GitHub API before saving (opt-out with `validate=false`).
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
+
+The GitHub metrics collection is optimized for performance — filtering logic is pushed down to the database level via SQL `WHERE` clauses to avoid materializing unused Python dictionaries during frequent dashboard polls. This significantly reduces memory allocation and improves dashboard responsiveness, especially when processing large repositories.
 
 ## Architecture
 
@@ -327,10 +331,12 @@ For one project only: `<project>/.agents/rules/omnistate.md` (or **+ Workspace**
 ### What the agent will do once configured
 
 1. **Session start** — `project_register` (with the current working directory) + `session_start` (loads the project's recent memory and open tasks *before* acting)
-2. **During work** — `task_add` / `task_update` to track activities; `memory_remember` with `scope="shared"` for cross-project decisions and `scope="project"` for project-specific notes; `memory_search` before redoing solved work
+2. **During work** — `task_add` / `task_update` to track activities; `memory_remember` with `scope="shared"` for cross-project decisions and `scope="project"` for project-specific notes; `memory_search` before redoing solved work; `memory_forget` with audit trail reasons (using accessible HTML modals instead of native `confirm()`/`prompt()` dialogs for improved UX and accessibility)
 3. **Session end** — `session_snapshot` with a distilled 2–5 line summary
 
 No action is required from you. Verify it works after a real session: the dashboard's **Projects** tab → click your project → memory entries appear; or `curl http://localhost:8347/api/stats` and watch `memoryEntries` grow.
+
+**Memory deletion improvements**: The dashboard now uses custom accessible HTML modals for memory deletion operations, replacing blocking native dialogs while preserving all required audit trail data. These modals support keyboard navigation (Escape key for dismissal), proper focus management, and maintain the full audit trail functionality for compliance.
 
 ### Manual control (optional)
 
@@ -386,7 +392,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.18.1 (current)
+### v2.19.0 (current)
+
+- **UX**: Replace blocking native dialogs (`confirm()` and `prompt()`) with custom accessible HTML modals for memory deletion, preserving required audit trail data and improving accessibility with keyboard navigation and proper ARIA labels.
+- **Performance**: Optimize archived repository filtering by pushing down to SQL (using `WHERE` clauses) to avoid materializing thousands of unused repo dictionaries in Python during every dashboard poll.
+
+### v2.18.1
 
 - **Security**: Fix Path Traversal bypass via Directory Symlink (HIGH)
 
