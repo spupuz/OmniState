@@ -653,21 +653,31 @@ async function submitHandoff() {
   const done = $('hf-done')?.value || '';
   const risks = $('hf-risks')?.value || '';
   const valid = $('hf-valid')?.value || '';
+  const btn = document.querySelector('#handoff-form button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
     await api('/api/handoffs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({project, current_state:state, next_steps:next, completed:done, risks, validation:valid}) });
     toast('Handoff saved', 'ok');
     document.getElementById('handoff-form').classList.add('hidden');
-  } catch(e) { toast(String(e), 'err'); }
+  } catch(e) { toast(String(e), 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 async function registerProject() {
   const path = $('register-path').value.trim();
   if (!path) return;
+  const btn = document.querySelector('#tab-projects form[onsubmit*="registerProject"] button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Registering…'; }
   try {
     await api('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
     $('register-path').value = '';
     loadProjects();
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) { toast(e.message, 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 async function discoverProjects() {
@@ -702,11 +712,16 @@ async function addShared() {
   const text = $('shared-text').value.trim();
   const tags = $('shared-tags').value.trim();
   if (!text) return;
+  const btn = document.querySelector('#tab-shared form[onsubmit*="addShared"] button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
     await api('/api/shared', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text, tags}) });
     $('shared-text').value = ''; $('shared-tags').value = '';
     loadShared();
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) { toast(e.message, 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 async function deleteShared(id) {
@@ -1059,11 +1074,16 @@ async function submitForget() {
   const id = _pendingForgetId;
   const reason = $('forget-reason')?.value || '';
   closeForgetModal();
+  const btn = document.querySelector('#forget-form button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
   try {
     await api('/api/memory/' + id, { method: 'DELETE', headers: {'Content-Type':'application/json'}, body: JSON.stringify({reason}) });
     toast('Memory deleted', 'ok');
     doSearch();
-  } catch (e) { toast(String(e), 'err'); }
+  } catch (e) { toast(String(e), 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 async function reinforceMemory(id, signal) {
