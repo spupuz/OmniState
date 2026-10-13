@@ -1,4 +1,4 @@
-# OmniState v2.19.0
+# OmniState v2.20.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -28,7 +28,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
-- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with unified design tokens, pill tabs/buttons/inputs, glass cards with hover lift, health badges, saved-search dropdown, native form validation, non-blocking toasts, accessible tab navigation and PWA manifest support.
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with unified design tokens, pill tabs/buttons/inputs, glass cards with hover lift, health badges, saved-search dropdown, native form validation, in-button loading states, non-blocking toasts, accessible tab navigation and PWA manifest support.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview).
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
@@ -240,6 +240,7 @@ Open **http://localhost:8347** in the browser:
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
+- **Async submit loading states**: while a form request is in flight its submit button is disabled and shows a pending label (`Saving…`, `Registering…`, `Deleting…`); the original label and enabled state are always restored in a `finally` block, so a failed request never leaves the button stuck.
 - **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog. Toasts may include optional undo actions for certain operations. For destructive actions like memory deletion, custom accessible HTML modals replace native `confirm()` and `prompt()` dialogs, preserving required audit trail data (like deletion reasons) while improving accessibility with keyboard navigation and proper ARIA labels.
 
 The dashboard includes accessible modals for memory deletion that support keyboard dismissal (Escape key), proper focus management and maintain all required data collection functionality.
@@ -277,7 +278,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
-- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists) stream natively via `cursor.execute()` + `fetchmany(1000)` over `sqlite3.Row`, avoiding generic `q_iter()` dictionary allocations (only rows that are actually kept are cast with `dict(r)`), so allocation overhead is minimal even on large indexes and the lock is released between chunks. `Store.q_iter()` itself uses `yield from map(dict, rows)` (C-level `map`) to cut Python interpreter overhead for any remaining callers. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
+- All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists, and `Store.context_token_measure()` when measuring stored tokens) stream natively via `cursor.execute()` + `fetchmany(1000)` over `sqlite3.Row`, avoiding generic `q_iter()` dictionary allocations (only rows that are actually kept are cast with `dict(r)`), so allocation overhead is minimal even on large indexes and the lock is released between chunks. `Store.q_iter()` itself uses `yield from map(dict, rows)` (C-level `map`) to cut Python interpreter overhead for any remaining callers. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
 - Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
 - Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
 
@@ -392,7 +393,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.19.0 (current)
+### v2.20.0 (current)
+
+- **UX** (PR #152): Async dashboard forms (handoff save, project register, shared memory add, memory delete) now disable their submit button and show a pending label while the request is in flight, always restoring the original label and state in a `finally` block so failures never leave a stuck button.
+- **Performance** (PR #153): `Store.context_token_measure()` now streams memory rows through a native `sqlite3.Row` cursor with `fetchmany(1000)` instead of `q_iter()` dictionaries, cutting CPU and allocations on large indexes and releasing the connection lock between chunks.
+
+### v2.19.0
 
 - **UX**: Replace blocking native dialogs (`confirm()` and `prompt()`) with custom accessible HTML modals for memory deletion, preserving required audit trail data and improving accessibility with keyboard navigation and proper ARIA labels.
 - **Performance**: Optimize archived repository filtering by pushing down to SQL (using `WHERE` clauses) to avoid materializing thousands of unused repo dictionaries in Python during every dashboard poll.
