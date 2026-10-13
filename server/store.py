@@ -1057,8 +1057,19 @@ class Store:
         Pass `ctx` (already-computed session_context) to avoid recomputing it.
         """
         stored = 0
-        for r in self.q("SELECT content FROM memory WHERE project_id = ?", (project_id,)):
-            stored += count_tokens(r["content"] or "")
+        with self._lock:
+            cur = self._conn.execute("SELECT content FROM memory WHERE project_id = ?", (project_id,))
+        try:
+            while True:
+                with self._lock:
+                    rows = cur.fetchmany(1000)
+                if not rows:
+                    break
+                for r in rows:
+                    stored += count_tokens(r["content"] or "")
+        finally:
+            with self._lock:
+                cur.close()
         # Same serialization session_start emits, so the loaded side is exact.
         loaded = count_tokens(json.dumps(ctx if ctx is not None else self.session_context(project_id), indent=2))
         return {
