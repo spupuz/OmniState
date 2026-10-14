@@ -223,7 +223,7 @@
         <button type="button" class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)" aria-label="Toggle theme">🌙</button>
         <span class="kbd hidden md:inline">⌘K</span>
         <button type="submit" class="btn ghost">Token</button>
-        <button type="button" class="btn" onclick="loadAll()">Reload</button>
+        <button type="button" class="btn" onclick="loadAll(this)">Reload</button>
       </form>
   </header>
 
@@ -264,7 +264,7 @@
         <form class="flex gap-3 flex-wrap items-center mb-4" onsubmit="event.preventDefault(); registerProject()">
           <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]" required>
           <button type="submit" class="btn ghost">Register project</button>
-          <button type="button" class="btn ghost" onclick="discoverProjects()">Auto-discover</button>
+          <button type="button" class="btn ghost" onclick="discoverProjects(this)">Auto-discover</button>
         </form>
         <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p></div>
         <div id="project-detail" class="hidden"></div>
@@ -306,7 +306,7 @@
           <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]" required>
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
           <button type="submit" class="btn">Save</button>
-          <button type="button" class="btn ghost" onclick="exportMemoryMarkdown()">Export Markdown</button>
+          <button type="button" class="btn ghost" onclick="exportMemoryMarkdown(this)">Export Markdown</button>
         </form>
         <div id="shared-list" role="list"></div>
       </div>
@@ -446,7 +446,11 @@ async function refreshVersionBadge() {
     }
   } catch(e) {}
 }
-async function loadAll() { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadBackups(), refreshVersionBadge()]); }
+async function loadAll(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Reloading…'; }
+  try { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadBackups(), refreshVersionBadge()]); } finally { if (btn) { btn.disabled = false; btn.textContent = originalText; } }
+}
 
 // ---------- Overview ----------
 async function loadOverview() {
@@ -680,12 +684,16 @@ async function registerProject() {
   }
 }
 
-async function discoverProjects() {
+async function discoverProjects(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Discovering…'; }
   try {
     const r = await api('/api/discover', { method: 'POST' });
     toast('Found and registered: ' + ((r.registered||[]).join(', ') || 'none'), 'info');
     loadProjects();
-  } catch (e) { toast(e.message, 'err'); }
+  } catch (e) { toast(e.message, 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 // ---------- Shared ----------
@@ -745,11 +753,15 @@ async function deleteShared(id) {
   }, 5200); // Wait slightly longer than the 5000ms toast timeout to ensure undo is not clicked late
 }
 
-async function exportMemoryMarkdown() {
+async function exportMemoryMarkdown(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
   try {
     const r = await api('/api/memory/export-markdown');
     toast('Exported ' + r.exported + ' files to ' + r.output_dir, 'ok');
-  } catch (e) { toast(String(e), 'err'); }
+  } catch (e) { toast(String(e), 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 // ---------- Search ----------
