@@ -551,7 +551,7 @@ async function showProject(name) {
     el.innerHTML = `
       <div class="flex items-center gap-3 mb-5 flex-wrap">
         <button type="button" class="btn ghost" onclick="backToProjects()">← Back</button>
-        <h2 class="text-xl font-bold">${esc(name)}</h2>
+        <h2 id="project-detail-heading" tabindex="-1" class="text-xl font-bold focus:outline-none">${esc(name)}</h2>
         <span class="chip">${esc(d.category || 'active')}</span>
         <span class="text-xs text-slate-500 truncate max-w-[280px]" title="${esc(d.project.host_path)}">${esc(d.project.host_path)}</span>
       </div>
@@ -564,11 +564,13 @@ async function showProject(name) {
       <div class="flex gap-3 flex-wrap items-center mb-4 flex-wrap">
         <h3 class="font-bold">Memory entries</h3>
         <input type="search" id="pm-filter" aria-label="Filter project memory entries" class="ml-auto" placeholder="Filter entries…" oninput="renderPmEntries()">
-        <button type="button" class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
+        <button type="button" id="handoff-btn" class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
       </div>
       <div id="pm-entries" role="list"></div>
       <div id="handoff-form" class="hidden mt-4" role="list"></div>`;
     renderPmEntries();
+    const heading = document.getElementById('project-detail-heading');
+    if (heading) heading.focus();
   } catch (e) { console.error(e); $('projects-table-wrap').classList.remove('hidden'); }
 }
 
@@ -626,7 +628,11 @@ function renderPmEntries() {
 function backToProjects() {
   const el = $('project-detail');
   if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
-  $('projects-table-wrap').classList.remove('hidden');
+  const wrap = $('projects-table-wrap');
+  if (wrap) {
+    wrap.classList.remove('hidden');
+    wrap.focus();
+  }
 }
 
 function showHandoffForm() {
@@ -635,7 +641,7 @@ function showHandoffForm() {
   form.classList.remove('hidden');
   form.innerHTML = `
     <form class="glass p-4 mb-3" role="listitem" onsubmit="event.preventDefault(); submitHandoff()">
-      <h3 class="font-bold mb-2">Create Handoff</h3>
+      <h3 id="handoff-form-heading" tabindex="-1" class="font-bold mb-2 focus:outline-none">Create Handoff</h3>
       <textarea id="hf-state" aria-label="Current state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
       <textarea id="hf-next" aria-label="Next steps" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
       <textarea id="hf-done" aria-label="Completed steps" class="w-full mb-2" rows="2" placeholder="Completed (one per line)…"></textarea>
@@ -643,10 +649,12 @@ function showHandoffForm() {
       <textarea id="hf-valid" aria-label="Validation steps" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
       <div class="flex gap-2">
         <button type="submit" class="btn">Save handoff</button>
-        <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden')">Cancel</button>
+        <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden'); document.getElementById('handoff-btn')?.focus();">Cancel</button>
       </div>
     </form>`;
   form.scrollIntoView({behavior:'smooth'});
+  const heading = document.getElementById('handoff-form-heading');
+  if (heading) heading.focus();
 }
 
 async function submitHandoff() {
@@ -664,6 +672,7 @@ async function submitHandoff() {
     await api('/api/handoffs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({project, current_state:state, next_steps:next, completed:done, risks, validation:valid}) });
     toast('Handoff saved', 'ok');
     document.getElementById('handoff-form').classList.add('hidden');
+    document.getElementById('handoff-btn')?.focus();
   } catch(e) { toast(String(e), 'err'); } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalText; }
   }
@@ -1044,6 +1053,7 @@ function clearSearch(){ const q=$('search-q'); if(q) q.value=''; const sp=$('sea
 let _allProjects=[];
 function filterProjects(){ const q=($('projects-filter')?.value||'').toLowerCase(); const rows=document.querySelectorAll('#projects-table-wrap tbody tr'); const cnt=$('projects-count'); let vis=0; rows.forEach(r=>{ const show=!q||r.textContent.toLowerCase().includes(q); r.style.display=show?'':'none'; if(show) vis++; }); if(cnt) cnt.textContent = q ? vis+' / '+rows.length : rows.length+' projects'; }
 // ---------- palette ----------
+let _paletteSource = null;
 const PALETTE_CMDS=[
   {id:'overview', label:'Go to Overview', kbd:'1', run:()=>switchTab('overview')},
   {id:'projects', label:'Go to Projects', kbd:'2', run:()=>switchTab('projects')},
@@ -1063,12 +1073,14 @@ function switchTab(name){
   if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs();
   location.hash = name; closePalette();
 }
-function openPalette(){ const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
-function closePalette(){ const p=$('palette'); if(p) p.classList.add('hidden'); }
+function openPalette(){ _paletteSource = document.activeElement; const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
+function closePalette(){ const p=$('palette'); if(p) { p.classList.add('hidden'); if(_paletteSource) { _paletteSource.focus(); _paletteSource = null; } } }
 function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==\'Enter\' || event.key==\' \') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
 let _pendingForgetId = null;
+let _forgetSourceElement = null;
 function forgetMemory(id) {
   _pendingForgetId = id;
+  _forgetSourceElement = document.activeElement;
   const modal = $('forget-modal');
   if (modal) {
     modal.classList.remove('hidden');
@@ -1079,7 +1091,13 @@ function forgetMemory(id) {
 function closeForgetModal() {
   _pendingForgetId = null;
   const modal = $('forget-modal');
-  if (modal) modal.classList.add('hidden');
+  if (modal) {
+    modal.classList.add('hidden');
+    if (_forgetSourceElement) {
+      _forgetSourceElement.focus();
+      _forgetSourceElement = null;
+    }
+  }
 }
 async function submitForget() {
   if (!_pendingForgetId) return;
