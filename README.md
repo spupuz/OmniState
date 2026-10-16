@@ -1,4 +1,4 @@
-# OmniState v2.20.0
+# OmniState v2.22.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -239,6 +239,7 @@ Open **http://localhost:8347** in the browser:
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`.
+- **Enhanced focus management**: improved keyboard navigation with explicit focus handling when transitioning between views (project details, handoffs, palette modals) and proper focus restoration when returning to previous screens. Added `tabindex="-1"` and `focus:outline-none` to interactive headings with explicit `.focus()` calls to ensure smooth keyboard navigation and screen reader flow.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
 - **Async submit loading states**: while a form request is in flight its submit button is disabled and shows a pending label (`Saving…`, `Registering…`, `Deleting…`); the original label and enabled state are always restored in a `finally` block, so a failed request never leaves the button stuck.
 - **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog. Toasts may include optional undo actions for certain operations. For destructive actions like memory deletion, custom accessible HTML modals replace native `confirm()` and `prompt()` dialogs, preserving required audit trail data (like deletion reasons) while improving accessibility with keyboard navigation and proper ARIA labels.
@@ -393,7 +394,15 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.20.0 (current)
+### v2.22.0 (current)
+
+- **UX** (PR #155): Enhanced focus management for drill-downs and modals, improving keyboard navigation and screen reader flow with explicit focus handling when transitioning between project details, handoffs, and the command palette.
+
+### v2.21.0
+
+- **UX improvement** (PR #151): Add loading states to async dashboard buttons (Reload, Auto-discover, Export Markdown) to improve UX by showing loading feedback during async operations with proper error handling in finally blocks.
+
+### v2.20.0
 
 - **UX** (PR #152): Async dashboard forms (handoff save, project register, shared memory add, memory delete) now disable their submit button and show a pending label while the request is in flight, always restoring the original label and state in a `finally` block so failures never leave a stuck button.
 - **Performance** (PR #153): `Store.context_token_measure()` now streams memory rows through a native `sqlite3.Row` cursor with `fetchmany(1000)` instead of `q_iter()` dictionaries, cutting CPU and allocations on large indexes and releasing the connection lock between chunks.
