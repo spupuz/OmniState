@@ -288,7 +288,7 @@
       <div class="glass p-6 mb-6">
         <div class="flex gap-3 flex-wrap mb-4">
           <h2 class="text-xl font-bold">Repositories</h2>
-          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="toggleOnlyPrs()"> Only with open PRs</label>
+          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="toggleOnlyPrs()" aria-label="Only show repositories with open pull requests"> Only with open PRs</label>
         </div>
         <div class="overflow-x-auto" id="github-repos"><p class="text-slate-400 text-sm">No scans yet.</p></div>
       </div>
@@ -356,7 +356,7 @@
 </div>
 
 <div id="toast-wrap" aria-live="polite"></div>
-<div id="palette" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette"><div id="palette-box"><input id="palette-input" placeholder="Type a command… (e.g. overview, projects, search, reload)" autocomplete="off"><div id="palette-list"></div></div></div>
+<div id="palette" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette"><div id="palette-box"><input id="palette-input" placeholder="Type a command… (e.g. overview, projects, search, reload)" autocomplete="off" aria-label="Command palette input" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list"><div id="palette-list" role="listbox"></div></div></div>
 
 <div id="forget-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="forget-modal-title">
   <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
@@ -1075,7 +1075,7 @@ function switchTab(name){
 }
 function openPalette(){ _paletteSource = document.activeElement; const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) { p.classList.add('hidden'); if(_paletteSource) { _paletteSource.focus(); _paletteSource = null; } } }
-function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="0" onkeydown="if(event.key==\'Enter\' || event.key==\' \') { event.preventDefault(); PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run(); }" role="button" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; list.querySelectorAll('.palette-item').forEach((el)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>e.classList.remove('active')); el.classList.add('active'); }); }); }
+function renderPalette(q){ const list=$('palette-list'); if(!list) return; const f=PALETTE_CMDS.filter(c=>!q||c.label.toLowerCase().includes(q.toLowerCase())||c.id.includes(q.toLowerCase())); list.innerHTML = f.map((c,i)=>'<div id="palette-item-'+i+'" class="palette-item '+(i===0?'active':'')+'" data-i="'+i+'" onclick="PALETTE_CMDS['+PALETTE_CMDS.indexOf(c)+'].run()" tabindex="-1" role="option" aria-selected="'+(i===0?'true':'false')+'" aria-label="'+c.label+'"><span>'+c.label+'</span><kbd>'+(c.kbd||'↵')+'</kbd></div>').join('') || '<p class="p-3 text-sm text-slate-400">No commands</p>'; const inp=$('palette-input'); if(inp) { inp.setAttribute('aria-activedescendant', f.length > 0 ? 'palette-item-0' : ''); } list.querySelectorAll('.palette-item').forEach((el, i)=>{ el.addEventListener('mouseenter',()=>{ list.querySelectorAll('.palette-item').forEach(e=>{ e.classList.remove('active'); e.setAttribute('aria-selected', 'false'); }); el.classList.add('active'); el.setAttribute('aria-selected', 'true'); if(inp) inp.setAttribute('aria-activedescendant', 'palette-item-'+i); }); }); }
 let _pendingForgetId = null;
 let _forgetSourceElement = null;
 function forgetMemory(id) {
@@ -1169,10 +1169,17 @@ document.addEventListener('keydown', e=>{
     if(e.key==='ArrowDown' || e.key==='ArrowUp'){
       e.preventDefault();
       const items=[...document.querySelectorAll('#palette-list .palette-item')];
+      if(!items.length) return;
       let idx=items.findIndex(x=>x.classList.contains('active'));
-      items[idx]?.classList.remove('active');
+      if(idx >= 0) {
+        items[idx].classList.remove('active');
+        items[idx].setAttribute('aria-selected', 'false');
+      }
       idx = e.key==='ArrowDown' ? Math.min(items.length-1, idx+1) : Math.max(0, idx-1);
-      items[idx]?.classList.add('active');
+      items[idx].classList.add('active');
+      items[idx].setAttribute('aria-selected', 'true');
+      e.target.setAttribute('aria-activedescendant', items[idx].id);
+      items[idx].scrollIntoView({ block: 'nearest' });
     }
     if(e.key==='Escape') closePalette();
   });
