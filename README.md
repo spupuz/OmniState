@@ -1,4 +1,4 @@
-# OmniState v2.22.0
+# OmniState v2.23.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -394,7 +394,11 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.22.0 (current)
+### v2.23.0 (current)
+
+- **Accessibility** (PR #156): Enhance command palette and checkbox accessibility - added `aria-label` attributes for screen reader support, improved keyboard navigation with `aria-activedescendant`, and enhanced focus management for command palette items.
+
+### v2.22.0
 
 - **UX** (PR #155): Enhanced focus management for drill-downs and modals, improving keyboard navigation and screen reader flow with explicit focus handling when transitioning between project details, handoffs, and the command palette.
 
