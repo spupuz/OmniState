@@ -642,12 +642,17 @@ function showHandoffForm() {
   form.innerHTML = `
     <form class="glass p-4 mb-3" role="listitem" onsubmit="event.preventDefault(); submitHandoff()">
       <h3 id="handoff-form-heading" tabindex="-1" class="font-bold mb-2 focus:outline-none">Create Handoff</h3>
-      <textarea id="hf-state" aria-label="Current state" class="w-full mb-2" rows="2" placeholder="Current state…"></textarea>
-      <textarea id="hf-next" aria-label="Next steps" class="w-full mb-2" rows="2" placeholder="Next steps (one per line)…"></textarea>
-      <textarea id="hf-done" aria-label="Completed steps" class="w-full mb-2" rows="2" placeholder="Completed (one per line)…"></textarea>
-      <textarea id="hf-risks" aria-label="Risks" class="w-full mb-2" rows="2" placeholder="Risks (one per line)…"></textarea>
-      <textarea id="hf-valid" aria-label="Validation steps" class="w-full mb-2" rows="2" placeholder="Validation (one per line)…"></textarea>
-      <div class="flex gap-2">
+      <label for="hf-state" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Current state <span class="text-red-500">*</span></label>
+      <textarea id="hf-state" aria-label="Current state" class="w-full mb-3" rows="2" placeholder="Current state…" required></textarea>
+      <label for="hf-next" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Next steps</label>
+      <textarea id="hf-next" aria-label="Next steps" class="w-full mb-3" rows="2" placeholder="Next steps (one per line)…"></textarea>
+      <label for="hf-done" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Completed steps</label>
+      <textarea id="hf-done" aria-label="Completed steps" class="w-full mb-3" rows="2" placeholder="Completed (one per line)…"></textarea>
+      <label for="hf-risks" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Risks</label>
+      <textarea id="hf-risks" aria-label="Risks" class="w-full mb-3" rows="2" placeholder="Risks (one per line)…"></textarea>
+      <label for="hf-valid" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Validation steps</label>
+      <textarea id="hf-valid" aria-label="Validation steps" class="w-full mb-3" rows="2" placeholder="Validation (one per line)…"></textarea>
+      <div class="flex gap-2 mt-2">
         <button type="submit" class="btn">Save handoff</button>
         <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden'); document.getElementById('handoff-btn')?.focus();">Cancel</button>
       </div>
@@ -658,7 +663,7 @@ function showHandoffForm() {
 }
 
 async function submitHandoff() {
-  const project = $('projects-filter')?.value || '';
+  const project = $('project-detail-heading')?.textContent || $('projects-filter')?.value || '';
   if (!project) { toast('Select a project first', 'err'); return; }
   const state = $('hf-state')?.value || '';
   const next = $('hf-next')?.value || '';
