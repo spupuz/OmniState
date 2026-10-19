@@ -24,6 +24,7 @@ _ISO_DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})")
 _SPACE_RE = re.compile(r"\s+")
 
 
+
 def count_tokens(text: str) -> int:
     """Real token count using tiktoken cl100k_base (single cached encoding)."""
     global _token_encoder
@@ -33,6 +34,15 @@ def count_tokens(text: str) -> int:
         _token_encoder = tiktoken.get_encoding("cl100k_base")
     # encode_ordinary is faster than encode and ignores special tokens
     return len(_token_encoder.encode_ordinary(text or ""))
+
+def _count_tokens_batch(texts: list[str]) -> list[int]:
+    """Batch token counting using tiktoken cl100k_base."""
+    global _token_encoder
+    if _token_encoder is None:
+        import tiktoken
+
+        _token_encoder = tiktoken.get_encoding("cl100k_base")
+    return [len(x) for x in _token_encoder.encode_ordinary_batch(texts)]
 
 
 def _now() -> str:
@@ -1065,8 +1075,7 @@ class Store:
                     rows = cur.fetchmany(1000)
                 if not rows:
                     break
-                for r in rows:
-                    stored += count_tokens(r["content"] or "")
+                stored += sum(_count_tokens_batch([r["content"] or "" for r in rows]))
         finally:
             with self._lock:
                 cur.close()
@@ -1174,13 +1183,15 @@ class Store:
                     rows = cur.fetchmany(1000)
                 if not rows:
                     break
-                for r in rows:
+                # compute tokens in batch for performance
+                tokens = _count_tokens_batch([r["content"] or "" for r in rows])
+                for r, t in zip(rows, tokens):
                     if (pid := r["project_id"]) not in res:
                         continue
                     m = res[pid]
                     m["totalTasks"] += 1
                     kind = r["kind"]
-                    m["storedTokens"] += count_tokens(r["content"] or "")
+                    m["storedTokens"] += t
 
                     if kind == "task":
                         m["_tasks"].append(dict(r))
