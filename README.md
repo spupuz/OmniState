@@ -1,4 +1,4 @@
-# OmniState v2.23.0
+# OmniState v2.24.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -394,7 +394,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.23.0 (current)
+### v2.24.0 (current)
+
+- **Accessibility** (PR #159): Handoff form now uses visible `<label>` elements for every field (Current state marked `required`), reads project context from the active detail-view heading instead of the global filter, and focuses the form heading on open for smoother keyboard navigation and screen reader flow.
+- **Performance** (PR #158): `Store.context_token_measure()` and the token-savings hot path now count tokens via `tiktoken.encode_ordinary_batch()` (Rust-level batch processing) instead of calling `encode_ordinary()` per row in a Python loop, cutting CPU on large indexes.
+
+### v2.23.0
 
 - **Accessibility** (PR #156): Enhance command palette and checkbox accessibility - added `aria-label` attributes for screen reader support, improved keyboard navigation with `aria-activedescendant`, and enhanced focus management for command palette items.
 
