@@ -590,7 +590,7 @@ function renderPmEntries() {
       try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
       const div = document.createElement('div'); div.className='glass p-4 mb-3'; div.setAttribute('role','listitem'); div.style.position='absolute'; div.style.left='0'; div.style.right='0'; div.style.top=(idx*64)+'px';
       div.innerHTML = `
-        <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" onclick="copyText(window._pmEntriesFiltered[${idx}].content||window._pmEntriesFiltered[${idx}].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+        <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(window._pmEntriesFiltered[${idx}].content||window._pmEntriesFiltered[${idx}].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
         <div class="flex justify-between gap-4 items-center flex-wrap">
           <div class="flex items-center gap-2">
             <span class="chip">${esc(e.kind)}</span>
@@ -612,7 +612,7 @@ function renderPmEntries() {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
     <div class="glass p-4 mb-3" role="listitem">
-      <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+      <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
           <span class="chip">${esc(e.kind)}</span>
@@ -814,10 +814,10 @@ async function doSearch() {
           <span class="chip">imp: ${Math.round((m.importance||0)*100)}%</span>
         </div>
         <div class="flex gap-2 mt-2 flex-wrap">
-          <button type="button" class="copy-btn" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
-          <button type="button" class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button>
-          <button type="button" class="copy-btn" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button>
-          <button type="button" class="copy-btn" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
+          <button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
+          <button type="button" class="copy-btn" aria-label="Mark as useful" title="Mark as useful" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button>
+          <button type="button" class="copy-btn" aria-label="Mark as important" title="Mark as important" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button>
+          <button type="button" class="copy-btn" aria-label="Forget memory" title="Forget memory" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
         </div>
       </div>`).join('') : '<p class="text-slate-400 text-sm">No results. Try a broader query or change scope/project filter.</p>';
   } catch (e) { console.error(e); toast(String(e).slice(0,140),'err'); if($('search-count')) $('search-count').textContent='error'; }
