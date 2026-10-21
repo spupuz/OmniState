@@ -1,4 +1,4 @@
-# OmniState v2.24.0
+# OmniState v2.26.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -238,7 +238,7 @@ Open **http://localhost:8347** in the browser:
 - **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) with refined light-theme overrides for glass, table and chip surfaces.
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
-- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions with accessible interactive tooltip buttons for keyboard compatibility; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`.
+- **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions with accessible interactive tooltip buttons for keyboard compatibility; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`, and every interactive utility button (copy, reinforce, forget) carries a descriptive `aria-label` for screen-reader context.
 - **Enhanced focus management**: improved keyboard navigation with explicit focus handling when transitioning between views (project details, handoffs, palette modals) and proper focus restoration when returning to previous screens. Added `tabindex="-1"` and `focus:outline-none` to interactive headings with explicit `.focus()` calls to ensure smooth keyboard navigation and screen reader flow.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
 - **Async submit loading states**: while a form request is in flight its submit button is disabled and shows a pending label (`Saving…`, `Registering…`, `Deleting…`); the original label and enabled state are always restored in a `finally` block, so a failed request never leaves the button stuck.
@@ -394,11 +394,17 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.25.0 (current)
+### v2.26.0 (current)
+
+- **Bugfix**: Fix timezone mismatch in `search_memory` date parser — `dateparser` now resolves "today" and relative dates in UTC, consistent with `created_at` timestamps, so same-day queries no longer miss entries near the day boundary.
+- **Accessibility** (PR #161): Add `aria-label` attributes to all dashboard utility buttons (copy, reinforce, forget) for screen-reader context.
+- **Performance** (PR #162): `project_metrics()` and `/api/projects/{name}` now use O(1) dictionary lookup from the already-fetched `_project_metrics_list()` cache instead of re-running expensive DB queries and token counting.
+
+### v2.25.0
 
 - **UX** (PR #160): Surface missing stat tooltips on dashboard overview cards - adds accessible tooltip buttons with aria-label for keyboard compatibility and proper DOM rendering.
 
-### v2.24.0 (current)
+### v2.24.0
 
 - **Accessibility** (PR #159): Handoff form now uses visible `<label>` elements for every field (Current state marked `required`), reads project context from the active detail-view heading instead of the global filter, and focuses the form heading on open for smoother keyboard navigation and screen reader flow.
 - **Performance** (PR #158): `Store.context_token_measure()` and the token-savings hot path now count tokens via `tiktoken.encode_ordinary_batch()` (Rust-level batch processing) instead of calling `encode_ordinary()` per row in a Python loop, cutting CPU on large indexes.

@@ -105,7 +105,7 @@ def _parse_temporal(query: str) -> tuple[str | None, str | None, str]:
         import dateparser
         from dateparser.search import search_dates
 
-        found = search_dates(query, languages=["en", "it", "es"], settings={"PREFER_DATES_FROM": "past"})
+        found = search_dates(query, languages=["en", "it", "es"], settings={"PREFER_DATES_FROM": "past", "TIMEZONE": "UTC"})
         if found:
             phrase, dt = found[0]
             if dt is not None:
