@@ -79,12 +79,7 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             raise ToolError(f"Project '{project}' not found. Register it with project_register first.")
         return row
 
-    # ---------- projects ----------
-
-    @server.tool()
-    @_logged
-    def project_list() -> str:
-        """List registered projects with metrics."""
+    def _get_metrics_dict() -> dict[str, dict[str, Any]]:
         cached_metrics_by_name = {}
         if app is not None and hasattr(app, "_project_metrics_list"):
             try:
@@ -100,7 +95,15 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
                     }
             except Exception:
                 pass
+        return cached_metrics_by_name
 
+    # ---------- projects ----------
+
+    @server.tool()
+    @_logged
+    def project_list() -> str:
+        """List registered projects with metrics."""
+        cached_metrics_by_name = _get_metrics_dict()
         out = []
         for p in store.list_projects():
             if p["name"] in cached_metrics_by_name:
@@ -152,7 +155,13 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             (row["id"],),
         )
         summary = entries[0]["content"] if entries else "No summary yet. Run session_snapshot to create one."
-        metrics = store.project_metrics(int(row["id"]))
+
+        cached_metrics_by_name = _get_metrics_dict()
+        if row["name"] in cached_metrics_by_name:
+            metrics = cached_metrics_by_name[row["name"]]
+        else:
+            metrics = store.project_metrics(int(row["id"]))
+
         return json.dumps({"project": project, "summary": summary, "metrics": metrics}, indent=2)
 
     @server.tool()
@@ -160,7 +169,14 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
     def project_metrics(project: str) -> str:
         """Active/archived/done tasks, snapshots and token savings of a project."""
         row = _resolve_project(project)
-        return json.dumps(store.project_metrics(int(row["id"])), indent=2)
+
+        cached_metrics_by_name = _get_metrics_dict()
+        if row["name"] in cached_metrics_by_name:
+            metrics = cached_metrics_by_name[row["name"]]
+        else:
+            metrics = store.project_metrics(int(row["id"]))
+
+        return json.dumps(metrics, indent=2)
 
     @server.tool()
     @_logged

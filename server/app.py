@@ -381,10 +381,18 @@ class App:
             if row is None:
                 return JSONResponse({"error": "not found"}, status_code=404)
             entries = self.store.memory_for_project(int(row["id"]), limit=50)
+
+            cached_metrics_by_name = {p["name"]: p for p in self._project_metrics_list()}
+            if row["name"] in cached_metrics_by_name:
+                metrics = {k: v for k, v in cached_metrics_by_name[row["name"]].items()
+                           if k in ["activeTasks", "doneTasks", "totalTasks", "snapshots", "storedTokens", "loadedTokens", "tokenSavings"]}
+            else:
+                metrics = self.store.project_metrics(int(row["id"]))
+
             return {
                 "project": row,
                 "category": self._project_category(row, self._archived_repo_names()),
-                "metrics": self.store.project_metrics(int(row["id"])),
+                "metrics": metrics,
                 "memory": entries,
             }
 
