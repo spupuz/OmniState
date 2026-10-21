@@ -1,3 +1,0 @@
-## 2025-02-12 - Exposing hidden metric definitions
-**Learning:** Properties designed for context or accessibility (like tooltips mapping to `c.t` in dashboard JS arrays) can easily be overlooked in string templates and never rendered to the DOM, leaving complex metrics unexplained to the user.
-**Action:** When mapping array properties into HTML UI elements, verify that all intended descriptive properties (like tooltips/titles) are actually injected. Furthermore, when adding tooltips for complex stats, bind them to an interactive `<button>` with an `aria-label` rather than just setting `title` on a non-interactive `div`, ensuring keyboard compatibility.
