@@ -485,7 +485,14 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.29.0 (current)
+### v2.30.0 (current)
+
+- **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
+  - Remove modal with project name, audit-trail reason field, Cancel / Remove buttons.
+  - Merge modal with source display, active-project dropdown, manual new path input, explanatory note about memory move and source removal, Cancel / Merge buttons.
+- **Accessibility**: Escape key closes the new modals; focus management retained.
+
+### v2.29.0
 
 - **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
   - Remove modal with project name, audit-trail reason field, Cancel / Remove buttons.
