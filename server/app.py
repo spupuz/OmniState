@@ -396,6 +396,32 @@ class App:
                 "memory": entries,
             }
 
+        @app.post("/api/projects/{name}/remove")
+        def api_project_remove(name: str) -> dict[str, Any]:
+            row = self.store.get_project(name)
+            if row is None:
+                return JSONResponse({"error": "not found"}, status_code=404)
+            self.store.mark_project_removed(name)
+            self.invalidate_metrics_cache()
+            return {"removed": name, "status": "removed"}
+
+        @app.post("/api/projects/merge")
+        def api_project_merge(body: dict[str, Any]) -> dict[str, Any]:
+            source = (body.get("source") or "").strip()
+            target = (body.get("target") or "").strip()
+            if not source or not target:
+                return JSONResponse({"error": "source and target required"}, status_code=400)
+            if source == target:
+                return JSONResponse({"error": "source and target must differ"}, status_code=400)
+            if self.store.get_project(source) is None or self.store.get_project(target) is None:
+                return JSONResponse({"error": "project not found"}, status_code=404)
+            try:
+                result = self.store.merge_projects(source, target)
+            except ValueError as e:
+                return JSONResponse({"error": str(e)}, status_code=400)
+            self.invalidate_metrics_cache()
+            return result
+
         @app.get("/api/memory")
         def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20,
                        startDate: str = "", endDate: str = "", include_outdated: bool = False,

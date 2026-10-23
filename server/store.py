@@ -425,6 +425,42 @@ class Store:
     def mark_project_removed(self, name: str) -> None:
         self.set_project_status(name, "removed")
 
+    def merge_projects(self, source_name: str, target_name: str) -> dict[str, Any]:
+        """Move all memory entries from source project to target project and mark source as removed.
+
+        Returns a summary with counts of moved memories and the IDs involved.
+        """
+        src = self.get_project(source_name)
+        tgt = self.get_project(target_name)
+        if src is None:
+            raise ValueError(f"Source project '{source_name}' not found")
+        if tgt is None:
+            raise ValueError(f"Target project '{target_name}' not found")
+        if src["id"] == tgt["id"]:
+            raise ValueError("Source and target projects must be different")
+        src_id = int(src["id"])
+        tgt_id = int(tgt["id"])
+        now = _now()
+        with self._lock:
+            # Count memories to move
+            cnt_row = self.one("SELECT COUNT(*) as c FROM memory WHERE project_id = ?", (src_id,))
+            count = int(cnt_row["c"] if cnt_row else 0)
+            # Move memories
+            self._conn.execute(
+                "UPDATE memory SET project_id = ?, updated_at = ? WHERE project_id = ?",
+                (tgt_id, now, src_id)
+            )
+            self._conn.commit()
+            # Mark source project removed
+            self.set_project_status(source_name, "removed")
+        return {
+            "source": source_name,
+            "target": target_name,
+            "moved_memories": count,
+            "source_id": src_id,
+            "target_id": tgt_id,
+        }
+
     def touch_last_indexed(self, name: str) -> None:
         """Bump last_indexed_at for a registered project without full re-discovery."""
         self.execute(

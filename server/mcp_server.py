@@ -198,6 +198,25 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
                 registered.append(project["name"])
         return json.dumps({"found": len(found), "registered": registered}, indent=2)
 
+    @server.tool()
+    @_logged
+    def project_remove(project: str) -> str:
+        """Mark a project as removed (soft delete). Memories are kept but project is excluded from active lists."""
+        _resolve_project(project)
+        store.mark_project_removed(project)
+        return json.dumps({"removed": project, "status": "removed"}, indent=2)
+
+    @server.tool()
+    @_logged
+    def project_merge(source: str, target: str) -> str:
+        """Merge source project into target project: move all memories to target and mark source as removed."""
+        _resolve_project(source)
+        _resolve_project(target)
+        if source == target:
+            raise ToolError("Source and target projects must be different")
+        result = store.merge_projects(source, target)
+        return json.dumps(result, indent=2)
+
     # ---------- sessions ----------
 
     @server.tool()

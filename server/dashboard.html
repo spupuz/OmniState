@@ -572,6 +572,14 @@ async function showProject(name) {
       <div id="pm-entries" role="list"></div>
       <div id="handoff-form" class="hidden mt-4" role="list"></div>`;
     renderPmEntries();
+    // Add project actions buttons to header
+    const header = el.querySelector('.flex.items-center.gap-3.mb-5.flex-wrap');
+    if (header && !header.querySelector('.proj-actions')) {
+      const actions = document.createElement('div');
+      actions.className = 'ml-auto flex gap-2 proj-actions';
+      actions.innerHTML = `<button type="button" class="btn ghost small" onclick="mergeProject(${JSON.stringify(name)})">Merge into…</button><button type="button" class="btn ghost small danger" onclick="removeProject(${JSON.stringify(name)})">Remove project</button>`;
+      header.appendChild(actions);
+    }
     const heading = document.getElementById('project-detail-heading');
     if (heading) heading.focus();
   } catch (e) { console.error(e); $('projects-table-wrap').classList.remove('hidden'); }
@@ -635,6 +643,33 @@ function backToProjects() {
   if (wrap) {
     wrap.classList.remove('hidden');
     wrap.focus();
+  }
+}
+
+async function removeProject(name) {
+  if (!confirm(`Remove project "${name}"? It will be marked as removed and hidden from active lists.`)) return;
+  try {
+    await api(`/api/projects/${encodeURIComponent(name)}/remove`, {method: 'POST'});
+    toast(`Project "${name}" removed`, 'ok');
+    loadProjects();
+    backToProjects();
+  } catch(e) {
+    toast('Remove failed: ' + e.message, 'err');
+  }
+}
+
+async function mergeProject(source) {
+  // Simple prompt for target project name
+  const target = prompt('Merge source project into target project name:');
+  if (!target || !target.trim() || target.trim() === source) return;
+  if (!confirm(`Merge "${source}" into "${target}"? All memories will be moved and "${source}" will be removed.`)) return;
+  try {
+    await api('/api/projects/merge', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({source, target: target.trim()})});
+    toast(`Merged "${source}" → "${target}"`, 'ok');
+    loadProjects();
+    backToProjects();
+  } catch(e) {
+    toast('Merge failed: ' + e.message, 'err');
   }
 }
 
