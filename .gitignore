@@ -14,6 +14,10 @@ node_modules/
 !.opencode/plugins/
 !.opencode/plugins/**
 
+# Generated CLI (printing-press output - do not commit)
+omnistate-pp-cli/
+openapi.json
+
 # v2 server data — NEVER commit user data/metrics (DESIGN.md §10b)
 .env
 *.db

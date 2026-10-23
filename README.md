@@ -1,4 +1,4 @@
-# OmniState v2.26.0
+# OmniState v2.27.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -379,6 +379,94 @@ cp -r skills/* ~/.config/opencode/skills/
 
 Skills are `.md` instruction files: the agent follows them and calls the MCP tools — no code runs on the host.
 
+## CLI alternative (omnistate-pp-cli)
+
+If you don't have an MCP client (or prefer a shell-native workflow), OmniState ships a **printed CLI** generated with [CLI Printing Press](https://printingpress.dev). It wraps the same REST API the dashboard uses, adds a local SQLite data layer (sync, offline FTS5 search, compound analytics), and is designed for AI agents first: `--json` auto-when-piped, `--compact` for 60–80% fewer tokens, typed exit codes, `--dry-run`, and an `--agent` flag that bundles all of the above in one.
+
+### Install
+
+**Prerequisites:** Go 1.26.3+ and Node/npm (for `npx`).
+
+```bash
+# 1. Install the Printing Press generator (one-time)
+go install github.com/mvanhorn/cli-printing-press/v4/cmd/cli-printing-press@latest
+
+# 2. Generate the CLI from the OpenAPI spec
+cli-printing-press generate \
+  --spec https://raw.githubusercontent.com/spupuz/OmniState/main/openapi.json \
+  --name omnistate \
+  --output ~/omnistate-pp-cli
+
+# 3. Build and install
+cd ~/omnistate-pp-cli
+go build -o omnistate-pp-cli ./cmd/omnistate-pp-cli
+sudo cp omnistate-pp-cli /usr/local/bin/
+```
+
+Or download a pre-built binary from the [releases page](https://github.com/spupuz/OmniState/releases) (when available).
+
+### Configure
+
+```bash
+mkdir -p ~/.config/omnistate-pp-cli
+cat > ~/.config/omnistate-pp-cli/config.toml << 'EOF'
+base_url = "http://localhost:8347"
+auth_header = "Bearer YOUR_OMNISTATE_AUTH_TOKEN"
+EOF
+chmod 600 ~/.config/omnistate-pp-cli/config.toml
+```
+
+Omit `auth_header` if `OMNISTATE_AUTH_TOKEN` is not set on the server.
+
+Verify: `omnistate-pp-cli doctor` — checks config, auth, and API connectivity.
+
+### Use
+
+```bash
+# Stats (JSON, compact — ready for an agent to consume)
+omnistate-pp-cli stats --agent
+
+# List all projects with metrics
+omnistate-pp-cli projects api-projects --agent
+
+# Sync data locally for offline search (SQLite + FTS5)
+omnistate-pp-cli sync
+
+# Search across all synced data — offline, no API call
+omnistate-pp-cli search "release v2.26" --data-source local
+
+# Recent memory entries
+omnistate-pp-cli memory recent --agent
+
+# GitHub PR health
+omnistate-pp-cli github metrics --agent
+```
+
+Add `--agent` to any command for JSON + compact + non-interactive output. Run `omnistate-pp-cli --help` for the full command list.
+
+### CLI vs MCP vs skills
+
+| Interface | Best for | Token cost | Offline |
+|---|---|---|---|
+| **MCP server** (`/mcp`) | IDE agents (opencode, Antigravity, Claude Code) — tools auto-discovered | medium | no |
+| **CLI** (`omnistate-pp-cli`) | Shell agents, scripts, CI — `--json --compact` pipes | **low** | **yes** (sync) |
+| **Skills** (`.md` files) | Familiar slash-commands — thin wrappers that call MCP tools | medium | no |
+
+All three talk to the same OmniState server. The CLI adds a local SQLite cache: `sync` pulls data down, `search` finds it in milliseconds without an API call, and compound commands (`stale`, `orphans`, `load`, `health`) join across resources in ways a stateless wrapper cannot. Use MCP inside your IDE, the CLI from the terminal or CI, and skills for the familiar `/start-session` / `/snapshot-session` UX.
+
+### Skills + CLI together
+
+The [optional opencode skills](#optional-opencode-skills) (and the per-project `.agents/skills/`) work with either the MCP server or the CLI — they are instruction files, not code. To use the CLI as the backend instead of MCP, point the skill's `tools.omnistate.*` calls at the CLI:
+
+```bash
+# Instead of calling MCP tools, the agent can run:
+omnistate-pp-cli projects api-projects --agent
+omnistate-pp-cli memory recent --agent
+omnistate-pp-cli hooks session-snapshot --project MyProject --summary "..." --agent
+```
+
+The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setup`, `/dashboard-omnistate`) stays the same — only the transport changes.
+
 ## Requirements
 
 - Docker (with docker compose). On Windows: Docker Desktop + WSL2 backend. On Mac: Docker Desktop / OrbStack / colima.
@@ -394,7 +482,12 @@ Skills are `.md` instruction files: the agent follows them and calls the MCP too
 
 ## Changelog
 
-### v2.26.0 (current)
+### v2.27.0 (current)
+
+- **Features**: Add `omnistate-pp-cli` — a shell-native CLI generated with [CLI Printing Press](https://printingpress.dev) that wraps the REST API with a local SQLite data layer (sync, offline FTS5 search, compound analytics). Designed for AI agents: `--json` auto-when-piped, `--compact` for 60–80% fewer tokens, typed exit codes, `--dry-run`, `--agent` flag. Install instructions, configuration, usage examples, and a CLI-vs-MCP-vs-skills comparison table added to the README.
+- **Docs**: `.gitignore` updated to exclude generated CLI output (`omnistate-pp-cli/`, `openapi.json`).
+
+### v2.26.0
 
 - **Bugfix**: Fix timezone mismatch in `search_memory` date parser — `dateparser` now resolves "today" and relative dates in UTC, consistent with `created_at` timestamps, so same-day queries no longer miss entries near the day boundary.
 - **Accessibility** (PR #161): Add `aria-label` attributes to all dashboard utility buttons (copy, reinforce, forget) for screen-reader context.
