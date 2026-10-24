@@ -1,4 +1,4 @@
-# OmniState v2.29.0
+# OmniState v2.31.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -242,6 +242,7 @@ Open **http://localhost:8347** in the browser:
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions with accessible interactive tooltip buttons for keyboard compatibility; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`, and every interactive utility button (copy, reinforce, forget) carries a descriptive `aria-label` for screen-reader context.
+- **Inline copy feedback**: dashboard copy buttons now show temporary '✓ Copied' visual feedback for 2 seconds after clicking, confirming the action without requiring gaze shift. This was added via the inline feedback pattern where the button text changes and then restores automatically.
 - **Enhanced focus management**: improved keyboard navigation with explicit focus handling when transitioning between views (project details, handoffs, palette modals) and proper focus restoration when returning to previous screens. Added `tabindex="-1"` and `focus:outline-none` to interactive headings with explicit `.focus()` calls to ensure smooth keyboard navigation and screen reader flow.
 - **Native form validation**: required inputs are validated by the browser through HTML5 constraints (`required`, `type="email"`, `minlength`), so empty submissions are blocked with a localized tooltip instead of a round-trip.
 - **Async submit loading states**: while a form request is in flight its submit button is disabled and shows a pending label (`Saving…`, `Registering…`, `Deleting…`); the original label and enabled state are always restored in a `finally` block, so a failed request never leaves the button stuck.
@@ -282,6 +283,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
+- **Performance**: `Store.all_project_metrics()` uses SQLite window functions (`ROW_NUMBER() OVER(PARTITION BY ...)`) to push sorting and top-N filtering directly to the database, eliminating Python dictionary allocations and improving token counting efficiency.
 - All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists, and `Store.context_token_measure()` when measuring stored tokens) stream natively via `cursor.execute()` + `fetchmany(1000)` over `sqlite3.Row`, avoiding generic `q_iter()` dictionary allocations (only rows that are actually kept are cast with `dict(r)`), so allocation overhead is minimal even on large indexes and the lock is released between chunks. `Store.q_iter()` itself uses `yield from map(dict, rows)` (C-level `map`) to cut Python interpreter overhead for any remaining callers. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
 - Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
 - Shared memory lives in `/data/shared/` as human-readable files (mirrored from the DB on every write/delete) and is visible in every project.
@@ -485,7 +487,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.30.0 (current)
+### v2.31.0
+
+- **Inline copy feedback**: dashboard copy buttons now show temporary '✓ Copied' visual feedback for 2 seconds after clicking
+- **Performance optimization**: `Store.all_project_metrics()` uses SQLite window functions (`ROW_NUMBER() OVER(PARTITION BY ...)`) to push sorting and top-N filtering directly to the database, eliminating Python dictionary allocations
+- **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
+
+### v2.30.0
 
 - **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
   - Remove modal with project name, audit-trail reason field, Cancel / Remove buttons.
