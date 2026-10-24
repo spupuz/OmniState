@@ -1199,48 +1199,91 @@ class Store:
             r["id"]: {
                 "activeTasks": 0, "doneTasks": 0, "totalTasks": 0, "snapshots": 0,
                 "storedTokens": 0, "loadedTokens": 0, "tokenSavings": 0,
-                "_tasks": [], "_recent": [], "_recall": [],
+                "open_tasks": [], "recent_memory": [], "recall": [],
             }
             for r in self.q("SELECT id FROM projects")
         }
 
-        # Optimized native sqlite3.Row iteration avoiding q_iter generic dict allocations
-        sql = (
-            "SELECT project_id, id, kind, content, title, tags, created_at, updated_at, lifecycle_state, "
-            "CASE WHEN kind='task' AND json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status, "
-            "CASE WHEN kind='task' AND json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title "
-            "FROM memory"
-        )
+        # 1. Stream ONLY content for token counting and basic aggregation to avoid dict allocations
         with self._lock:
-            cur = self._conn.execute(sql)
+            cur = self._conn.execute("SELECT project_id, kind, content FROM memory")
         try:
             while True:
                 with self._lock:
                     rows = cur.fetchmany(1000)
                 if not rows:
                     break
-                # compute tokens in batch for performance
                 tokens = _count_tokens_batch([r["content"] or "" for r in rows])
                 for r, t in zip(rows, tokens):
                     if (pid := r["project_id"]) not in res:
                         continue
                     m = res[pid]
                     m["totalTasks"] += 1
-                    kind = r["kind"]
                     m["storedTokens"] += t
-
-                    if kind == "task":
-                        m["_tasks"].append(dict(r))
-                    elif kind == "chunk":
+                    if r["kind"] == "chunk":
                         m["snapshots"] += 1
-                    if r["lifecycle_state"] == "active":
-                        if kind in ("chunk", "summary"):
-                            m["_recent"].append(dict(r))
-                        elif kind not in ("chunk", "summary", "task"):
-                            m["_recall"].append(dict(r))
         finally:
             with self._lock:
                 cur.close()
+
+        # 2. Fetch tasks for all projects directly pushing logic to SQL
+        sql_tasks = """
+            SELECT project_id, id, created_at, title,
+                   CASE WHEN json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status,
+                   CASE WHEN json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title
+            FROM memory
+            WHERE kind = 'task'
+        """
+        for r in self.q(sql_tasks):
+            if (pid := r["project_id"]) not in res:
+                continue
+            m = res[pid]
+            status = r["task_status"]
+            if status == "done":
+                m["doneTasks"] += 1
+            else:
+                m["activeTasks"] += 1
+                title = r["task_title"] if r["task_title"] is not None else r["title"]
+                m["open_tasks"].append({
+                    "id": r["id"],
+                    "title": title,
+                    "status": status,
+                    "created_at": r["created_at"]
+                })
+
+        # 3. Fetch top 3 recent items per project via ROW_NUMBER to avoid massive python sorts
+        sql_recent = """
+            SELECT project_id, title, content, created_at FROM (
+                SELECT project_id, title, content, created_at,
+                       ROW_NUMBER() OVER(PARTITION BY project_id ORDER BY created_at DESC) as rn
+                FROM memory
+                WHERE lifecycle_state = 'active' AND kind IN ('chunk', 'summary')
+            ) WHERE rn <= 3 ORDER BY project_id, rn
+        """
+        for r in self.q(sql_recent):
+            if (pid := r["project_id"]) in res:
+                res[pid]["recent_memory"].append({
+                    "title": r["title"],
+                    "content": _clip(r["content"], 600),
+                    "created_at": r["created_at"]
+                })
+
+        # 4. Fetch top 8 recall items per project via ROW_NUMBER
+        sql_recall = """
+            SELECT project_id, title, content, created_at FROM (
+                SELECT project_id, title, content, created_at,
+                       ROW_NUMBER() OVER(PARTITION BY project_id ORDER BY updated_at DESC) as rn
+                FROM memory
+                WHERE lifecycle_state = 'active' AND kind NOT IN ('chunk', 'summary', 'task')
+            ) WHERE rn <= 8 ORDER BY project_id, rn
+        """
+        for r in self.q(sql_recall):
+            if (pid := r["project_id"]) in res:
+                res[pid]["recall"].append({
+                    "title": r["title"],
+                    "content": _clip(r["content"], 400),
+                    "created_at": r["created_at"]
+                })
 
         shared_dump = [
             {"title": m["title"], "content": _clip(m["content"], 200), "tags": m["tags"]}
@@ -1251,44 +1294,21 @@ class Store:
         ]
 
         for pid, m in res.items():
-            open_tasks = []
-            for t in m["_tasks"]:
-                status = t.get("task_status", "todo")
-                if status == "done":
-                    m["doneTasks"] += 1
-                    continue
-                m["activeTasks"] += 1
-                title = t.get("task_title") if t.get("task_title") is not None else t.get("title")
-                open_tasks.append({
-                    "id": t["id"],
-                    "title": title,
-                    "status": status,
-                    "created_at": t["created_at"],
-                })
-
-            open_tasks.sort(key=lambda x: x["created_at"], reverse=True)
-            for t in open_tasks:
+            m["open_tasks"].sort(key=lambda x: x["created_at"], reverse=True)
+            for t in m["open_tasks"]:
                 t.pop("created_at", None)
 
-            recent = sorted(m["_recent"], key=lambda x: x["created_at"], reverse=True)[:3]
-            recall = sorted(m["_recall"], key=lambda x: x["updated_at"], reverse=True)[:8]
             ctx = {
-                "open_tasks": open_tasks,
-                "recent_memory": [
-                    {"title": r["title"], "content": _clip(r["content"], 600), "created_at": r["created_at"]}
-                    for r in recent
-                ],
+                "open_tasks": m["open_tasks"],
+                "recent_memory": m["recent_memory"],
                 "shared_memory": shared_dump,
-                "recall": [
-                    {"title": r["title"], "content": _clip(r["content"], 400), "created_at": r["created_at"]}
-                    for r in recall
-                ],
+                "recall": m["recall"],
             }
             m["loadedTokens"] = count_tokens(json.dumps(ctx, indent=2))
             m["tokenSavings"] = max(0, m["storedTokens"] - m["loadedTokens"])
-            m.pop("_tasks", None)
-            m.pop("_recent", None)
-            m.pop("_recall", None)
+            m.pop("open_tasks", None)
+            m.pop("recent_memory", None)
+            m.pop("recall", None)
 
         return res
 
