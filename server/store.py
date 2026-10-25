@@ -1116,7 +1116,8 @@ class Store:
             with self._lock:
                 cur.close()
         # Same serialization session_start emits, so the loaded side is exact.
-        loaded = count_tokens(json.dumps(ctx if ctx is not None else self.session_context(project_id), indent=2))
+        ctx_json = json.dumps(ctx if ctx is not None else self.session_context(project_id), indent=2)
+        loaded = _count_tokens_batch([ctx_json])[0]
         return {
             "storedTokens": stored,
             "loadedTokens": loaded,
@@ -1293,6 +1294,8 @@ class Store:
             )
         ]
 
+        contexts_to_encode = []
+        pids = []
         for pid, m in res.items():
             m["open_tasks"].sort(key=lambda x: x["created_at"], reverse=True)
             for t in m["open_tasks"]:
@@ -1304,11 +1307,18 @@ class Store:
                 "shared_memory": shared_dump,
                 "recall": m["recall"],
             }
-            m["loadedTokens"] = count_tokens(json.dumps(ctx, indent=2))
-            m["tokenSavings"] = max(0, m["storedTokens"] - m["loadedTokens"])
-            m.pop("open_tasks", None)
-            m.pop("recent_memory", None)
-            m.pop("recall", None)
+            contexts_to_encode.append(json.dumps(ctx, indent=2))
+            pids.append(pid)
+
+        if contexts_to_encode:
+            loaded_tokens = _count_tokens_batch(contexts_to_encode)
+            for pid, lt in zip(pids, loaded_tokens):
+                m = res[pid]
+                m["loadedTokens"] = lt
+                m["tokenSavings"] = max(0, m["storedTokens"] - m["loadedTokens"])
+                m.pop("open_tasks", None)
+                m.pop("recent_memory", None)
+                m.pop("recall", None)
 
         return res
 
