@@ -1,4 +1,4 @@
-# OmniState v2.32.0
+# OmniState v2.32.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -487,7 +487,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.32.0 (current)
+### v2.32.1 (current)
+
+- **Security**: Fix authentication bypass in MCP endpoints — the `_auth_required` and `_rate_limit` middlewares in `server/app.py` incorrectly skipped token validation and rate limiting for `/mcp` requests that carried an `Mcp-Session-Id` header, allowing unauthenticated access. Both middlewares now uniformly enforce the `OMNISTATE_AUTH_TOKEN` check and rate limits on all `/mcp` and `/api/*` requests.
+
+### v2.32.0
 
 - **Performance**: batch token counting optimization using `tiktoken.get_encoding().encode_ordinary_batch()` to delegate loop to Rust-level multi-threaded code
 - **UX**: explicit `type="button"` on all interactive dashboard buttons to prevent accidental form submission; inline loading state feedback on async operations
