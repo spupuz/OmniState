@@ -244,7 +244,7 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats" role="list"></div>
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-2">DB Backups</h2>
-        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button type="button" class="btn ghost small ml-2" onclick="loadBackups()">↻ Refresh</button></p>
+        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button type="button" class="btn ghost small ml-2" onclick="loadBackups(this)">↻ Refresh</button></p>
         <div id="backups-list" class="flex gap-3 flex-wrap" role="list"></div>
       </div>
       <div class="glass p-6">
@@ -276,7 +276,7 @@
       <form class="flex gap-3 flex-wrap items-center mb-6" onsubmit="event.preventDefault(); runGhScan()">
         <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (comma-separated)" class="flex-1 min-w-[240px]">
         <button type="submit" class="btn">Scan now</button>
-        <button type="button" class="btn ghost" onclick="loadGithub()">Refresh</button>
+        <button type="button" class="btn ghost" onclick="loadGithub(this)">Refresh</button>
         <span class="text-xs text-slate-400" id="gh-token-info"></span>
       </form>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
@@ -301,7 +301,7 @@
 <!-- Shared -->
     <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
       <div class="glass p-6 mb-6">
- <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button type="button" class="btn ghost ml-auto text-xs" onclick="loadShared()">↻ Refresh</button></div>
+ <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button type="button" class="btn ghost ml-auto text-xs" onclick="loadShared(this)">↻ Refresh</button></div>
         <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
           <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]" required>
           <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
@@ -468,7 +468,9 @@ function fmtDate(ts, dateOnly) {
   return dateOnly ? d.toLocaleDateString('it-IT') : d.toLocaleString('it-IT');
 }
 
-async function loadBackups() {
+async function loadBackups(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
   try {
     const list = await api('/api/backups');
     const el = $('backups-list');
@@ -478,7 +480,9 @@ async function loadBackups() {
         <p class="font-bold text-sm">${esc(b.date)}</p>
         <p class="text-xs text-slate-400">${b.memories} entries · ${b.size_mb} MB</p>
       </div>`).join('') : '<p class="text-xs text-slate-400">No backups yet</p>';
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error(e); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 async function refreshVersionBadge() {
@@ -895,7 +899,9 @@ async function discoverProjects(btn = null) {
 }
 
 // ---------- Shared ----------
-async function loadShared() {
+async function loadShared(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
   try {
     const list = await api('/api/shared');
     const sc=$('shared-count'); if(sc) sc.textContent = list.length + ' notes';
@@ -905,13 +911,15 @@ async function loadShared() {
           <p class="font-semibold">${esc(m.title)}</p>
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-xs text-slate-500">${fmtDate(m.created_at)}</span>
-            <button class="btn ghost small" onclick="deleteShared(${m.id})" title="Delete entry" aria-label="Delete entry">✕</button>
+            <button type="button" class="btn ghost small" onclick="deleteShared(${m.id})" title="Delete entry" aria-label="Delete entry">✕</button>
           </div>
         </div>
         <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content)}</p>
         ${m.tags ? `<div class="mt-2">${JSON.parse(m.tags).map(t => `<span class="chip">#${esc(t)}</span>`).join('')}</div>` : ''}
       </div>`).join('') : '<p class="text-slate-400 text-sm">No shared notes.</p>';
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error(e); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
 }
 
 async function addShared() {
@@ -1005,7 +1013,9 @@ async function doSearch() {
 }
 
 // ---------- GitHub ----------
-async function loadGithub() {
+async function loadGithub(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
   try {
     const [cfg, metrics, delta, history] = await Promise.all([
       api('/api/github/config'), api('/api/github/metrics'), api('/api/github/delta'), api('/api/github/history')
@@ -1029,6 +1039,8 @@ async function loadGithub() {
   } catch (e) {
     console.error(e);
     $('github-stats').innerHTML = `<p class="text-red-400 text-sm">Could not load GitHub data: ${esc(e.message)}</p>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
   }
 }
 
@@ -1196,7 +1208,7 @@ function toast(msg, kind='info', undoFn=null){
   const s=document.createElement('span'); s.textContent=msg; d.appendChild(s);
   if(undoFn){
     d.className+=' toast-undo';
-    const btn=document.createElement('button'); btn.textContent='Undo'; btn.onclick=()=>{ undoFn(); d.remove(); };
+    const btn=document.createElement('button'); btn.type='button'; btn.textContent='Undo'; btn.onclick=()=>{ undoFn(); d.remove(); };
     d.appendChild(btn);
   }
   w.appendChild(d);
@@ -1423,7 +1435,7 @@ const savedSearches=new SavedSearchesManager();
 function toggleSavedSearchesMenu(e){e.preventDefault();const m=$('saved-searches-menu');m.classList.toggle('open');if(m.classList.contains('open')) renderSavedSearches()}
 function renderSavedSearches(){
   const m=$('saved-searches-menu');const list=savedSearches.getAll();
-  m.innerHTML=list.length?list.map(s=>`<div class="saved-search-item"><button type="button" style="flex:1;min-width:0;text-align:left;cursor:pointer" class="focus-visible:ring-2 focus-visible:outline-none" onclick="loadSavedSearch(${s.id})"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600">${esc(s.query.slice(0,42))}${s.query.length>42?'…':''}</div><div style="font-size:.68rem;color:var(--muted)">${esc(s.scope)}</div></button><button type="button" class="saved-search-item-delete focus-visible:ring-2 focus-visible:outline-none" onclick="deleteSavedSearch(event,${s.id})" aria-label="Remove search ${esc(s.query)}">✕</button></div>`).join('')+'<div style="padding:.55rem;text-align:center"><button class="btn ghost small" onclick="clearAllSavedSearches()">Clear all</button></div>':'<div style="padding:1rem;text-align:center;color:var(--muted)">No saved searches yet</div>';
+  m.innerHTML=list.length?list.map(s=>`<div class="saved-search-item"><button type="button" style="flex:1;min-width:0;text-align:left;cursor:pointer" class="focus-visible:ring-2 focus-visible:outline-none" onclick="loadSavedSearch(${s.id})"><div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600">${esc(s.query.slice(0,42))}${s.query.length>42?'…':''}</div><div style="font-size:.68rem;color:var(--muted)">${esc(s.scope)}</div></button><button type="button" class="saved-search-item-delete focus-visible:ring-2 focus-visible:outline-none" onclick="deleteSavedSearch(event,${s.id})" aria-label="Remove search ${esc(s.query)}">✕</button></div>`).join('')+'<div style="padding:.55rem;text-align:center"><button type="button" class="btn ghost small" onclick="clearAllSavedSearches()">Clear all</button></div>':'<div style="padding:1rem;text-align:center;color:var(--muted)">No saved searches yet</div>';
 }
 function loadSavedSearch(id){const s=savedSearches.searches.find(x=>x.id===id);if(!s) return;$('search-q').value=s.query;$('search-scope').value=s.scope;$('saved-searches-menu').classList.remove('open');doSearch()}
 function deleteSavedSearch(e,id){e.stopPropagation();savedSearches.delete(id);renderSavedSearches()}

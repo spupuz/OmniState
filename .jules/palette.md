@@ -5,3 +5,6 @@
 ## 2026-10-24 - Inline Feedback for Copy Actions
 **Learning:** Relying solely on toasts for micro-interactions like 'Copy to clipboard' creates a disconnect because the feedback is rendered far away from the user's focus point.
 **Action:** Always provide inline, temporary visual feedback (like changing the button text to '✓ Copied' or adding a checkmark icon) directly on the clicked element to immediately reassure the user without requiring them to shift their gaze.
+## 2025-02-28 - Explicit Button Types for Interactive Elements
+**Learning:** By default, HTML `<button>` elements inside forms act as submit buttons (`type="submit"`). This behavior extends to dynamically created buttons (like undo buttons in toast notifications) if they are ever appended inside a form context. This can lead to unexpected page reloads or form submissions.
+**Action:** Always explicitly add `type="button"` to any interactive button (both static HTML and dynamic `document.createElement('button')`) that is not intended to submit a form.
