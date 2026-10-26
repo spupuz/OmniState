@@ -241,8 +241,6 @@ class App:
             protected = path.startswith("/api/") or path.startswith("/mcp")
             if not protected:
                 return await call_next(request)
-            if path == "/mcp" and "mcp-session-id" in request.headers:
-                return await call_next(request)
             if request.headers.get("authorization", "") != f"Bearer {token}":
                 return JSONResponse(
                     {"error": "unauthorized"},
@@ -275,8 +273,6 @@ class App:
             """Simple IP-based rate limiter for /api/* and /mcp."""
             path = request.url.path
             if not (path.startswith("/api/") or path == "/mcp"):
-                return await call_next(request)
-            if path == "/mcp" and "mcp-session-id" in request.headers:
                 return await call_next(request)
             client = request.client.host or "unknown"
             now = time.time()

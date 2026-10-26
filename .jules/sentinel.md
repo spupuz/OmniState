@@ -1,0 +1,4 @@
+## 2026-10-26 - [CRITICAL] Fix authentication bypass in MCP endpoints
+**Vulnerability:** The `_auth_required` and `_rate_limit` middlewares in `server/app.py` allowed bypassing the `OMNISTATE_AUTH_TOKEN` validation and rate limits simply by injecting a fake `Mcp-Session-Id` header on requests to `/mcp`.
+**Learning:** Security bypass logic based merely on the *presence* of a client-controlled header is fundamentally insecure, as attackers can trivially forge headers without establishing a valid session.
+**Prevention:** Never exempt sensitive endpoints from authentication checks based on untrusted headers. The underlying protocol (like MCP's SSE session manager) should be responsible for validating the actual session token or ID internally, while the gateway middleware must uniformly enforce baseline authentication requirements for all connection attempts.
