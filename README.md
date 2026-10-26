@@ -1,4 +1,4 @@
-# OmniState v2.31.0
+# OmniState v2.32.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -486,6 +486,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 - **Releases**: `.github/workflows/release.yml` auto-creates the annotated tag `vX.Y.Z` and the GitHub Release when a push to `main` changes `VERSION.txt`/`plugin.json`. It can also be re-dispatched manually (`gh workflow run release.yml`) to regenerate them for the current `VERSION.txt`; a re-run is a no-op when the tag already exists.
 
 ## Changelog
+
+### v2.32.0 (current)
+
+- **Performance**: batch token counting optimization using `tiktoken.get_encoding().encode_ordinary_batch()` to delegate loop to Rust-level multi-threaded code
+- **UX**: explicit `type="button"` on all interactive dashboard buttons to prevent accidental form submission; inline loading state feedback on async operations
 
 ### v2.31.0
 
