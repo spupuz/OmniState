@@ -662,7 +662,7 @@ function renderPmEntries() {
       try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
       const div = document.createElement('div'); div.className='glass p-4 mb-3'; div.setAttribute('role','listitem'); div.style.position='absolute'; div.style.left='0'; div.style.right='0'; div.style.top=(idx*64)+'px';
       div.innerHTML = `
-        <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, window._pmEntriesFiltered[${idx}].content||window._pmEntriesFiltered[${idx}].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+        <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, window._pmEntriesFiltered[${idx}].content||window._pmEntriesFiltered[${idx}].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'used', this)" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'important', this)" aria-label="Mark as important" title="Mark as important">⭐</button></div>
         <div class="flex justify-between gap-4 items-center flex-wrap">
           <div class="flex items-center gap-2">
             <span class="chip">${esc(e.kind)}</span>
@@ -684,7 +684,7 @@ function renderPmEntries() {
     try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
     return `
     <div class="glass p-4 mb-3" role="listitem">
-      <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used')" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important')" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+      <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used', this)" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important', this)" aria-label="Mark as important" title="Mark as important">⭐</button></div>
       <div class="flex justify-between gap-4 items-center flex-wrap">
         <div class="flex items-center gap-2">
           <span class="chip">${esc(e.kind)}</span>
@@ -1004,8 +1004,8 @@ async function doSearch() {
         </div>
         <div class="flex gap-2 mt-2 flex-wrap">
           <button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
-          <button type="button" class="copy-btn" aria-label="Mark as useful" title="Mark as useful" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used')">👍 useful</button>
-          <button type="button" class="copy-btn" aria-label="Mark as important" title="Mark as important" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important')">⭐ important</button>
+          <button type="button" class="copy-btn" aria-label="Mark as useful" title="Mark as useful" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used', this)">👍 useful</button>
+          <button type="button" class="copy-btn" aria-label="Mark as important" title="Mark as important" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important', this)">⭐ important</button>
           <button type="button" class="copy-btn" aria-label="Forget memory" title="Forget memory" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
         </div>
       </div>`).join('') : '<p class="text-slate-400 text-sm">No results. Try a broader query or change scope/project filter.</p>';
@@ -1334,7 +1334,14 @@ async function submitForget() {
   }
 }
 
-async function reinforceMemory(id, signal) {
+async function reinforceMemory(id, signal, btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) {
+    const w = btn.offsetWidth;
+    btn.style.minWidth = w ? (w + 'px') : '';
+    btn.disabled = true;
+    btn.textContent = '✓ Saved';
+  }
   try {
     await api('/api/memory/' + id + '/reinforce', {
       method: 'POST',
@@ -1344,6 +1351,14 @@ async function reinforceMemory(id, signal) {
     toast('Feedback recorded: ' + signal, 'ok');
   } catch (e) {
     toast('Failed to save feedback: ' + String(e), 'err');
+  } finally {
+    if (btn) {
+      setTimeout(() => {
+        btn.textContent = originalText;
+        btn.style.minWidth = '';
+        btn.disabled = false;
+      }, 2000);
+    }
   }
 }
 
