@@ -151,24 +151,36 @@ class App:
             self.invalidate_metrics_cache()
         return out
 
-    def _project_metrics_list(self) -> list[dict[str, Any]]:
-        """Dashboard list. The expensive token-counting metrics are TTL-cached
-        (see __init__); category/gh_state are recomputed per poll so a scan that
-        changed a repo's archived/deleted state is visible immediately."""
+    def _get_cached_metrics(self) -> dict[int, dict[str, Any]]:
+        """Return the TTL-cached dictionary of metrics keyed by project_id."""
         now = time.time()
         with self._metrics_lock:
             if (
                 self._metrics_cache is not None
                 and now - self._metrics_cache_ts < self.METRICS_TTL_SECONDS
             ):
-                cached_metrics = dict(self._metrics_cache)
-            else:
-                cached_metrics = None
-        if cached_metrics is None:
-            cached_metrics = self.store.all_project_metrics()
-            with self._metrics_lock:
-                self._metrics_cache = dict(cached_metrics)
-                self._metrics_cache_ts = now
+                return dict(self._metrics_cache)
+
+        # Cache miss or expired
+        cached_metrics = self.store.all_project_metrics()
+        with self._metrics_lock:
+            self._metrics_cache = dict(cached_metrics)
+            self._metrics_cache_ts = now
+        return cached_metrics
+
+    def get_project_metrics(self, project_id: int) -> dict[str, Any]:
+        """O(1) lookup of a single project's metrics from cache."""
+        metrics = self._get_cached_metrics().get(project_id)
+        if metrics is None:
+            metrics = self.store.project_metrics(project_id)
+        return {k: v for k, v in metrics.items()
+                if k in ["activeTasks", "doneTasks", "totalTasks", "snapshots", "storedTokens", "loadedTokens", "tokenSavings"]}
+
+    def _project_metrics_list(self) -> list[dict[str, Any]]:
+        """Dashboard list. The expensive token-counting metrics are TTL-cached
+        (see __init__); category/gh_state are recomputed per poll so a scan that
+        changed a repo's archived/deleted state is visible immediately."""
+        cached_metrics = self._get_cached_metrics()
         archived_names = self._archived_repo_names()
         out = []
         for p in self.store.list_projects():
@@ -378,17 +390,10 @@ class App:
                 return JSONResponse({"error": "not found"}, status_code=404)
             entries = self.store.memory_for_project(int(row["id"]), limit=50)
 
-            cached_metrics_by_name = {p["name"]: p for p in self._project_metrics_list()}
-            if row["name"] in cached_metrics_by_name:
-                metrics = {k: v for k, v in cached_metrics_by_name[row["name"]].items()
-                           if k in ["activeTasks", "doneTasks", "totalTasks", "snapshots", "storedTokens", "loadedTokens", "tokenSavings"]}
-            else:
-                metrics = self.store.project_metrics(int(row["id"]))
-
             return {
                 "project": row,
                 "category": self._project_category(row, self._archived_repo_names()),
-                "metrics": metrics,
+                "metrics": self.get_project_metrics(int(row["id"])),
                 "memory": entries,
             }
 
