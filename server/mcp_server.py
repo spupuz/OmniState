@@ -79,38 +79,15 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             raise ToolError(f"Project '{project}' not found. Register it with project_register first.")
         return row
 
-    def _get_metrics_dict() -> dict[str, dict[str, Any]]:
-        cached_metrics_by_name = {}
-        if app is not None and hasattr(app, "_project_metrics_list"):
-            try:
-                for p_metrics in app._project_metrics_list():
-                    cached_metrics_by_name[p_metrics["name"]] = {
-                        "activeTasks": p_metrics.get("activeTasks", 0),
-                        "doneTasks": p_metrics.get("doneTasks", 0),
-                        "totalTasks": p_metrics.get("totalTasks", 0),
-                        "snapshots": p_metrics.get("snapshots", 0),
-                        "storedTokens": p_metrics.get("storedTokens", 0),
-                        "loadedTokens": p_metrics.get("loadedTokens", 0),
-                        "tokenSavings": p_metrics.get("tokenSavings", 0),
-                    }
-            except Exception:
-                pass
-        return cached_metrics_by_name
-
     # ---------- projects ----------
 
     @server.tool()
     @_logged
     def project_list() -> str:
         """List registered projects with metrics."""
-        cached_metrics_by_name = _get_metrics_dict()
         out = []
         for p in store.list_projects():
-            if p["name"] in cached_metrics_by_name:
-                metrics = cached_metrics_by_name[p["name"]]
-            else:
-                metrics = store.project_metrics(int(p["id"]))
-
+            metrics = app.get_project_metrics(int(p["id"])) if app else store.project_metrics(int(p["id"]))
             out.append({
                 "name": p["name"],
                 "host_path": p["host_path"],
@@ -156,12 +133,7 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         )
         summary = entries[0]["content"] if entries else "No summary yet. Run session_snapshot to create one."
 
-        cached_metrics_by_name = _get_metrics_dict()
-        if row["name"] in cached_metrics_by_name:
-            metrics = cached_metrics_by_name[row["name"]]
-        else:
-            metrics = store.project_metrics(int(row["id"]))
-
+        metrics = app.get_project_metrics(int(row["id"])) if app else store.project_metrics(int(row["id"]))
         return json.dumps({"project": project, "summary": summary, "metrics": metrics}, indent=2)
 
     @server.tool()
@@ -170,12 +142,7 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         """Active/archived/done tasks, snapshots and token savings of a project."""
         row = _resolve_project(project)
 
-        cached_metrics_by_name = _get_metrics_dict()
-        if row["name"] in cached_metrics_by_name:
-            metrics = cached_metrics_by_name[row["name"]]
-        else:
-            metrics = store.project_metrics(int(row["id"]))
-
+        metrics = app.get_project_metrics(int(row["id"])) if app else store.project_metrics(int(row["id"]))
         return json.dumps(metrics, indent=2)
 
     @server.tool()
