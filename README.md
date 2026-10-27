@@ -1,4 +1,4 @@
-# OmniState v2.34.0
+# OmniState v2.35.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -236,7 +236,7 @@ Open **http://localhost:8347** in the browser:
 - **Aggregate view**: card per project (tasks, snapshots, token savings) + shared memory; clicking a card drills into the project.
 - **Per-project drill-down**: session timeline, architecture, tasks, costs — reachable from both the Overview cards and the Projects table.
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
-- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately), "Only with open PRs" filter (persisted via shared memory).
+- **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately; accounts and scan settings are persisted via `POST /api/github/config`), "Only with open PRs" filter (persisted via shared memory), "Save config" button and Advanced Settings panel (extended, include_forks, include_archived, scan_interval_hours, stale_days).
 - **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions, and a **⭐ Saved** dropdown (persisted in `localStorage`, max 15, Esc/outside to close) that auto-saves every query and lets you reload or remove past searches.
 - **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) with refined light-theme overrides for glass, table and chip surfaces.
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
@@ -264,6 +264,7 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 - **Automatic scan** every 6h (configurable) + manual scans; a manual "Scan now" waits for the reload and the API is served `Cache-Control: no-store`, so the dashboard never shows a stale count.
 - **Delta** and **historical trend** computed from scans stored in the DB.
 - **Token validation**: `github_config` validates the PAT against the GitHub API before saving (opt-out with `validate=false`).
+- **Config persistence**: `POST /api/github/config` saves accounts and scan settings (extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; the dashboard now has a "Save config" button and an Advanced Settings panel for these options.
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
 The GitHub metrics collection is optimized for performance — filtering logic is pushed down to the database level via SQL `WHERE` clauses to avoid materializing unused Python dictionaries during frequent dashboard polls. This significantly reduces memory allocation and improves dashboard responsiveness, especially when processing large repositories.
@@ -489,7 +490,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.34.0 (current)
+### v2.35.0 (current)
+
+- **Features**: Added `POST /api/github/config` endpoint for persisting GitHub scan configuration (accounts, extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; dashboard now has a "Save config" button and an Advanced Settings panel for these options; improved error message when no accounts are configured
+- **Bugfix**: GitHub accounts entered in the dashboard UI are now persisted to config (previously they disappeared on page reload); scan endpoint returns a descriptive error message instead of generic "no accounts configured"
+- **Docs**: Updated `.env` with missing GitHub PR Health parameters (`GITHUB_ACCOUNTS`, `GITHUB_TOKEN`, `GITHUB_SCAN_INTERVAL_HOURS`)
+
+### v2.34.0
 
 - **Features**: Supermemory integration (bridge tools + REST API + dashboard tab) — 5 new MCP tools (`supermemory_search`, `supermemory_profile`, `supermemory_add`, `supermemory_sync`, `supermemory_status`) mirroring REST endpoints under `/api/supermemory/*`; new Supermemory dashboard tab with status indicator, memory search, add/save, sync, and recent memories list; `SupermemoryConfig` dataclass with env var support (`SUPERMEMORY_API_KEY`, `SUPERMEMORY_BASE_URL`, `SUPERMEMORY_API_VERSION`, `SUPERMEMORY_DEFAULT_SPACE`, `SUPERMEMORY_ENABLED`)
 - **UX**: Added Supermemory tab (brain icon) to dashboard navigation and command palette; CSP font-src updated to allow `https://frontend-cdn.perplexity.ai` for font loading

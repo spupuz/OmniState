@@ -207,6 +207,7 @@ class App:
             "include_forks": self.cfg.github.include_forks,
             "include_archived": self.cfg.github.include_archived,
             "scan_interval_hours": self.cfg.github.scan_interval_hours,
+            "stale_days": self.cfg.github.stale_days,
             "token": info,
         }
 
@@ -677,6 +678,38 @@ class App:
         def api_github_config() -> dict[str, Any]:
             return self._github_config_view()
 
+        @app.post("/api/github/config")
+        def api_github_config_save(body: dict[str, Any]) -> dict[str, Any]:
+            """Save GitHub configuration (accounts, token, scan settings)."""
+            # Validate and extract accounts
+            accounts = body.get("accounts")
+            if accounts is not None:
+                if not isinstance(accounts, list):
+                    return JSONResponse({"error": "accounts must be a list"}, status_code=400)
+                accounts = [a.strip() for a in accounts if isinstance(a, str) and a.strip()]
+                self.cfg.github.accounts = accounts
+
+            # Optional fields
+            for field_name in ("token", "extended", "include_forks", "include_archived",
+                               "scan_interval_hours", "stale_days"):
+                if field_name in body:
+                    value = body[field_name]
+                    if field_name == "token":
+                        self.cfg.github.token = str(value or "")
+                    elif field_name in ("extended", "include_forks", "include_archived"):
+                        self.cfg.github.__dict__[field_name] = bool(value)
+                    elif field_name in ("scan_interval_hours", "stale_days"):
+                        try:
+                            self.cfg.github.__dict__[field_name] = int(value)
+                        except (ValueError, TypeError):
+                            return JSONResponse({f"error": f"{field_name} must be an integer"}, status_code=400)
+
+            # Persist to config.json
+            from .config import save_config
+            save_config(self.cfg)
+
+            return {"saved": True, "config": self._github_config_view()}
+
         # ---------- Supermemory bridge ----------
 
         def _sm_enabled() -> tuple[bool, str | None]:
@@ -982,7 +1015,7 @@ class App:
         account_list = accounts if accounts else list(self.cfg.github.accounts)
         account_list = [a.strip() for a in account_list if a and a.strip()]
         if not account_list:
-            raise ValueError("no accounts configured")
+            raise ValueError("no GitHub accounts configured — add accounts in the dashboard or config.json")
         with self._scan_lock:
             client = GithubClient(self.cfg.github.token, stale_days=self.cfg.github.stale_days)
             result = client.scan(

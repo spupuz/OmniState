@@ -277,9 +277,29 @@
       <form class="flex gap-3 flex-wrap items-center mb-6" onsubmit="event.preventDefault(); runGhScan()">
         <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (comma-separated)" class="flex-1 min-w-[240px]">
         <button type="submit" class="btn">Scan now</button>
+        <button type="button" class="btn ghost" onclick="saveGithubConfig()">Save config</button>
         <button type="button" class="btn ghost" onclick="loadGithub(this)">Refresh</button>
         <span class="text-xs text-slate-400" id="gh-token-info"></span>
       </form>
+      <div class="glass p-4 mb-6" id="gh-advanced" style="display:none;">
+        <h3 class="font-bold mb-3">Advanced settings</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-extended" class="w-4 h-4"> Extended (GraphQL)</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-include-forks" class="w-4 h-4"> Include forks</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-include-archived" class="w-4 h-4"> Include archived</label>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Scan interval (hours)</label>
+            <input type="number" id="gh-scan-interval" min="1" max="168" class="w-full">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Stale days</label>
+            <input type="number" id="gh-stale-days" min="1" max="365" class="w-full">
+          </div>
+        </div>
+      </div>
+      <button type="button" class="btn ghost text-xs mb-6" onclick="toggleGhAdvanced()">⚙️ Advanced settings</button>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
       <div class="glass p-6 mb-6" id="gh-delta"><h2 class="text-xl font-bold mb-2">Delta vs previous scan</h2><p class="text-slate-400 text-sm" id="gh-delta-text">—</p></div>
       <div class="grid md:grid-cols-2 gap-6 mb-6">
@@ -1047,6 +1067,12 @@ async function loadGithub(btn = null) {
       api('/api/github/config'), api('/api/github/metrics'), api('/api/github/delta'), api('/api/github/history')
     ]);
     $('gh-accounts').value = (cfg.accounts||[]).join(', ');
+    // Load advanced settings
+    $('gh-extended').checked = !!cfg.extended;
+    $('gh-include-forks').checked = !!cfg.include_forks;
+    $('gh-include-archived').checked = !!cfg.include_archived;
+    $('gh-scan-interval').value = cfg.scan_interval_hours || 6;
+    $('gh-stale-days').value = cfg.stale_days || 30;
     const t = cfg.token || {};
     $('gh-token-info').textContent = t.token_set ? ('token: ' + (t.login || '?') + ' · ' + (t.scopes||[]).join('+') + (t.valid === false ? ' (invalid)' : '')) : 'no token (REST mode)';
     if (metrics.error) { $('github-stats').innerHTML = '<p class="text-slate-400">No scans yet. Click "Scan now".</p>'; return; }
@@ -1065,6 +1091,42 @@ async function loadGithub(btn = null) {
   } catch (e) {
     console.error(e);
     $('github-stats').innerHTML = `<p class="text-red-400 text-sm">Could not load GitHub data: ${esc(e.message)}</p>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+function toggleGhAdvanced() {
+  const panel = $('gh-advanced');
+  const btn = document.querySelector('#tab-github button[onclick="toggleGhAdvanced()"]');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    if (btn) btn.textContent = '⚙️ Hide advanced settings';
+  } else {
+    panel.style.display = 'none';
+    if (btn) btn.textContent = '⚙️ Advanced settings';
+  }
+}
+
+async function saveGithubConfig() {
+  const btn = document.querySelector('#tab-github button[onclick="saveGithubConfig()"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const accountsInput = $('gh-accounts').value.trim();
+    const accounts = accountsInput ? accountsInput.split(',').map(s => s.trim()).filter(s => s) : [];
+    const body = {
+      accounts,
+      extended: $('gh-extended').checked,
+      include_forks: $('gh-include-forks').checked,
+      include_archived: $('gh-include-archived').checked,
+      scan_interval_hours: parseInt($('gh-scan-interval').value || '6', 10),
+      stale_days: parseInt($('gh-stale-days').value || '30', 10),
+    };
+    await api('/api/github/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    toast('GitHub config saved', 'ok');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalText; }
   }
@@ -1111,12 +1173,17 @@ async function saveGithubPreference(checked) {
 }
 
 async function runGhScan() {
-  const accounts = $('gh-accounts').value.trim();
+  const accountsInput = $('gh-accounts').value.trim();
+  const accounts = accountsInput ? accountsInput.split(',').map(s => s.trim()).filter(s => s) : [];
   const btn = document.querySelector('#tab-github button[type="submit"]');
   const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
   try {
-    await api('/api/github/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts: accounts ? accounts.split(',').map(s=>s.trim()) : undefined}) });
+    // Persist accounts to config so they survive reload
+    if (accounts.length > 0) {
+      await api('/api/github/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts}) });
+    }
+    await api('/api/github/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts: accounts.length ? accounts : undefined}) });
     // Await the reload so the numbers are guaranteed to reflect the new scan.
     await loadGithub();
   } catch (e) {
