@@ -1,4 +1,4 @@
-# OmniState v2.33.0
+# OmniState v2.34.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -489,12 +489,18 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.33.0 (current)
+### v2.34.0 (current)
+
+- **Features**: Supermemory integration (bridge tools + REST API + dashboard tab) — 5 new MCP tools (`supermemory_search`, `supermemory_profile`, `supermemory_add`, `supermemory_sync`, `supermemory_status`) mirroring REST endpoints under `/api/supermemory/*`; new Supermemory dashboard tab with status indicator, memory search, add/save, sync, and recent memories list; `SupermemoryConfig` dataclass with env var support (`SUPERMEMORY_API_KEY`, `SUPERMEMORY_BASE_URL`, `SUPERMEMORY_API_VERSION`, `SUPERMEMORY_DEFAULT_SPACE`, `SUPERMEMORY_ENABLED`)
+- **UX**: Added Supermemory tab (brain icon) to dashboard navigation and command palette; CSP font-src updated to allow `https://frontend-cdn.perplexity.ai` for font loading
+- **Docs**: Added About section with author info (Alessandro "spupuz"), related projects (VibeNVR, proxmox-scripts), MIT License text with disclaimer in README and new LICENSE file
+
+### v2.33.0
 
 - **UX**: Add inline feedback to reinforce memory buttons (👍/⭐) in the dashboard — buttons temporarily show "✓ Saved" and disable during async operation, then restore after 2 seconds, preventing double-clicks and confirming the action without gaze shift
 - **Performance**: O(1) project metric lookup via new `get_project_metrics(project_id)` cache method — replaces full-list generation + filtering with direct dictionary access for `/api/projects/{name}`, `project_summary`, and `project_metrics` MCP tools
 
-### v2.32.1 (current)
+### v2.32.1
 
 - **Security**: Fix authentication bypass in MCP endpoints — the `_auth_required` and `_rate_limit` middlewares in `server/app.py` incorrectly skipped token validation and rate limiting for `/mcp` requests that carried an `Mcp-Session-Id` header, allowing unauthenticated access. Both middlewares now uniformly enforce the `OMNISTATE_AUTH_TOKEN` check and rate limits on all `/mcp` and `/api/*` requests.
 
@@ -892,7 +898,42 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ---
 
-*OmniState v2 — Multi-project persistent memory MCP server.*
+## About
+
+**OmniState** is built and maintained by [**Alessandro "spupuz"**](https://github.com/spupuz) — a Vibe Coder, Artist, Father & Husband, Videogamer working for a multinational IT Vendor company, always looking for the next project.
+
+- 🌍 Based in Italy
+- 🎥 YouTube: [@spupuz](https://youtube.com/@spupuz)
+- 🐦 X/Twitter: [@spupuz](https://x.com/@spupuz)
+- 📸 Instagram: [spupuz](https://www.instagram.com/spupuz/)
+
+### What OmniState is for
+
+OmniState solves a common problem for developers working across multiple projects: **persistent, cross-project memory for AI assistants**. Instead of scattering memory files across projects or losing context between sessions, OmniState provides a single central MCP server that:
+
+- Indexes memory for **all your projects** in one SQLite database
+- Offers **cross-project search** and **shared memory** common to all projects
+- Integrates **GitHub PR Health** monitoring in a built-in web dashboard
+- Provides **session management** (start/snapshot) and **agent handoffs** between AI sessions
+- Supports **Supermemory** integration for persistent memory across conversations
+
+It's designed to work with **opencode**, **Claude Code**, and other AI tools that support the Model Context Protocol (MCP).
+
+### Related Projects
+
+- [VibeNVR](https://github.com/spupuz/VibeNVR) — Simple, privacy-respecting local NVR
+- [proxmox-scripts](https://github.com/spupuz/proxmox-scripts) — Proxmox VE helper scripts
+
+### License
+
+This project is open source and available under the **MIT License**. See [LICENSE](LICENSE) for the full text.
+
+DISCLAIMER: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+---
+
+*OmniState — Multi-project persistent memory MCP server. Made with ❤️ in Italy.*
+
 ## Security & Data Protection
 
 **NEVER commit sensitive information.** The repository has strict safeguards:

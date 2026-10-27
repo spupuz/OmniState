@@ -43,11 +43,21 @@ class GithubConfig:
 
 
 @dataclass
+class SupermemoryConfig:
+    api_key: str = ""
+    base_url: str = "https://api.supermemory.ai"
+    api_version: str = "v5"
+    default_space: str = "sm_project_default"
+    enabled: bool = False
+
+
+@dataclass
 class Config:
     data_dir: Path
     port: int = 8347
     roots: list[Root] = field(default_factory=list)
     github: GithubConfig = field(default_factory=GithubConfig)
+    supermemory: SupermemoryConfig = field(default_factory=SupermemoryConfig)
     scan_interval_seconds: int = 300
     reindex_on_change: bool = True
     auto_import_legacy: bool = False
@@ -130,6 +140,14 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
         for r in raw.get("roots", []):
             cfg.roots.append(Root(host=r.get("host", ""), container=r.get("container", "")))
         gh = raw.get("github", {})
+        sm = raw.get("supermemory", {})
+        cfg.supermemory = SupermemoryConfig(
+            api_key=str(sm.get("api_key", "") or ""),
+            base_url=str(sm.get("base_url", cfg.supermemory.base_url)),
+            api_version=str(sm.get("api_version", cfg.supermemory.api_version)),
+            default_space=str(sm.get("default_space", cfg.supermemory.default_space)),
+            enabled=bool(sm.get("enabled", cfg.supermemory.enabled)),
+        )
         cfg.github.accounts = list(gh.get("accounts", []))
         cfg.github.token = str(gh.get("token", "") or "")
         cfg.github.extended = bool(gh.get("extended", True))
@@ -158,6 +176,16 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
         cfg.auto_import_legacy = env["OMNISTATE_AUTO_IMPORT_LEGACY"].strip().lower() in ("1", "true", "yes", "on")
     if env.get("OMNISTATE_AUTH_TOKEN") is not None:
         cfg.auth_token = env["OMNISTATE_AUTH_TOKEN"].strip()
+    if env.get("SUPERMEMORY_API_KEY"):
+        cfg.supermemory.api_key = env["SUPERMEMORY_API_KEY"]
+    if env.get("SUPERMEMORY_BASE_URL"):
+        cfg.supermemory.base_url = env["SUPERMEMORY_BASE_URL"]
+    if env.get("SUPERMEMORY_API_VERSION"):
+        cfg.supermemory.api_version = env["SUPERMEMORY_API_VERSION"]
+    if env.get("SUPERMEMORY_DEFAULT_SPACE"):
+        cfg.supermemory.default_space = env["SUPERMEMORY_DEFAULT_SPACE"]
+    if env.get("SUPERMEMORY_ENABLED") is not None:
+        cfg.supermemory.enabled = env["SUPERMEMORY_ENABLED"].strip().lower() in ("1", "true", "yes", "on")
 
     for d in (cfg.shared_dir, cfg.logs_dir):
         d.mkdir(parents=True, exist_ok=True)
@@ -172,6 +200,13 @@ def save_config(cfg: Config) -> None:
         "reindex_on_change": cfg.reindex_on_change,
         "auto_import_legacy": cfg.auto_import_legacy,
         "auth_token": cfg.auth_token,
+        "supermemory": {
+            "api_key": cfg.supermemory.api_key,
+            "base_url": cfg.supermemory.base_url,
+            "api_version": cfg.supermemory.api_version,
+            "default_space": cfg.supermemory.default_space,
+            "enabled": cfg.supermemory.enabled,
+        },
         "github": {
             "accounts": cfg.github.accounts,
             "token": cfg.github.token,

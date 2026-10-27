@@ -235,6 +235,7 @@
     <button type="button" class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Shared Memory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Memory</button>
     <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Search section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
     <button type="button" class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Handoffs section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16L17 6m0 0l-4-4m4 4v10"/></svg>Handoffs</button>
+    <button type="button" class="tab-btn" data-tab="supermemory" role="tab" aria-selected="false" aria-controls="tab-supermemory" aria-label="Supermemory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Supermemory</button>
   </nav>
 
   <main id="main-content" tabindex="-1" aria-live="polite" aria-atomic="false">
@@ -352,6 +353,30 @@
         <div id="handoffs-list" role="list"><p class="text-slate-400 text-sm">No handoffs yet.</p></div>
       </div>
     </section>
+
+    <!-- Supermemory -->
+    <section id="tab-supermemory" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <h2 class="text-xl font-bold">Supermemory</h2>
+          <span id="sm-status" class="chip">⚠️ Disconnected</span>
+          <button type="button" class="btn ghost ml-auto text-xs" onclick="supermemorySync()">Sync Memories</button>
+        </div>
+        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addSupermemoryMemory()">
+          <input type="text" id="sm-content" aria-label="Memory content" placeholder="Memory content…" class="flex-1 min-w-[240px]" required>
+          <input type="text" id="sm-namespace" aria-label="Namespace" placeholder="Namespace (optional)" class="w-56">
+          <button type="submit" class="btn">Save to Supermemory</button>
+          <button type="button" class="btn ghost" onclick="supermemorySearch()">Search</button>
+        </form>
+        <div id="sm-search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search Supermemory.</p></div>
+        <div class="mt-4">
+          <h3 class="font-bold">Recent Memories</h3>
+          <div id="sm-recent-memories" class="glass p-4">
+            <p class="text-slate-400 text-sm">Loading recent memories…</p>
+          </div>
+        </div>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -436,6 +461,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'shared') loadShared();
     if (btn.dataset.tab === 'projects') loadProjects();
     if (btn.dataset.tab === 'handoffs') loadHandoffs();
+    if (btn.dataset.tab === 'supermemory') loadSupermemory();
   });
 });
 
@@ -499,7 +525,7 @@ async function refreshVersionBadge() {
 async function loadAll(btn = null) {
   const originalText = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Reloading…'; }
-  try { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadBackups(), refreshVersionBadge()]); } finally { if (btn) { btn.disabled = false; btn.textContent = originalText; } }
+  try { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadSupermemory(), loadBackups(), refreshVersionBadge()]); } finally { if (btn) { btn.disabled = false; btn.textContent = originalText; } }
 }
 
 // ---------- Overview ----------
@@ -1279,6 +1305,7 @@ const PALETTE_CMDS=[
   {id:'shared', label:'Go to Shared Memory', kbd:'4', run:()=>switchTab('shared')},
   {id:'search', label:'Go to Search', kbd:'5', run:()=>switchTab('search')},
   {id:'handoffs', label:'Go to Handoffs', kbd:'6', run:()=>switchTab('handoffs')},
+  {id:'supermemory', label:'Go to Supermemory', kbd:'7', run:()=>switchTab('supermemory')},
   {id:'reload', label:'Reload all data', kbd:'R', run:()=>{ closePalette(); loadAll(); toast('Reloading…','info'); }},
   {id:'theme', label:'Toggle theme', kbd:'T', run:()=>{ toggleTheme(); toast('Theme toggled','info'); }},
   {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
@@ -1288,7 +1315,7 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); });
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
   const el=$('tab-'+name); if(el) el.classList.remove('hidden');
-  if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs();
+  if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); if(name==='supermemory') loadSupermemory();
   location.hash = name; closePalette();
 }
 function openPalette(){ _paletteSource = document.activeElement; const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.value=''; inp.focus(); renderPalette(''); } }
@@ -1386,6 +1413,117 @@ async function loadHandoffs() {
     }).join('') : '<p class="text-slate-400 text-sm">No handoffs yet.</p>';
   } catch (e) { console.error(e); }
 }
+// ---------- Supermemory ----------
+async function loadSupermemory() {
+  try {
+    const status = await api('/api/supermemory/status');
+    const badge = $('sm-status');
+    if (badge) {
+      if (status.status === 'configured') {
+        badge.textContent = '✅ Connected';
+        badge.className = 'chip ok';
+      } else {
+        badge.textContent = '⚠️ ' + (status.error || 'Not configured');
+        badge.className = 'chip danger';
+      }
+      badge.title = `Base URL: ${status.base_url} · Space: ${status.default_space}`;
+    }
+    loadSupermemoryRecent();
+  } catch (e) {
+    console.error(e);
+    const badge = $('sm-status');
+    if (badge) {
+      badge.textContent = '❌ Error';
+      badge.className = 'chip danger';
+    }
+  }
+}
+
+async function loadSupermemoryRecent() {
+  try {
+    const res = await api('/api/supermemory/search?q=&limit=10&scope=all');
+    const container = $('sm-recent-memories');
+    if (!container) return;
+    container.innerHTML = res.results.length ? res.results.map(r => `
+      <div class="glass p-3 mb-2" role="listitem">
+        <p class="font-semibold">${esc(r.title || '(untitled)')}</p>
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((r.content||'').slice(0, 200))}</p>
+        <div class="flex gap-2 mt-2 flex-wrap">
+          <span class="chip">ns: ${esc(r.namespace)}</span>
+          <span class="chip">score: ${(r.score||0).toFixed(2)}</span>
+        </div>
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No memories yet.</p>';
+  } catch (e) {
+    console.error(e);
+    const container = $('sm-recent-memories');
+    if (container) container.innerHTML = '<p class="text-slate-400 text-sm">Failed to load recent memories.</p>';
+  }
+}
+
+async function supermemorySearch() {
+  const q = prompt('Search Supermemory:');
+  if (!q) return;
+  const namespace = $('sm-namespace')?.value || '';
+  const container = $('sm-search-results');
+  if (container) container.innerHTML = '<div class="glass p-4 mb-3" role="listitem">' + [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') + '</div>';
+  try {
+    const results = await api('/api/supermemory/search?q=' + encodeURIComponent(q) + '&namespace=' + encodeURIComponent(namespace) + '&limit=20');
+    if (container) {
+      container.innerHTML = results.results.length ? results.results.map(r => `
+        <div class="glass p-4 mb-3" role="listitem">
+          <div class="flex justify-between gap-4 flex-wrap">
+            <p class="font-semibold">${esc(r.title || '(untitled)')}</p>
+            <span class="text-xs text-slate-500">${esc(r.namespace)}</span>
+            <span class="text-xs text-slate-500">score: ${(r.score||0).toFixed(2)}</span>
+          </div>
+          <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((r.content||'').slice(0, 380))}</p>
+        </div>`).join('') : '<p class="text-slate-400 text-sm">No results.</p>';
+    }
+  } catch (e) {
+    console.error(e);
+    toast('Search failed: ' + e.message, 'err');
+  }
+}
+
+async function addSupermemoryMemory() {
+  const content = $('sm-content')?.value?.trim();
+  const namespace = $('sm-namespace')?.value?.trim();
+  if (!content) return;
+  const btn = document.querySelector('#tab-supermemory form button[type="submit"]');
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await api('/api/supermemory/add', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({content, namespace: namespace || undefined})
+    });
+    $('sm-content').value = '';
+    $('sm-namespace').value = '';
+    toast('Memory saved to Supermemory', 'ok');
+    loadSupermemoryRecent();
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+async function supermemorySync() {
+  const btn = document.querySelector('#tab-supermemory .btn.ghost[onclick="supermemorySync()"]');
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+  try {
+    await api('/api/supermemory/sync', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({})});
+    toast('Sync completed', 'ok');
+    loadSupermemoryRecent();
+  } catch (e) {
+    toast('Sync failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = original; }
+  }
+}
+
 document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const pal=$('palette'); if(pal && !pal.classList.contains('hidden')) closePalette(); else openPalette(); }
   else if(e.key==='Escape'){ closePalette(); closeForgetModal(); closeRemoveModal(); closeMergeModal(); }
@@ -1421,7 +1559,7 @@ document.addEventListener('keydown', e=>{
 // ── Hash routing (deep-link support) ──
 window.addEventListener('hashchange', () => {
   const tab = location.hash.replace('#', '');
-  const valid = ['overview','projects','github','shared','search','handoffs'];
+  const valid = ['overview','projects','github','shared','search','handoffs','supermemory'];
   if (valid.includes(tab)) switchTab(tab);
 });
 (function(){

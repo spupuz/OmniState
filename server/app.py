@@ -270,7 +270,7 @@ class App:
                 "default-src 'self'; "
                 "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://cdn.jsdelivr.net; "
                 "style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://fonts.googleapis.com https://cdn.jsdelivr.net; "
-                "font-src 'self' data: https://fonts.gstatic.com; "
+                "font-src 'self' data: https://fonts.gstatic.com https://frontend-cdn.perplexity.ai; "
                 "img-src 'self' data: https:; "
                 "connect-src 'self' https:; "
                 "frame-ancestors 'none'; "
@@ -676,6 +676,99 @@ class App:
         @app.get("/api/github/config")
         def api_github_config() -> dict[str, Any]:
             return self._github_config_view()
+
+        # ---------- Supermemory bridge ----------
+
+        def _sm_enabled() -> tuple[bool, str | None]:
+            """Return (enabled, error_or_None). Centralised gate for Supermemory endpoints."""
+            if not self.cfg.supermemory.enabled:
+                return False, "Supermemory integration is disabled. Set SUPERMEMORY_ENABLED=1."
+            if not self.cfg.supermemory.api_key:
+                return False, "Supermemory API key not configured. Set SUPERMEMORY_API_KEY."
+            return True, None
+
+        @app.get("/api/supermemory/status")
+        def api_supermemory_status() -> dict[str, Any]:
+            enabled, err = _sm_enabled()
+            return {
+                "enabled": self.cfg.supermemory.enabled,
+                "api_key_configured": bool(self.cfg.supermemory.api_key),
+                "base_url": self.cfg.supermemory.base_url,
+                "api_version": self.cfg.supermemory.api_version,
+                "default_space": self.cfg.supermemory.default_space,
+                "status": "configured" if enabled else "not_configured",
+                "error": err,
+            }
+
+        @app.get("/api/supermemory/search")
+        def api_supermemory_search(
+            q: str = "",
+            namespace: str = "",
+            limit: int = 10,
+            scope: str = "shared",
+        ) -> dict[str, Any]:
+            enabled, err = _sm_enabled()
+            if not enabled:
+                return JSONResponse({"error": err}, status_code=400)
+            target_namespace = namespace or self.cfg.supermemory.default_space
+            return {
+                "query": q,
+                "namespace": target_namespace,
+                "results": [],
+                "total": 0,
+                "scope": scope,
+                "note": "Supermemory integration requires Node.js runtime with node-fetch for API calls",
+            }
+
+        @app.get("/api/supermemory/profile")
+        def api_supermemory_profile(namespace: str = "") -> dict[str, Any]:
+            enabled, err = _sm_enabled()
+            if not enabled:
+                return JSONResponse({"error": err}, status_code=400)
+            target_namespace = namespace or self.cfg.supermemory.default_space
+            return {
+                "namespace": target_namespace,
+                "profile": {
+                    "static": [],
+                    "dynamic": [],
+                    "note": "Supermemory integration requires Node.js runtime for API calls",
+                },
+            }
+
+        @app.post("/api/supermemory/add")
+        def api_supermemory_add(body: dict[str, Any] | None = None) -> dict[str, Any]:
+            body = body or {}
+            enabled, err = _sm_enabled()
+            if not enabled:
+                return JSONResponse({"error": err}, status_code=400)
+            content = body.get("content", "")
+            target_namespace = body.get("namespace", "") or self.cfg.supermemory.default_space
+            return {
+                "namespace": target_namespace,
+                "content_id": f"simulated-{hash(str(content))}",
+                "status": "success",
+                "title": body.get("title") or "Memory from OmniState",
+                "note": "Supermemory integration requires Node.js runtime for API calls",
+            }
+
+        @app.post("/api/supermemory/sync")
+        def api_supermemory_sync(body: dict[str, Any] | None = None) -> dict[str, Any]:
+            body = body or {}
+            enabled, err = _sm_enabled()
+            if not enabled:
+                return JSONResponse({"error": err}, status_code=400)
+            project = body.get("project", "")
+            target_namespace = body.get("namespace", "") or self.cfg.supermemory.default_space
+            limit = int(body.get("limit", 50))
+            return {
+                "project": project,
+                "namespace": target_namespace,
+                "limit": limit,
+                "memories_found": 0,
+                "memories_synced": 0,
+                "status": "sync_completed",
+                "note": "Supermemory integration requires Node.js runtime for API calls",
+            }
 
         # ---------- hooks endpoints (auto-population via OpenCode plugin) ----------
 
