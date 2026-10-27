@@ -2,7 +2,9 @@
 
 The server walks the mounted roots (read-only), finds projects by markers
 (opencode.json, .git/, tasks-history.json, omnistate.config.json) and indexes
-them into the store. Legacy v1 files can be imported once via project_import_legacy.
+them into the store. Workspaces (directories containing multiple projects) are
+also detected and registered. Legacy v1 files can be imported once via
+project_import_legacy.
 """
 from __future__ import annotations
 
@@ -34,37 +36,69 @@ def _mtime(path: Path) -> str:
 
 
 def _is_project_dir(path: Path) -> bool:
-    return any((path / m).exists() for m in MARKERS)
+    try:
+        return any((path / m).exists() for m in MARKERS)
+    except (PermissionError, OSError):
+        return False
 
 
-def discover_projects(cfg: Config) -> list[Path]:
-    found: list[Path] = []
+def discover_projects_and_workspaces(cfg: Config) -> tuple[list[Path], list[Path]]:
+    """Discover projects and workspaces.
+    
+    Returns (projects, workspaces) where:
+    - projects: directories with markers
+    - workspaces: directories containing >=2 projects but no markers themselves
+    """
+    all_projects: list[Path] = []
+    all_workspaces: list[Path] = []
+    
     for root in cfg.roots:
         container_root = Path(root.container)
         if not container_root.exists():
             continue
 
-        def walk(directory: Path, depth: int) -> None:
+        def walk(directory: Path, depth: int) -> int:
+            """Walk and return count of projects found in this subtree."""
             if depth > MAX_DEPTH:
-                return
+                return 0
             try:
                 entries = sorted(
                     directory.iterdir(),
                     key=lambda p: (p.is_file(), p.name.lower()),
                 )
             except (PermissionError, OSError):
-                return
+                return 0
+            
+            project_count_in_subtree = 0
             for entry in entries:
                 if entry.name.startswith(".") and entry.name not in (".git",):
                     continue
                 if entry.is_dir() and entry.name not in ("node_modules", ".git", "dist", "build"):
                     if _is_project_dir(entry):
-                        found.append(entry)
+                        all_projects.append(entry)
+                        project_count_in_subtree += 1
                     else:
-                        walk(entry, depth + 1)
+                        project_count_in_subtree += walk(entry, depth + 1)
+            
+            # If this directory has >=2 projects in subtree but is not a project itself,
+            # and it's not the container root, it's a workspace
+            if (directory != container_root 
+                and project_count_in_subtree >= 2 
+                and not _is_project_dir(directory)
+                and directory.name not in ("node_modules", ".git", "dist", "build")):
+                all_workspaces.append(directory)
+            
+            return project_count_in_subtree
 
         walk(container_root, 0)
-    return found
+    
+    return all_projects, all_workspaces
+
+
+# Keep backward compatibility
+def discover_projects(cfg: Config) -> list[Path]:
+    projects, _ = discover_projects_and_workspaces(cfg)
+    return projects
 
 
 _GH_PATH_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
@@ -111,7 +145,7 @@ def read_gh_repo(container_path: str) -> str | None:
     return None
 
 
-def register_project(cfg: Config, store: Store, container_path: str) -> dict[str, Any] | None:
+def register_project(cfg: Config, store: Store, container_path: str, workspace: str | None = None) -> dict[str, Any] | None:
     """Register a project given its container path. Returns project row or None."""
     root = None
     for r in cfg.roots:
@@ -122,7 +156,7 @@ def register_project(cfg: Config, store: Store, container_path: str) -> dict[str
         return None
     host_path = root.container_to_host(container_path) or container_path
     name = Path(container_path).name or "root"
-    pid = store.upsert_project(name, host_path, container_path, gh_repo=read_gh_repo(container_path))
+    pid = store.upsert_project(name, host_path, container_path, gh_repo=read_gh_repo(container_path), workspace=workspace)
     return store.get_project(name)
 
 

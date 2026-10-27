@@ -129,7 +129,16 @@ CREATE TABLE IF NOT EXISTS projects (
   gh_repo         TEXT,
   gh_state        TEXT,
   gh_checked_at   TEXT,
-  created_at      TEXT
+  created_at      TEXT,
+  workspace       TEXT
+);
+
+CREATE TABLE IF NOT EXISTS workspaces (
+  id          INTEGER PRIMARY KEY,
+  name        TEXT UNIQUE NOT NULL,
+  host_path   TEXT NOT NULL,
+  container_path TEXT NOT NULL,
+  created_at  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS memory (
@@ -260,7 +269,7 @@ class Store:
             self._conn.executescript(SCHEMA)
             self._conn.executescript(FTS_TRIGGERS)
             # Migration for pre-2.1 DBs: GitHub repo mapping/state columns.
-            for col in ("gh_repo TEXT", "gh_state TEXT", "gh_checked_at TEXT"):
+            for col in ("gh_repo TEXT", "gh_state TEXT", "gh_checked_at TEXT", "workspace TEXT"):
                 try:
                     self._conn.execute(f"ALTER TABLE projects ADD COLUMN {col}")
                 except sqlite3.OperationalError:
@@ -388,7 +397,8 @@ class Store:
     # ---------- projects ----------
 
     def upsert_project(
-        self, name: str, host_path: str, container_path: str, gh_repo: str | None = None
+        self, name: str, host_path: str, container_path: str, gh_repo: str | None = None,
+        workspace: str | None = None
     ) -> int:
         now = _now()
         row = self.one("SELECT id FROM projects WHERE name = ?", (name,))
@@ -396,18 +406,51 @@ class Store:
             with self.tx() as conn:
                 conn.execute(
                     "UPDATE projects SET host_path=?, container_path=?, status='active', "
-                    "gh_repo=COALESCE(?, gh_repo), last_indexed_at=? WHERE id=?",
-                    (host_path, container_path, gh_repo, now, row["id"]),
+                    "gh_repo=COALESCE(?, gh_repo), workspace=?, last_indexed_at=? WHERE id=?",
+                    (host_path, container_path, gh_repo, workspace, now, row["id"]),
                 )
             return int(row["id"])
         return self.execute(
-            "INSERT INTO projects(name, host_path, container_path, gh_repo, created_at, last_indexed_at) "
-            "VALUES(?,?,?,?,?,?)",
-            (name, host_path, container_path, gh_repo, now, now),
+            "INSERT INTO projects(name, host_path, container_path, gh_repo, workspace, created_at, last_indexed_at) "
+            "VALUES(?,?,?,?,?,?,?)",
+            (name, host_path, container_path, gh_repo, workspace, now, now),
         )
 
     def list_projects(self) -> list[dict[str, Any]]:
         return self.q("SELECT * FROM projects ORDER BY name")
+
+    def list_workspaces(self) -> list[dict[str, Any]]:
+        """Return workspaces with their project counts."""
+        return self.q("""
+            SELECT w.name, w.host_path, w.container_path, w.created_at,
+                   COUNT(p.id) as project_count
+            FROM workspaces w
+            LEFT JOIN projects p ON p.workspace = w.name
+            GROUP BY w.name
+            ORDER BY w.name
+        """)
+
+    def upsert_workspace(self, name: str, host_path: str, container_path: str) -> int:
+        now = _now()
+        row = self.one("SELECT id FROM workspaces WHERE name = ?", (name,))
+        if row:
+            with self.tx() as conn:
+                conn.execute(
+                    "UPDATE workspaces SET host_path=?, container_path=? WHERE id=?",
+                    (host_path, container_path, row["id"]),
+                )
+            return int(row["id"])
+        return self.execute(
+            "INSERT INTO workspaces(name, host_path, container_path, created_at) "
+            "VALUES(?,?,?,?)",
+            (name, host_path, container_path, now),
+        )
+
+    def get_workspace(self, name: str) -> dict[str, Any] | None:
+        return self.one("SELECT * FROM workspaces WHERE name = ?", (name,))
+
+    def get_projects_in_workspace(self, workspace_name: str) -> list[dict[str, Any]]:
+        return self.q("SELECT * FROM projects WHERE workspace = ? ORDER BY name", (workspace_name,))
 
     def get_project(self, name: str) -> dict[str, Any] | None:
         return self.one("SELECT * FROM projects WHERE name = ?", (name,))

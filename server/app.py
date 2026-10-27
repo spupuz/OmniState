@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import Config, GithubConfig
 from .github_client import GithubClient
-from .indexer import discover_projects, import_legacy, register_project
+from .indexer import discover_projects, discover_projects_and_workspaces, import_legacy, register_project
 from .mcp_server import create_server
 from .store import Store
 from .version import get_version
@@ -182,8 +182,12 @@ class App:
         changed a repo's archived/deleted state is visible immediately."""
         cached_metrics = self._get_cached_metrics()
         archived_names = self._archived_repo_names()
+        # Root directory names to exclude from project list
+        root_names = {Path(r.container).name for r in self.cfg.roots} | {Path(r.host).name for r in self.cfg.roots}
         out = []
         for p in self.store.list_projects():
+            if p["name"] in root_names:
+                continue
             pid = int(p["id"])
             metrics = cached_metrics.get(pid)
             if metrics is None:
@@ -195,6 +199,7 @@ class App:
                 "gh_repo": p.get("gh_repo"),
                 "gh_state": p.get("gh_state"),
                 "category": self._project_category(p, archived_names),
+                "workspace": p.get("workspace"),
                 **metrics,
             })
         return out
@@ -423,6 +428,17 @@ class App:
                 return JSONResponse({"error": str(e)}, status_code=400)
             self.invalidate_metrics_cache()
             return result
+
+        @app.get("/api/workspaces")
+        def api_workspaces() -> list[dict[str, Any]]:
+            return self.store.list_workspaces()
+
+        @app.get("/api/workspaces/{name}/projects")
+        def api_workspace_projects(name: str) -> list[dict[str, Any]]:
+            ws = self.store.get_workspace(name)
+            if ws is None:
+                return JSONResponse({"error": "workspace not found"}, status_code=404)
+            return self.store.get_projects_in_workspace(name)
 
         @app.get("/api/memory")
         def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20,
@@ -950,13 +966,37 @@ class App:
         return marked
 
     def run_discovery(self) -> list[str]:
-        found = discover_projects(self.cfg)
+        found_projects, found_workspaces = discover_projects_and_workspaces(self.cfg)
         registered = []
         discovered_names = set()
-        for p in found:
+        
+        # Register workspaces first
+        for ws in found_workspaces:
+            host_path = self.cfg.to_host_path(str(ws))
+            if host_path:
+                self.store.upsert_workspace(ws.name, host_path, str(ws))
+        
+        # Build a map of project container_path -> workspace_name
+        project_workspace: dict[str, str] = {}
+        for ws in found_workspaces:
+            # All projects under this workspace directory belong to it
+            for proj in found_projects:
+                try:
+                    if proj.is_relative_to(ws):
+                        project_workspace[str(proj)] = ws.name
+                except ValueError:
+                    pass
+        
+        # Register projects and assign to workspaces
+        for p in found_projects:
             discovered_names.add(p.name)
             existing = self.store.get_project(p.name)
+            workspace = project_workspace.get(str(p))
             project = register_project(self.cfg, self.store, str(p))
+            if project and workspace:
+                # Update project with workspace
+                self.store.upsert_project(project["name"], project["host_path"], project["container_path"],
+                                          gh_repo=project.get("gh_repo"), workspace=workspace)
             if project:
                 # Auto-import legacy v1 memory (DESIGN §6): for newly discovered
                 # projects AND for registered projects that still have no memory.

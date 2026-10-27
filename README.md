@@ -1,4 +1,4 @@
-# OmniState v2.35.0
+# OmniState v2.36.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -490,7 +490,14 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.35.0 (current)
+### v2.36.0 (current)
+
+- **Features**: Workspace support — directories containing ≥2 projects are now detected and registered as workspaces; projects are grouped under their workspace in the dashboard (section rows like "📁 VibeNVR-workspace (4 projects)"); new API endpoints `GET /api/workspaces` and `GET /api/workspaces/{name}/projects`; `project_register` accepts a `workspace` parameter; new store methods (`list_workspaces`, `upsert_workspace`, `get_workspace`, `get_projects_in_workspace`); `discover_projects_and_workspaces()` auto-detects workspaces
+- **UX**: Responsive sidebar navigation with hamburger menu (mobile); About and Settings sections added; Settings includes Access Token and Theme selector (dropdown); theme cycling button with monochromatic SVG icons (dark → light → system → dark); About section is last in tab order; version badge and server status indicator moved to sidebar footer; "OmniState v2" text removed from sidebar footer; removed version/last-update from section pages (kept only on main dashboard); system theme icon is now a distinct monitor icon
+- **Bugfix**: Fixed `_is_project_dir` to catch PermissionError/OSError; DockerSource root directory excluded from project list; workspaces no longer appear in deleted/archived/active project sections; theme "system" selection now persists and follows OS preference changes
+- **Docs**: Created `docs/skills/update_docs.md` skill for documentation updates
+
+### v2.35.0
 
 - **Features**: Added `POST /api/github/config` endpoint for persisting GitHub scan configuration (accounts, extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; dashboard now has a "Save config" button and an Advanced Settings panel for these options; improved error message when no accounts are configured
 - **Bugfix**: GitHub accounts entered in the dashboard UI are now persisted to config (previously they disappeared on page reload); scan endpoint returns a descriptive error message instead of generic "no accounts configured"
