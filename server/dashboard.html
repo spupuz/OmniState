@@ -420,6 +420,22 @@
   </div>
 </div>
 
+<div id="sm-search-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sm-search-modal-title">
+  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
+    <div class="glass w-[92vw] max-w-md p-6 relative">
+      <h3 id="sm-search-modal-title" class="text-xl font-bold mb-3">Search Supermemory</h3>
+      <form id="sm-search-form" onsubmit="event.preventDefault(); submitSmSearch()">
+        <label for="sm-search-input" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Search Query</label>
+        <input type="text" id="sm-search-input" class="w-full mb-5" placeholder="Enter search terms…" required>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn ghost" onclick="closeSmSearchModal()">Cancel</button>
+          <button type="submit" class="btn">Search</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
 <div id="remove-project-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="remove-modal-title">
   <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
     <div class="glass w-[92vw] max-w-md p-6 relative">
@@ -1527,9 +1543,32 @@ async function loadSupermemoryRecent() {
   }
 }
 
-async function supermemorySearch() {
-  const q = prompt('Search Supermemory:');
+let _smSearchSourceElement = null;
+function supermemorySearch() {
+  _smSearchSourceElement = document.activeElement;
+  const modal = $('sm-search-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    const input = $('sm-search-input');
+    if (input) { input.value = ''; input.focus(); }
+  }
+}
+
+function closeSmSearchModal() {
+  const modal = $('sm-search-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    if (_smSearchSourceElement) {
+      _smSearchSourceElement.focus();
+      _smSearchSourceElement = null;
+    }
+  }
+}
+
+async function submitSmSearch() {
+  const q = $('sm-search-input').value.trim();
   if (!q) return;
+  closeSmSearchModal();
   const namespace = $('sm-namespace')?.value || '';
   const container = $('sm-search-results');
   if (container) container.innerHTML = '<div class="glass p-4 mb-3" role="listitem">' + [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') + '</div>';
