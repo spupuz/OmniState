@@ -1,4 +1,4 @@
-# OmniState v2.37.2
+# OmniState v2.37.3
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -491,7 +491,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.2 (current)
+### v2.37.3 (current)
+
+- **Refactor**: PR #171 - Replace blocking prompt with custom search modal; split dashboard into component files; simplify indexer/store (removes workspace support); real httpx calls simplified to simulated API calls
+
+### v2.37.2
 
 - **Bugfix (UX)**: sidebar no longer overlaps/cover main content on narrow viewports; desktop margin-left and mobile off-canvas rules made authoritative against Tailwind overrides; stale open state is cleared on resize so the sidebar hides and the hamburger appears when narrowing.
 
