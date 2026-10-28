@@ -21,6 +21,7 @@ RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
 COPY server/ ./server/
 COPY VERSION.txt ./VERSION.txt
+COPY supermemory_server.py ./supermemory_server.py
 
 RUN mkdir -p /data && chmod 755 /data
 # Create non-root user

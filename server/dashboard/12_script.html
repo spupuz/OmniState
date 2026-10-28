@@ -1063,7 +1063,12 @@ async function loadSupermemory() {
       }
       badge.title = `Base URL: ${status.base_url} · Space: ${status.default_space}`;
     }
-    loadSupermemoryRecent();
+    if (status.status === 'configured') {
+      loadSupermemoryRecent();
+    } else {
+      const container = $('sm-recent-memories');
+      if (container) container.innerHTML = '<p class="text-slate-400 text-sm">Supermemory not configured.</p>';
+    }
   } catch (e) {
     console.error(e);
     const badge = $('sm-status');
@@ -1079,7 +1084,7 @@ async function loadSupermemoryRecent() {
     const res = await api('/api/supermemory/search?q=&limit=10&scope=all');
     const container = $('sm-recent-memories');
     if (!container) return;
-    container.innerHTML = res.results.length ? res.results.map(r => `
+    container.innerHTML = (res && Array.isArray(res.results) && res.results.length) ? res.results.map(r => `
       <div class="glass p-3 mb-2" role="listitem">
         <p class="font-semibold">${esc(r.title || '(untitled)')}</p>
         <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((r.content||'').slice(0, 200))}</p>

@@ -1,4 +1,4 @@
-# OmniState v2.37.4
+# OmniState v2.37.5
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -86,6 +86,10 @@ cp .env.example .env
 | `OMNISTATE_AUTH_TOKEN` | — | **Optional** access token for everything reachable over the network (`/api/*` + MCP sessions) — set it if the box is reachable by others on the LAN. Read below for how each client sends it. |
 | `DATA_HOST_DIR` | — | Host folder where all server data lives, bind-mounted at `/data` (default `./data` inside the OmniState dir). A plain directory: browse it, back it up, move it. |
 | `OMNISTATE_AUTO_IMPORT_LEGACY` | — | Import old v1 memory files (`chunks/`, `tasks-history.json`, …) automatically when a project with such files is discovered (default off: `false`). |
+| `SUPERMEMORY_ENABLED` | — | Enable Supermemory integration (default `true` in the shipped `.env.example`). |
+| `SUPERMEMORY_API_KEY` | — | Supermemory API key. Leave the placeholder (`sm_your_local_api_key_here`) to use the **built-in local Supermemory server** that runs inside the container on port 6767 (no external account needed). Set a real key + `SUPERMEMORY_BASE_URL=https://api.supermemory.ai` to use the cloud service. |
+| `SUPERMEMORY_BASE_URL` | — | Supermemory base URL (default `http://localhost:6767` for the built-in local server). |
+| `SUPERMEMORY_DEFAULT_SPACE` | — | Default Supermemory namespace (default `sm_project_default`). |
 
 The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. If you lose it, rotate it on GitHub.
 
@@ -491,7 +495,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.4 (current)
+### v2.37.5 (current)
+
+- **Bugfix (Supermemory)**: The container now runs the built-in local Supermemory server (port 6767) automatically, so the dashboard's Supermemory tab works out of the box with no external API key; the local server endpoints were aligned with the client's request/response format and persist data to `/data/supermemory_local.json`.
+- **Bugfix (Dashboard)**: `loadSupermemory()` only fetches recent memories when Supermemory is configured, and guards against missing `results`, eliminating repeated 502 errors in the console.
+- **Docs**: Documented the `SUPERMEMORY_*` environment variables in `.env.example` and the README env table.
+
+### v2.37.4
 
 - **Bugfix (Dashboard)**: Removed the duplicated legacy header by keeping `12_script.html` script-only; restored `toggleSidebar`/`closeSidebarMobile` and guarded `last-update` (mirroring to sidebar) so the new sidebar layout renders without throwing; guarded `auth-token` init and other null element access.
 - **Bugfix (Supermemory)**: REST endpoints now catch connection/timeout errors and return a clear 502 instead of an unhandled failure.
