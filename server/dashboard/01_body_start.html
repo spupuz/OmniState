@@ -1,0 +1,65 @@
+<body class="p-5 md:p-8">
+<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:font-bold focus:outline-none focus:ring-2 focus:ring-blue-400">Skip to main content</a>
+
+<!-- Hamburger (mobile) -->
+<button type="button" class="hamburger" onclick="toggleSidebar()" aria-label="Toggle navigation" id="hamburger-btn">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+</button>
+
+<!-- Sidebar overlay (mobile) -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">OS</div>
+    <div>
+      <div class="font-bold text-sm">OmniState</div>
+      <div class="text-xs text-slate-500">Dashboard</div>
+    </div>
+  </div>
+  <nav class="sidebar-nav" role="tablist" aria-label="Dashboard sections">
+    <button type="button" class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" onclick="switchTab('overview'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</button>
+    <button type="button" class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" onclick="switchTab('projects'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h8v8H3V3m10 0h8v8h-8V3m0 10h8v8h-8v-8M3 13h8v8H3v-8"/></svg>Projects</button>
+    <button type="button" class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" onclick="switchTab('github'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.004 12.004 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</button>
+    <button type="button" class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" onclick="switchTab('shared'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Memory</button>
+    <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" onclick="switchTab('search'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
+    <button type="button" class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" onclick="switchTab('handoffs'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16L17 6m0 0l-4-4m4 4v10"/></svg>Handoffs</button>
+    <button type="button" class="tab-btn" data-tab="supermemory" role="tab" aria-selected="false" aria-controls="tab-supermemory" onclick="switchTab('supermemory'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Supermemory</button>
+    <button type="button" class="tab-btn" data-tab="settings" role="tab" aria-selected="false" aria-controls="tab-settings" onclick="switchTab('settings'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings</button>
+    <button type="button" class="tab-btn" data-tab="about" role="tab" aria-selected="false" aria-controls="tab-about" onclick="switchTab('about'); closeSidebarMobile()"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>About</button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="flex items-center gap-3">
+      <div>
+        <span id="version-badge-sidebar" class="text-xs font-bold text-blue-300">V2.37.1</span>
+        <span class="text-xs text-slate-500">OmniState</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span id="status-indicator" class="w-2 h-2 rounded-full bg-green-500 glow animate-pulse"></span>
+        <span class="text-xs font-semibold text-green-400" id="status-text">SERVER</span>
+      </div>
+    </div>
+    <div class="mt-1 text-xs" id="last-update-sidebar">Last update: —</div>
+    <div class="mt-2 flex items-center gap-2">
+      <button type="button" class="btn ghost text-xs px-2 py-1" id="sidebar-theme-toggle" onclick="cycleTheme()" title="Cycle theme" aria-label="Cycle theme">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="sidebar-theme-icon"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+      </button>
+      <span class="text-xs text-slate-400">Theme</span>
+    </div>
+  </div>
+</aside>
+
+<div class="max-w-7xl mx-auto main-content">
+  <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
+    <div>
+      <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight glow-text" id="dashboard-title">Overview</h1>
+    </div>
+  </header>
+
+  <!-- Navigation is in the sidebar; no duplicate top bar -->
+  <div class="mb-6"></div>
+
+  <main id="main-content" tabindex="-1" aria-live="polite" aria-atomic="false">
+
+    <!-- Overview -->

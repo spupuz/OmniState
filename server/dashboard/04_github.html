@@ -1,0 +1,47 @@
+    <section id="tab-github" class="tab-panel hidden" role="tabpanel">
+      <form class="flex gap-3 flex-wrap items-center mb-6" onsubmit="event.preventDefault(); runGhScan()">
+        <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (comma-separated)" class="flex-1 min-w-[240px]">
+        <button type="submit" class="btn">Scan now</button>
+        <button type="button" class="btn ghost" onclick="saveGithubConfig()">Save config</button>
+        <button type="button" class="btn ghost" onclick="loadGithub(this)">Refresh</button>
+        <span class="text-xs text-slate-400" id="gh-token-info"></span>
+      </form>
+      <div class="glass p-4 mb-6" id="gh-advanced" style="display:none;">
+        <h3 class="font-bold mb-3">Advanced settings</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-extended" class="w-4 h-4"> Extended (GraphQL)</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-include-forks" class="w-4 h-4"> Include forks</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-include-archived" class="w-4 h-4"> Include archived</label>
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Scan interval (hours)</label>
+            <input type="number" id="gh-scan-interval" min="1" max="168" class="w-full">
+          </div>
+          <div>
+            <label class="block text-xs text-slate-400 mb-1">Stale days</label>
+            <input type="number" id="gh-stale-days" min="1" max="365" class="w-full">
+          </div>
+        </div>
+      </div>
+      <button type="button" class="btn ghost text-xs mb-6" onclick="toggleGhAdvanced()">⚙️ Advanced settings</button>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
+      <div class="glass p-6 mb-6" id="gh-delta"><h2 class="text-xl font-bold mb-2">Delta vs previous scan</h2><p class="text-slate-400 text-sm" id="gh-delta-text">—</p></div>
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Top repos by open PRs</p><div class="chart-box"><canvas id="chartGhTop"></canvas></div></div>
+        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Open PR trend</p><div class="chart-box"><canvas id="chartGhTrend"></canvas></div></div>
+      </div>
+      <div class="glass p-6 mb-6">
+        <div class="flex gap-3 flex-wrap mb-4">
+          <h2 class="text-xl font-bold">Repositories</h2>
+          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="toggleOnlyPrs()" aria-label="Only show repositories with open pull requests"> Only with open PRs</label>
+        </div>
+        <div class="overflow-x-auto" id="github-repos"><p class="text-slate-400 text-sm">No scans yet.</p></div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="glass p-6"><h3 class="font-bold mb-3">Top PR authors</h3><div id="gh-authors" class="flex flex-wrap gap-2"></div></div>
+        <div class="glass p-6"><h3 class="font-bold mb-3">Most frequent labels</h3><div id="gh-labels" class="flex flex-wrap gap-2"></div></div>
+      </div>
+    </section>
+
+<!-- Shared -->

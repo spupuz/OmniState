@@ -1,0 +1,28 @@
+    <section id="tab-settings" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6 mb-6">
+        <h2 class="text-2xl font-bold mb-4">Settings</h2>
+        <div class="space-y-6">
+          <div>
+            <h3 class="text-lg font-bold mb-2">Access Token</h3>
+            <p class="text-sm text-slate-400 mb-3">Enter your OmniState auth token to access the API.</p>
+            <form class="flex gap-3 flex-wrap items-center" onsubmit="event.preventDefault(); saveToken()">
+              <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (if enabled)" class="w-64 text-xs">
+              <button type="submit" class="btn ghost">Save Token</button>
+            </form>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-2">Theme</h3>
+            <p class="text-sm text-slate-400 mb-3">Choose between light, dark, or follow system preference.</p>
+            <select id="theme-select" onchange="applyTheme(this.value)" class="w-full md:w-48 px-3 py-2 bg-slate-800/50 border border-slate-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500">
+              <option value="light">☀ Light</option>
+              <option value="dark">☾ Dark</option>
+              <option value="system">⊞ System</option>
+            </select>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold mb-2">GitHub Configuration</h3>
+            <p class="text-sm text-slate-400 mb-3">Configure GitHub accounts and scan settings in the GitHub tab.</p>
+          </div>
+        </div>
+      </div>
+    </section>

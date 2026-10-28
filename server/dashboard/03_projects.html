@@ -1,0 +1,18 @@
+    <section id="tab-projects" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6 mb-6">
+        <h2 class="text-xl font-bold mb-4">Projects</h2>
+<div class="flex gap-3 flex-wrap items-center mb-3">
+          <input type="search" id="projects-filter" aria-label="Filter projects" placeholder="Filter projects…" class="w-56" oninput="filterProjects()">
+          <span id="projects-count" class="text-xs text-slate-400"></span>
+        </div>
+        <form class="flex gap-3 flex-wrap items-center mb-4" onsubmit="event.preventDefault(); registerProject()">
+          <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]" required>
+          <button type="submit" class="btn ghost">Register project</button>
+          <button type="button" class="btn ghost" onclick="discoverProjects(this)">Auto-discover</button>
+        </form>
+        <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p></div>
+        <div id="project-detail" class="hidden"></div>
+      </div>
+    </section>
+
+    <!-- GitHub -->

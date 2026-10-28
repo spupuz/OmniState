@@ -1,4 +1,4 @@
-# OmniState v2.37.0
+# OmniState v2.37.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -251,6 +251,7 @@ Open **http://localhost:8347** in the browser:
 
 The dashboard includes accessible modals for memory deletion that support keyboard dismissal (Escape key), proper focus management and maintain all required data collection functionality.
 - **Responsive mobile layout**: tables collapse into stacked cards under 640px (`data-label` header attributes), tabs scroll horizontally, toast wraps full-width, inputs go full-width.
+- **Responsive sidebar navigation**: persistent sidebar on desktop; on mobile (below 1024px) it is off-canvas and toggled by the hamburger button with an overlay, and its open state is reset on viewport resize so it never covers the main content.
 - **Virtual scroll**: memory-entry lists over 50 items render via chunked scroll-based windowing (only visible rows are in the DOM), keeping large project drills smooth.
 - **Deep-linking**: the active tab is mirrored into the URL hash (`#overview`, `#projects`, …) so tabs survive refresh, bookmarking and back/forward navigation.
 - **Dynamic version badge + English-only copy**: the header badge is injected from `VERSION.txt` via `GET /health` and kept in sync live (was hardcoded `v2`); all dashboard copy is English.
@@ -490,7 +491,16 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.0 (current)
+### v2.37.2 (current)
+
+- **Bugfix (UX)**: sidebar no longer overlaps/cover main content on narrow viewports; desktop margin-left and mobile off-canvas rules made authoritative against Tailwind overrides; stale open state is cleared on resize so the sidebar hides and the hamburger appears when narrowing.
+
+### v2.37.1
+
+- **UX**: Sidebar version badge now auto-updates from the /health endpoint (was hardcoded to V2.35.0); dashboard version badge refresh also updates the sidebar badge
+- **Refactor**: Split monolithic server/dashboard.html into 14 component files under server/dashboard/ for maintainability; assembled output is byte-identical to the original
+
+### v2.37.0
 
 - **Features**: Supermemory integration is now backed by real REST API calls (httpx) instead of stubs — new shared client `server/supermemory_client.py` with search/list/profile/add/sync; MCP tools and REST endpoints under `/api/supermemory/*` now return live data; enabled/disabled gating and error handling
 - **Bugfix**: Supermemory dashboard search now uses a site-styled modal instead of the browser's native `prompt()` dialog; fixed merge-project modal always appearing (missing container wrapper)

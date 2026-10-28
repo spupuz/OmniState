@@ -1,0 +1,14 @@
+    <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6 mb-6">
+ <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button type="button" class="btn ghost ml-auto text-xs" onclick="loadShared(this)">↻ Refresh</button></div>
+        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
+          <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]" required>
+          <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
+          <button type="submit" class="btn">Save</button>
+          <button type="button" class="btn ghost" onclick="exportMemoryMarkdown(this)">Export Markdown</button>
+        </form>
+        <div id="shared-list" role="list"></div>
+      </div>
+    </section>
+
+<!-- Search -->

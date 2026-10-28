@@ -21,7 +21,7 @@ from .store import Store
 from .supermemory_client import SupermemoryClient, SupermemoryError
 from .version import get_version
 
-DASHBOARD_HTML = Path(__file__).parent / "dashboard.html"
+DASHBOARD_DIR = Path(__file__).parent / "dashboard"
 
 
 class App:
@@ -333,15 +333,21 @@ class App:
             return response
 
         @app.get("/", response_class=HTMLResponse)
-        def index() -> str:
+        def index() -> Response:
             fallback = f"<h1>OmniState v{get_version()}</h1>"
-            if not DASHBOARD_HTML.exists():
-                return fallback
-            html = DASHBOARD_HTML.read_text(encoding="utf-8")
+            if not DASHBOARD_DIR.exists() or not any(DASHBOARD_DIR.glob("*.html")):
+                return HTMLResponse(fallback)
+            # Assemble the dashboard from its split component files (sorted by
+            # filename) so the single-page behaviour is preserved while the
+            # source stays maintainable.
+            html = "".join(p.read_text(encoding="utf-8") for p in sorted(DASHBOARD_DIR.glob("*.html")))
             ver = get_version()
             # Replace hardcoded badge with real version (keeps dashboard.html static for dev)
             html = html.replace('data-version="v2"', f'data-version="v{ver}"').replace('>v2</span>', f'>v{ver}</span>', 1)
-            return html
+            resp = HTMLResponse(html)
+            resp.headers["Cache-Control"] = "no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            return resp
 
         @app.get("/favicon.svg")
         def favicon_svg() -> Response:

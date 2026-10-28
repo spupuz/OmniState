@@ -1,0 +1,32 @@
+    <section id="tab-search" class="tab-panel hidden" role="tabpanel">
+      <div class="glass p-6">
+        <h2 class="text-xl font-bold mb-4">Global Search</h2>
+        <form class="flex flex-col gap-4 mb-4" onsubmit="event.preventDefault(); doSearch()">
+          <div class="flex gap-3 flex-wrap">
+            <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
+
+            <div class="saved-searches-dropdown">
+              <button type="button" class="btn ghost text-xs" id="saved-searches-btn" onclick="toggleSavedSearchesMenu(event)">⭐ Saved</button>
+              <div id="saved-searches-menu" class="saved-searches-menu"></div>
+            </div>
+            <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
+              <option value="all">All</option>
+              <option value="project">Projects</option>
+              <option value="shared">Shared</option>
+            </select>
+            <button type="submit" class="btn">Search</button>
+            <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
+          </div>
+          <div class="flex gap-3 flex-wrap">
+            <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48" oninput="debouncedSearch()">
+            <input type="date" id="search-start" aria-label="Start date" onchange="doSearch()">
+            <input type="date" id="search-end" aria-label="End date" onchange="doSearch()">
+            <select id="search-limit" aria-label="Limit" onchange="doSearch()"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
+            <span id="search-count" class="text-xs text-slate-400 self-center"></span>
+          </div>
+        </form>
+        <div id="search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
+      </div>
+    </section>
+
+    <!-- Handoffs -->
