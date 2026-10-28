@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from .config import Config, GithubConfig
 from .github_client import GithubClient
-from .indexer import discover_projects, discover_projects_and_workspaces, import_legacy, register_project
+from .indexer import discover_projects_and_workspaces, import_legacy, register_project
 from .mcp_server import create_server
 from .store import Store
 from .supermemory_client import SupermemoryClient, SupermemoryError
@@ -27,7 +27,7 @@ DASHBOARD_DIR = Path(__file__).parent / "dashboard"
 class App:
     METRICS_TTL_SECONDS = 60.0
     RATE_LIMIT_WINDOW = 60.0
-    RATE_LIMIT_MAX_REQUESTS = 120
+    RATE_LIMIT_MAX_REQUESTS = 300
 
     def __init__(self, cfg: Config, store: Store):
         self.cfg = cfg
@@ -776,7 +776,16 @@ class App:
                 else:
                     result = client.list_memories(namespace=namespace, limit=limit)
             except SupermemoryError as e:
+                # Return a user-friendly error rather than 502 when the Supermemory
+                # backend is unreachable; the frontend can display a graceful warning.
                 return JSONResponse({"error": str(e)}, status_code=502)
+            except Exception as e:  # noqa: BLE001
+                # Catch connection errors, timeouts, etc. and return a clear message
+                # instead of a raw 502 that confuses users.
+                return JSONResponse(
+                    {"error": f"Supermemory backend unavailable: {e}"},
+                    status_code=502,
+                )
             result["scope"] = scope
             return result
 
@@ -790,6 +799,11 @@ class App:
                 return client.profile(namespace=namespace)
             except SupermemoryError as e:
                 return JSONResponse({"error": str(e)}, status_code=502)
+            except Exception as e:  # noqa: BLE001
+                return JSONResponse(
+                    {"error": f"Supermemory backend unavailable: {e}"},
+                    status_code=502,
+                )
 
         @app.post("/api/supermemory/add")
         def api_supermemory_add(body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -808,6 +822,11 @@ class App:
                 )
             except SupermemoryError as e:
                 return JSONResponse({"error": str(e)}, status_code=502)
+            except Exception as e:  # noqa: BLE001
+                return JSONResponse(
+                    {"error": f"Supermemory backend unavailable: {e}"},
+                    status_code=502,
+                )
 
         @app.post("/api/supermemory/sync")
         def api_supermemory_sync(body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -825,6 +844,11 @@ class App:
                 )
             except SupermemoryError as e:
                 return JSONResponse({"error": str(e)}, status_code=502)
+            except Exception as e:  # noqa: BLE001
+                return JSONResponse(
+                    {"error": f"Supermemory backend unavailable: {e}"},
+                    status_code=502,
+                )
 
         # ---------- hooks endpoints (auto-population via OpenCode plugin) ----------
 

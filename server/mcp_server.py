@@ -19,7 +19,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from .config import Config, save_config
 from .github_client import GithubClient
-from .indexer import discover_projects, import_legacy, register_project
+from .indexer import discover_projects_and_workspaces, import_legacy, register_project
 from .store import Store
 from .supermemory_client import SupermemoryClient, SupermemoryError
 from .version import get_version
@@ -158,13 +158,28 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
     @_logged
     def project_discover() -> str:
         """Scan mounted roots for new projects and register them (auto-registration)."""
-        found = discover_projects(cfg)
+        found_projects, found_workspaces = discover_projects_and_workspaces(cfg)
         registered = []
-        for p in found:
-            project = register_project(cfg, store, str(p))
+        # Register workspaces first
+        for ws in found_workspaces:
+            host_path = cfg.to_host_path(str(ws))
+            if host_path:
+                store.upsert_workspace(ws.name, host_path, str(ws))
+        # Build project -> workspace map
+        project_workspace: dict[str, str] = {}
+        for ws in found_workspaces:
+            for proj in found_projects:
+                try:
+                    if proj.is_relative_to(ws):
+                        project_workspace[str(proj)] = ws.name
+                except ValueError:
+                    pass
+        for p in found_projects:
+            workspace = project_workspace.get(str(p))
+            project = register_project(cfg, store, str(p), workspace=workspace)
             if project:
                 registered.append(project["name"])
-        return json.dumps({"found": len(found), "registered": registered}, indent=2)
+        return json.dumps({"found": len(found_projects), "workspaces": len(found_workspaces), "registered": registered}, indent=2)
 
     @server.tool()
     @_logged

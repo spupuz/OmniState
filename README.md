@@ -1,4 +1,4 @@
-# OmniState v2.37.3
+# OmniState v2.37.4
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -24,7 +24,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Memory feedback audit**: `memory_feedback_for(memory_id)` returns the full feedback audit trail for any memory entry.
 - **Async backup + scheduled purge**: `db_backup_async` runs SQLite backup in a thread (non-blocking); the scheduler auto-purges expired memories (`valid_until`), old feedback (90d) and exposure records (60d).
 - **Prometheus `/metrics` endpoint**: `GET /metrics` exposes `omnistate_projects_active`, `omnistate_memory_entries`, `omnistate_gh_scans`, `omnistate_version`.
-- **Security headers + rate limiting**: CSP (CDN-allowed sources), Referrer-Policy, per-IP rate limit (120 req/60s on `/api/*` and `/mcp`), oversized-payload rejection (>1MB).
+- **Security headers + rate limiting**: CSP (CDN-allowed sources), Referrer-Policy, per-IP rate limit (300 req/60s on `/api/*` and `/mcp`), oversized-payload rejection (>1MB).
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
@@ -491,7 +491,14 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.3 (current)
+### v2.37.4 (current)
+
+- **Bugfix (Dashboard)**: Removed the duplicated legacy header by keeping `12_script.html` script-only; restored `toggleSidebar`/`closeSidebarMobile` and guarded `last-update` (mirroring to sidebar) so the new sidebar layout renders without throwing; guarded `auth-token` init and other null element access.
+- **Bugfix (Supermemory)**: REST endpoints now catch connection/timeout errors and return a clear 502 instead of an unhandled failure.
+- **Feature (Workspace)**: `project_discover` now registers workspaces and assigns projects to them (restores workspace grouping in the dashboard).
+- **Tweak**: Per-IP rate limit raised from 120 to 300 req/60s.
+
+### v2.37.3
 
 - **Refactor**: PR #171 - Replace blocking prompt with custom search modal; split dashboard into component files; simplify indexer/store (removes workspace support); real httpx calls simplified to simulated API calls
 
@@ -661,7 +668,7 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 - **Docs**: DESIGN.md synced — content_hash DB schema, token validation, CSP/rate-limiting/Referrer-Policy, Prometheus /metrics, scheduled purge, expanded REST/MCP tables.
 
 ### v2.12.0
-- **Security**: CSP headers (CDN sources allowed), Referrer-Policy, per-IP rate limiting (120 req/60s), oversized payload rejection (>1MB).
+- **Security**: CSP headers (CDN sources allowed), Referrer-Policy, per-IP rate limiting (300 req/60s), oversized payload rejection (>1MB).
 - **Memory engine**: `content_hash` column (SHA-256 normalized content) with partial-index dedup; tag filtering on `memory_search` (comma-separated, AND logic); `memory_feedback_for` MCP tool.
 - **Ops**: async `db_backup_async`, scheduled purge (expired memories, feedback 90d, exposures 60d), Prometheus `/metrics` endpoint.
 - **GitHub**: token validation in `github_config` before saving.

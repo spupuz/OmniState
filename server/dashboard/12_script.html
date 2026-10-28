@@ -1,491 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#070b14" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f1f5f9" media="(prefers-color-scheme: light)">
-<link rel="manifest" href="/manifest.json">
-<title>OmniState | Dashboard</title>
-<link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="alternate icon" href="/favicon.ico">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-<style>
-  /* ── Design tokens ── */
-  :root{
-    --bg:#070b14;
-    --bg-soft:#0b1224;
-    --card:rgba(15,23,42,.55);
-    --card-solid:#111d36;
-    --border:rgba(255,255,255,.08);
-    --border-strong:rgba(255,255,255,.14);
-    --text:#f1f5f9;
-    --muted:#94a3b8;
-    --muted-2:#64748b;
-    --accent:#3b82f6;
-    --accent-2:#60a5fa;
-    --accent-glow:rgba(59,130,246,.35);
-    --success:#10b981;
-    --warn:#f59e0b;
-    --danger:#ef4444;
-    --radius-sm:.5rem;
-    --radius:.75rem;
-    --radius-lg:1rem;
-    --shadow:0 8px 32px rgba(2,6,23,.45);
-    --shadow-sm:0 2px 10px rgba(2,6,23,.35);
-  }
-  *{scrollbar-width:thin;scrollbar-color:#1e293b transparent}
-  html{scroll-behavior:smooth}
-  body{background:radial-gradient(1200px 600px at 20% -10%,rgba(59,130,246,.10),transparent 60%),radial-gradient(900px 500px at 90% 0%,rgba(16,185,129,.06),transparent 60%),var(--bg);color:var(--text);font-family:'Inter',system-ui,sans-serif;min-height:100vh;-webkit-font-smoothing:antialiased}
-  h1,h2,h3,.font-outfit{font-family:'Outfit',sans-serif;letter-spacing:-.02em}
-  ::selection{background:rgba(59,130,246,.28);color:#fff}
-  ::-webkit-scrollbar{width:8px;height:8px}
-  ::-webkit-scrollbar-track{background:transparent}
-  ::-webkit-scrollbar-thumb{background:#1e293b;border-radius:999px}
-  ::-webkit-scrollbar-thumb:hover{background:#334155}
-
-  /* Cards */
-  .glass{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);backdrop-filter:blur(10px) saturate(1.15);box-shadow:var(--shadow-sm);transition:border-color .18s,box-shadow .18s,transform .18s}
-  .glass:hover{border-color:rgba(59,130,246,.18)}
-  .stat-card{position:relative;overflow:hidden}
-  .stat-card::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;background:radial-gradient(500px 200px at 80% 0%,rgba(59,130,246,.10),transparent 60%);transition:opacity .2s;pointer-events:none}
-  .stat-card:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(2,6,23,.35);border-color:rgba(59,130,246,.32)}
-  .stat-card:hover::after{opacity:1}
-  .glow-text{line-height:1.05;font-weight:800}
-
-  /* Tabs */
-  .tab-btn{padding:.58rem 1rem;border-radius:999px;font-size:.78rem;font-weight:650;letter-spacing:.02em;border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.02);transition:all .18s;display:inline-flex;align-items:center;gap:.45rem;min-height:40px}
-  .tab-btn:hover{color:var(--text);border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.08)}
-  .tab-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);box-shadow:0 6px 18px var(--accent-glow)}
-  .tab-btn .icon-btn{width:1.05rem;height:1.05rem;opacity:.9}
-  .tab-panel{animation:fade .22s ease}
-  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
-  [role="tabpanel"]{min-height:56vh}
-
-  /* Buttons */
-  .btn{background:var(--accent);color:#fff;border:1px solid var(--accent);border-radius:999px;padding:.52rem 1rem;font-size:.8rem;font-weight:650;cursor:pointer;transition:all .16s;display:inline-flex;align-items:center;justify-content:center;gap:.35rem;white-space:nowrap}
-  .btn:hover{filter:brightness(1.06);transform:translateY(-1px);box-shadow:0 6px 16px var(--accent-glow)}
-  .btn:active{transform:none;filter:brightness(.98)}
-  .btn:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
-  .btn.ghost{background:rgba(255,255,255,.04);color:var(--muted);border-color:var(--border)}
-  .btn.ghost:hover{background:rgba(255,255,255,.07);color:var(--text);border-color:rgba(255,255,255,.14);box-shadow:none}
-  .btn.small{padding:.32rem .62rem;font-size:.72rem}
-
-  /* Inputs */
-  input,select,textarea{background:rgba(15,23,42,.55);border:1px solid var(--border);color:var(--text);border-radius:999px;padding:.52rem .85rem;font-size:.8rem;outline:none;transition:border-color .15s,box-shadow .15s,background .15s;min-height:38px}
-  textarea{border-radius:var(--radius)}
-  input::placeholder,textarea::placeholder{color:#64748b}
-  input:focus,select:focus,textarea:focus{border-color:rgba(59,130,246,.55);box-shadow:0 0 0 3px rgba(59,130,246,.18);background:rgba(15,23,42,.72)}
-  input:focus-visible,select:focus-visible{outline:none}
-
-  /* Tables */
-  table{width:100%;border-collapse:separate;border-spacing:0}
-  th,td{padding:.62rem .75rem;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.06);text-align:left}
-  th{color:var(--muted);font-weight:700;text-transform:uppercase;font-size:.68rem;letter-spacing:.08em;background:rgba(255,255,255,.02);position:sticky;top:0;backdrop-filter:blur(6px)}
-  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  tbody tr{transition:background .12s}
-  tbody tr:hover{background:rgba(255,255,255,.03)}
-  .section-row td{text-transform:uppercase;font-size:.68rem;letter-spacing:.08em;font-weight:750;color:var(--muted);background:rgba(255,255,255,.03);padding-top:.9rem;padding-bottom:.4rem;border-bottom:1px solid rgba(255,255,255,.08)}
-  td a{color:inherit;text-decoration:none;border-bottom:1px dashed transparent}
-  td a:hover{color:var(--accent-2);border-bottom-color:rgba(59,130,246,.4)}
-
-  /* Chips / badges */
-  .chip{display:inline-flex;align-items:center;gap:.35rem;padding:.28rem .6rem;border-radius:999px;font-size:.72rem;font-weight:600;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.22);color:#bfdbfe;line-height:1}
-  .chip.danger{background:rgba(239,68,68,.10);border-color:rgba(239,68,68,.24);color:#fecaca}
-  .chip.ok{background:rgba(16,185,129,.10);border-color:rgba(16,185,129,.22);color:#a7f3d0}
-  .health-badge{display:inline-flex;align-items:center;gap:.35rem;padding:.3rem .55rem;border-radius:999px;font-size:.68rem;font-weight:700;letter-spacing:.02em}
-  .health-healthy{background:rgba(16,185,129,.14);color:#6ee7b7;border:1px solid rgba(16,185,129,.28)}
-  .health-attention{background:rgba(245,158,11,.14);color:#fcd34d;border:1px solid rgba(245,158,11,.28)}
-  .health-warning{background:rgba(249,115,22,.14);color:#fdba74;border:1px solid rgba(249,115,22,.28)}
-  .health-critical{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.30)}
-
-  /* Misc */
-  .chart-box{height:320px;position:relative}
-  .kbd{font-size:.68rem;padding:.18rem .38rem;border-radius:.38rem;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-family:ui-monospace,monospace;color:var(--muted)}
-  .copy-btn{font-size:.72rem;padding:.32rem .55rem;border-radius:999px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);cursor:pointer;transition:all .15s}
-  .copy-btn:hover{background:rgba(59,130,246,.14);border-color:rgba(59,130,246,.28);color:var(--text)}
-  .btn:focus-visible,.tab-btn:focus-visible,.copy-btn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(59,130,246,.55);border-color:rgba(59,130,246,.8)}
-  .skel{background:linear-gradient(90deg,rgba(255,255,255,.06) 25%,rgba(255,255,255,.11) 37%,rgba(255,255,255,.06) 63%);background-size:400% 100%;animation:shimmer 1.15s infinite;border-radius:.6rem}
-  @keyframes shimmer{0%{background-position:100% 0}100%{background-position:-100% 0}}
-  #toast-wrap{position:fixed;bottom:1.2rem;right:1.2rem;display:flex;flex-direction:column;gap:.5rem;z-index:9999;pointer-events:none}
-  .toast{pointer-events:auto;padding:.7rem .9rem;border-radius:.8rem;font-size:.8rem;font-weight:600;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.10);animation:toastIn .20s ease;max-width:360px;border-left-width:3px}
-  .toast.ok{background:#0f766e;color:#fff;border-left-color:#2dd4bf}
-  .toast.err{background:#7f1d1d;color:#fecaca;border-left-color:#f87171}
-  .toast.info{background:#0f172a;color:#e2e8f0;border-left-color:var(--accent)}
-  @keyframes toastIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-  #palette{position:fixed;inset:0;background:rgba(2,6,23,.48);backdrop-filter:blur(10px);z-index:9998;display:flex;align-items:flex-start;justify-content:center;padding-top:18vh}
-  #palette.hidden{display:none !important}
-  #palette-box{width:min(640px,92vw);background:#0f172a;border:1px solid rgba(255,255,255,.10);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
-  #palette-input{width:100%;border:none;border-bottom:1px solid rgba(255,255,255,.08);border-radius:0;padding:.9rem 1.1rem;font-size:.95rem;background:transparent}
-  .palette-item{padding:.62rem 1rem;cursor:pointer;display:flex;justify-content:space-between;gap:.75rem;font-size:.84rem;border-bottom:1px solid rgba(255,255,255,.04)}
-  .palette-item:hover,.palette-item.active{background:rgba(59,130,246,.12)}
-  .palette-item kbd{font-size:.68rem;background:rgba(255,255,255,.07);padding:.15rem .35rem;border-radius:.3rem}
-  .hidden{display:none !important}
-
-  /* Light theme */
-  [data-theme="light"]{--bg:#f1f5f9;--bg-soft:#eef2ff;--card:rgba(255,255,255,.96);--card-solid:#fff;--border:rgba(15,23,42,.10);--border-strong:rgba(15,23,42,.16);--text:#0f172a;--muted:#475569;--muted-2:#64748b;--accent:#2563eb}
-  [data-theme="light"] body{background:radial-gradient(1100px 560px at 16% -8%,rgba(37,99,235,.08),transparent 62%),radial-gradient(900px 520px at 92% 0%,rgba(14,165,233,.06),transparent 60%),#f1f5f9;color:var(--text)}
-  [data-theme="light"] .glass{background:rgba(255,255,255,.96);border-color:rgba(15,23,42,.08);box-shadow:0 8px 24px rgba(15,23,42,.06)}
-  [data-theme="light"] th{background:rgba(15,23,42,.03);color:#334155}
-  [data-theme="light"] td{border-color:rgba(15,23,42,.08);color:#1e293b}
-  [data-theme="light"] input,[data-theme="light"] select,[data-theme="light"] textarea{background:#fff;border-color:rgba(15,23,42,.14);color:#0f172a}
-  [data-theme="light"] .btn.ghost{background:#fff;border-color:rgba(15,23,42,.12);color:#334155}
-  [data-theme="light"] .chip{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.18);color:#1e40af}
-  [data-theme="light"] .chip.danger{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.18);color:#991b1b}
-  [data-theme="light"] .skel{background:linear-gradient(90deg,rgba(15,23,42,.06) 25%,rgba(15,23,42,.10) 37%,rgba(15,23,42,.06) 63%);background-size:400% 100%}
-  [data-theme="light"] #palette-box{background:#fff}
-  [data-theme="light"] .text-slate-400{color:#475569 !important}
-  [data-theme="light"] .text-slate-300{color:#334155 !important}
-  [data-theme="light"] .text-blue-300{color:#1d4ed8 !important}
-  [data-theme="light"] .text-blue-400{color:#1e40af !important}
-  [data-theme="light"] .text-emerald-300{color:#047857 !important}
-  [data-theme="light"] .text-emerald-400{color:#065f46 !important}
-  [data-theme="light"] .text-purple-300{color:#6d28d9 !important}
-  [data-theme="light"] .text-purple-400{color:#5b21b6 !important}
-  [data-theme="light"] .glow-text{color:#0f172a}
-  [data-theme="light"] #server-status{color:#065f46 !important}
-
-  /* Saved searches — polished */
-  .saved-searches-dropdown{position:relative}
-  .saved-searches-menu{position:absolute;top:calc(100% + 8px);right:0;background:rgba(15,23,42,.96);border:1px solid rgba(59,130,246,.22);border-radius:var(--radius);box-shadow:var(--shadow);min-width:320px;max-height:380px;overflow:auto;z-index:30;display:none}
-  .saved-searches-menu.open{display:block;animation:pop .16s ease}
-  @keyframes pop{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
-  .saved-search-item{padding:.6rem .85rem;display:flex;justify-content:space-between;align-items:center;gap:.6rem;border-bottom:1px solid rgba(255,255,255,.05);font-size:.78rem;transition:background .12s}
-  .saved-search-item:hover{background:rgba(59,130,246,.08)}
-  .saved-search-item-delete{opacity:0;color:#f87171;cursor:pointer;padding:.2rem .35rem;border-radius:999px}
-  .saved-search-item:hover .saved-search-item-delete,
-  .saved-search-item:focus-within .saved-search-item-delete {opacity:1}
-  .saved-search-item-delete:hover{background:rgba(239,68,68,.12)}
-
-  /* Subtle future sections (timeline/comparison placeholders) */
-  .timeline-container{position:relative;padding:1rem 0}
-  .timeline-line{position:absolute;left:.42rem;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--accent),transparent)}
-  .timeline-item{position:relative;margin:0 0 1.1rem 2.6rem}
-  .timeline-dot{position:absolute;left:-1.85rem;top:.3rem;width:1.05rem;height:1.05rem;background:var(--bg);border:2.5px solid var(--accent);border-radius:50%}
-
-  /* ── Responsive ── */
-  @media(max-width:640px){
-    .tab-btn{padding:.45rem .65rem;font-size:.7rem;min-width:0}
-    nav[role="tablist"]{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:.25rem;gap:.5rem}
-    .stat-card .text-2xl{font-size:1.25rem}
-    table.responsive thead{display:none}
-    table.responsive tbody tr{display:block;margin-bottom:.75rem;border:1px solid var(--border);border-radius:var(--radius);padding:.5rem}
-    table.responsive td{display:flex;justify-content:space-between;gap:.5rem;padding:.35rem .5rem;border-bottom:none}
-    table.responsive td::before{content:attr(data-label);color:var(--muted);font-weight:700;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em}
-    #toast-wrap{bottom:.6rem;right:.6rem;left:.6rem;max-width:none}
-    .toast{max-width:none}
-    .glass{padding:.75rem}
-    header .flex{gap:.5rem}
-    input.w-56,input.w-48{width:100%}
-  }
-
-  /* ── Undo toast ── */
-  .toast-undo{display:flex;align-items:center;gap:.45rem}
-  .toast-undo button{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:999px;padding:.18rem .55rem;font-size:.7rem;font-weight:700;cursor:pointer;transition:background .12s}
-  .toast-undo button:hover{background:rgba(255,255,255,.22)}
-
-  /* ── Virtual scroll container ── */
-  .virtual-scroll{overflow-y:auto;contain:strict}
-  .virtual-scroll-inner{position:relative}
-  .virtual-item{position:absolute;left:0;right:0}
-
-  /* ── Skeleton variants ── */
-  .skel-card{height:80px;border-radius:var(--radius)}
-  .skel-text{height:.9rem;border-radius:.5rem}
-  .skel-row{height:2.4rem;border-radius:.35rem}
-
-  /* ── Focus visible ring ── */
-  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-  .skip-link:focus{position:fixed;top:0;left:0;z-index:99999}
-</style>
-</head>
-<body class="p-5 md:p-8">
-<a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-blue-600 focus:text-white focus:rounded-lg focus:font-bold focus:outline-none focus:ring-2 focus:ring-blue-400">Skip to main content</a>
-
-<div class="max-w-7xl mx-auto">
-  <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-6">
-    <div>
-      <div class="flex items-center gap-3 mb-3">
-        <span id="version-badge" class="px-3.5 py-1.5 bg-blue-600/10 text-blue-300 text-[11px] font-bold rounded-full border border-blue-600/20 tracking-widest uppercase" title="App version" data-version="v2">v2</span>
-        <span class="flex items-center gap-1.5 text-xs text-emerald-400 font-bold uppercase tracking-widest pulse" id="server-status">
-          <span class="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]" aria-hidden="true"></span> Server
-        </span>
-      </div>
-      <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight glow-text" id="dashboard-title">OmniState Dashboard</h1>
-      <p class="text-slate-400 mt-2 text-lg font-light" id="last-update">—</p>
-    </div>
-    <form class="flex gap-3 flex-wrap items-center" onsubmit="event.preventDefault(); saveToken()">
-        <input type="password" id="auth-token" aria-label="Access token" placeholder="Access token (if enabled)" class="w-44 text-xs">
-        <button type="button" class="btn ghost" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme (T)" aria-label="Toggle theme">🌙</button>
-        <span class="kbd hidden md:inline">⌘K</span>
-        <button type="submit" class="btn ghost">Token</button>
-        <button type="button" class="btn" onclick="loadAll(this)">Reload</button>
-      </form>
-  </header>
-
-  <!-- Tabs -->
-  <nav class="flex gap-2 mb-8 flex-wrap" role="tablist" aria-label="Dashboard sections">
-    <button type="button" class="tab-btn active" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" aria-label="Overview section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview</button>
-    <button type="button" class="tab-btn" data-tab="projects" role="tab" aria-selected="false" aria-controls="tab-projects" aria-label="Projects section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 3h8v8H3V3m10 0h8v8h-8V3m0 10h8v8h-8v-8M3 13h8v8H3v-8"/></svg>Projects</button>
-    <button type="button" class="tab-btn" data-tab="github" role="tab" aria-selected="false" aria-controls="tab-github" aria-label="GitHub PR Health section"><svg class="icon-btn" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.004 12.004 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>GitHub</button>
-    <button type="button" class="tab-btn" data-tab="shared" role="tab" aria-selected="false" aria-controls="tab-shared" aria-label="Shared Memory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Memory</button>
-    <button type="button" class="tab-btn" data-tab="search" role="tab" aria-selected="false" aria-controls="tab-search" aria-label="Search section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>Search</button>
-    <button type="button" class="tab-btn" data-tab="handoffs" role="tab" aria-selected="false" aria-controls="tab-handoffs" aria-label="Handoffs section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M7 16L17 6m0 0l-4-4m4 4v10"/></svg>Handoffs</button>
-    <button type="button" class="tab-btn" data-tab="supermemory" role="tab" aria-selected="false" aria-controls="tab-supermemory" aria-label="Supermemory section"><svg class="icon-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>Supermemory</button>
-  </nav>
-
-  <main id="main-content" tabindex="-1" aria-live="polite" aria-atomic="false">
-
-    <!-- Overview -->
-    <section id="tab-overview" class="tab-panel" role="tabpanel">
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats" role="list"></div>
-      <div class="glass p-6 mb-6">
-        <h2 class="text-xl font-bold mb-2">DB Backups</h2>
-        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button type="button" class="btn ghost small ml-2" onclick="loadBackups(this)">↻ Refresh</button></p>
-        <div id="backups-list" class="flex gap-3 flex-wrap" role="list"></div>
-      </div>
-      <div class="glass p-6">
-        <h2 class="text-xl font-bold mb-4">Indexed Projects</h2>
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-4" id="overview-projects" role="list"></div>
-      </div>
-    </section>
-
-    <!-- Projects -->
-    <section id="tab-projects" class="tab-panel hidden" role="tabpanel">
-      <div class="glass p-6 mb-6">
-        <h2 class="text-xl font-bold mb-4">Projects</h2>
-<div class="flex gap-3 flex-wrap items-center mb-3">
-          <input type="search" id="projects-filter" aria-label="Filter projects" placeholder="Filter projects…" class="w-56" oninput="filterProjects()">
-          <span id="projects-count" class="text-xs text-slate-400"></span>
-        </div>
-        <form class="flex gap-3 flex-wrap items-center mb-4" onsubmit="event.preventDefault(); registerProject()">
-          <input type="text" id="register-path" aria-label="Project path" placeholder="/path/to/project" class="flex-1 min-w-[240px]" required>
-          <button type="submit" class="btn ghost">Register project</button>
-          <button type="button" class="btn ghost" onclick="discoverProjects(this)">Auto-discover</button>
-        </form>
-        <div class="overflow-x-auto" id="projects-table-wrap"><p class="text-slate-400 text-sm" id="projects-empty">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p></div>
-        <div id="project-detail" class="hidden"></div>
-      </div>
-    </section>
-
-    <!-- GitHub -->
-    <section id="tab-github" class="tab-panel hidden" role="tabpanel">
-      <form class="flex gap-3 flex-wrap items-center mb-6" onsubmit="event.preventDefault(); runGhScan()">
-        <input type="text" id="gh-accounts" aria-label="GitHub accounts" placeholder="account, org (comma-separated)" class="flex-1 min-w-[240px]">
-        <button type="submit" class="btn">Scan now</button>
-        <button type="button" class="btn ghost" onclick="saveGithubConfig()">Save config</button>
-        <button type="button" class="btn ghost" onclick="loadGithub(this)">Refresh</button>
-        <span class="text-xs text-slate-400" id="gh-token-info"></span>
-      </form>
-      <div class="glass p-4 mb-6" id="gh-advanced" style="display:none;">
-        <h3 class="font-bold mb-3">Advanced settings</h3>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-extended" class="w-4 h-4"> Extended (GraphQL)</label>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-include-forks" class="w-4 h-4"> Include forks</label>
-          <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="gh-include-archived" class="w-4 h-4"> Include archived</label>
-        </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Scan interval (hours)</label>
-            <input type="number" id="gh-scan-interval" min="1" max="168" class="w-full">
-          </div>
-          <div>
-            <label class="block text-xs text-slate-400 mb-1">Stale days</label>
-            <input type="number" id="gh-stale-days" min="1" max="365" class="w-full">
-          </div>
-        </div>
-      </div>
-      <button type="button" class="btn ghost text-xs mb-6" onclick="toggleGhAdvanced()">⚙️ Advanced settings</button>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="github-stats"></div>
-      <div class="glass p-6 mb-6" id="gh-delta"><h2 class="text-xl font-bold mb-2">Delta vs previous scan</h2><p class="text-slate-400 text-sm" id="gh-delta-text">—</p></div>
-      <div class="grid md:grid-cols-2 gap-6 mb-6">
-        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Top repos by open PRs</p><div class="chart-box"><canvas id="chartGhTop"></canvas></div></div>
-        <div class="glass p-6"><p class="chart-title text-sm font-bold text-slate-400 uppercase tracking-widest mb-3">Open PR trend</p><div class="chart-box"><canvas id="chartGhTrend"></canvas></div></div>
-      </div>
-      <div class="glass p-6 mb-6">
-        <div class="flex gap-3 flex-wrap mb-4">
-          <h2 class="text-xl font-bold">Repositories</h2>
-          <label class="inline-flex items-center gap-2 text-xs text-slate-400 ml-auto"><input type="checkbox" id="gh-only-prs" onchange="toggleOnlyPrs()" aria-label="Only show repositories with open pull requests"> Only with open PRs</label>
-        </div>
-        <div class="overflow-x-auto" id="github-repos"><p class="text-slate-400 text-sm">No scans yet.</p></div>
-      </div>
-      <div class="grid md:grid-cols-2 gap-6">
-        <div class="glass p-6"><h3 class="font-bold mb-3">Top PR authors</h3><div id="gh-authors" class="flex flex-wrap gap-2"></div></div>
-        <div class="glass p-6"><h3 class="font-bold mb-3">Most frequent labels</h3><div id="gh-labels" class="flex flex-wrap gap-2"></div></div>
-      </div>
-    </section>
-
-<!-- Shared -->
-    <section id="tab-shared" class="tab-panel hidden" role="tabpanel">
-      <div class="glass p-6 mb-6">
- <div class="flex items-center gap-3 mb-4"><h2 class="text-xl font-bold">Shared Memory</h2><span id="shared-count" class="chip">—</span><button type="button" class="btn ghost ml-auto text-xs" onclick="loadShared(this)">↻ Refresh</button></div>
-        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addShared()">
-          <input type="text" id="shared-text" aria-label="New shared note text" placeholder="New shared note…" class="flex-1 min-w-[240px]" required>
-          <input type="text" id="shared-tags" aria-label="Shared note tags" placeholder="tags, comma-separated" class="w-56">
-          <button type="submit" class="btn">Save</button>
-          <button type="button" class="btn ghost" onclick="exportMemoryMarkdown(this)">Export Markdown</button>
-        </form>
-        <div id="shared-list" role="list"></div>
-      </div>
-    </section>
-
-<!-- Search -->
-    <section id="tab-search" class="tab-panel hidden" role="tabpanel">
-      <div class="glass p-6">
-        <h2 class="text-xl font-bold mb-4">Global Search</h2>
-        <form class="flex flex-col gap-4 mb-4" onsubmit="event.preventDefault(); doSearch()">
-          <div class="flex gap-3 flex-wrap">
-            <input type="search" id="search-q" aria-label="Search query" placeholder="Search memory… (live as you type)" class="flex-1 min-w-[240px]" oninput="debouncedSearch()">
-
-            <div class="saved-searches-dropdown">
-              <button type="button" class="btn ghost text-xs" id="saved-searches-btn" onclick="toggleSavedSearchesMenu(event)">⭐ Saved</button>
-              <div id="saved-searches-menu" class="saved-searches-menu"></div>
-            </div>
-            <select id="search-scope" aria-label="Search scope" onchange="doSearch()">
-              <option value="all">All</option>
-              <option value="project">Projects</option>
-              <option value="shared">Shared</option>
-            </select>
-            <button type="submit" class="btn">Search</button>
-            <button type="button" class="btn ghost" onclick="clearSearch()">Clear</button>
-          </div>
-          <div class="flex gap-3 flex-wrap">
-            <input type="text" id="search-project" aria-label="Filter by project" placeholder="project name (optional)" class="w-48" oninput="debouncedSearch()">
-            <input type="date" id="search-start" aria-label="Start date" onchange="doSearch()">
-            <input type="date" id="search-end" aria-label="End date" onchange="doSearch()">
-            <select id="search-limit" aria-label="Limit" onchange="doSearch()"><option value="20">20 results</option><option value="50">50</option><option value="100">100</option></select>
-            <span id="search-count" class="text-xs text-slate-400 self-center"></span>
-          </div>
-        </form>
-        <div id="search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search.</p></div>
-      </div>
-    </section>
-
-    <!-- Handoffs -->
-    <section id="tab-handoffs" class="tab-panel hidden" role="tabpanel">
-      <div class="glass p-6">
-        <h2 class="text-xl font-bold mb-4">Agent Handoffs</h2>
-        <p class="text-slate-400 text-sm mb-4">Context handoffs between agents or sessions. Created via <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs">memory_handoff</code> MCP tool or <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs">/api/handoffs</code> REST API.</p>
-        <div id="handoffs-list" role="list"><p class="text-slate-400 text-sm">No handoffs yet.</p></div>
-      </div>
-    </section>
-
-    <!-- Supermemory -->
-    <section id="tab-supermemory" class="tab-panel hidden" role="tabpanel">
-      <div class="glass p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <h2 class="text-xl font-bold">Supermemory</h2>
-          <span id="sm-status" class="chip">⚠️ Disconnected</span>
-          <button type="button" class="btn ghost ml-auto text-xs" onclick="supermemorySync()">Sync Memories</button>
-        </div>
-        <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addSupermemoryMemory()">
-          <input type="text" id="sm-content" aria-label="Memory content" placeholder="Memory content…" class="flex-1 min-w-[240px]" required>
-          <input type="text" id="sm-namespace" aria-label="Namespace" placeholder="Namespace (optional)" class="w-56">
-          <button type="submit" class="btn">Save to Supermemory</button>
-          <button type="button" class="btn ghost" onclick="supermemorySearch()">Search</button>
-        </form>
-        <div id="sm-search-results" role="list"><p class="text-slate-400 text-sm">Type a query to search Supermemory.</p></div>
-        <div class="mt-4">
-          <h3 class="font-bold">Recent Memories</h3>
-          <div id="sm-recent-memories" class="glass p-4">
-            <p class="text-slate-400 text-sm">Loading recent memories…</p>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-</div>
-
-<div id="toast-wrap" aria-live="polite"></div>
-<div id="palette" class="hidden" role="dialog" aria-modal="true" aria-label="Command palette"><div id="palette-box"><input id="palette-input" placeholder="Type a command… (e.g. overview, projects, search, reload)" autocomplete="off" aria-label="Command palette input" role="combobox" aria-expanded="true" aria-controls="palette-list" aria-autocomplete="list"><div id="palette-list" role="listbox"></div></div></div>
-
-<div id="forget-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="forget-modal-title">
-  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
-    <div class="glass w-[92vw] max-w-md p-6 relative">
-      <h3 id="forget-modal-title" class="text-xl font-bold mb-3 text-red-400">Delete Memory Entry</h3>
-      <p class="text-sm text-slate-300 mb-4">Are you sure you want to delete this memory entry? This action cannot be undone.</p>
-      <form id="forget-form" onsubmit="event.preventDefault(); submitForget()">
-        <label for="forget-reason" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Reason for deletion (audit trail)</label>
-        <input type="text" id="forget-reason" class="w-full mb-5" placeholder="e.g. Obsolete information" required>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn ghost" onclick="closeForgetModal()">Cancel</button>
-          <button type="submit" class="btn bg-red-600/20 text-red-400 border-red-500/50 hover:bg-red-600 hover:text-white focus-visible:ring-red-400">Delete Entry</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<div id="sm-search-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sm-search-modal-title">
-  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
-    <div class="glass w-[92vw] max-w-md p-6 relative">
-      <h3 id="sm-search-modal-title" class="text-xl font-bold mb-3">Search Supermemory</h3>
-      <form id="sm-search-form" onsubmit="event.preventDefault(); submitSmSearch()">
-        <label for="sm-search-input" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Search Query</label>
-        <input type="text" id="sm-search-input" class="w-full mb-5" placeholder="Enter search terms…" required>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn ghost" onclick="closeSmSearchModal()">Cancel</button>
-          <button type="submit" class="btn">Search</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<div id="remove-project-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="remove-modal-title">
-  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
-    <div class="glass w-[92vw] max-w-md p-6 relative">
-      <h3 id="remove-modal-title" class="text-xl font-bold mb-3 text-red-400">Remove Project</h3>
-      <p class="text-sm text-slate-300 mb-4">Are you sure you want to remove this project? It will be marked as removed and hidden from active lists.</p>
-      <p class="text-sm text-slate-400 mb-3"><strong>Project:</strong> <span id="remove-project-name"></span></p>
-      <form id="remove-form" onsubmit="event.preventDefault(); submitRemove()">
-        <label for="remove-reason" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Reason for removal (audit trail)</label>
-        <input type="text" id="remove-reason" class="w-full mb-5" placeholder="e.g. Duplicate project" required>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn ghost" onclick="closeRemoveModal()">Cancel</button>
-          <button type="submit" class="btn bg-red-600/20 text-red-400 border-red-500/50 hover:bg-red-600 hover:text-white">Remove</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<div id="merge-project-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="merge-modal-title">
-  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
-    <div class="glass w-[92vw] max-w-lg p-6 relative">
-      <h3 id="merge-modal-title" class="text-xl font-bold mb-3 text-amber-400">Merge Project</h3>
-      <p class="text-sm text-slate-300 mb-3">Merge the source project into a target project.</p>
-      <p class="text-sm text-slate-400 mb-4"><strong>Source:</strong> <span id="merge-source-name"></span></p>
-      <form id="merge-form" onsubmit="event.preventDefault(); submitMerge()">
-        <div class="mb-4">
-          <label for="merge-target-select" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Select an existing target project</label>
-          <select id="merge-target-select" class="w-full mb-3">
-            <option value="">-- Choose an existing project --</option>
-          </select>
-          <p class="text-xs text-slate-500 mb-2">or</p>
-          <label for="merge-target-path" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">New target project path</label>
-          <input type="text" id="merge-target-path" class="w-full" placeholder="/path/to/new/project">
-        </div>
-        <div class="glass p-3 mb-4 bg-amber-500/5 border border-amber-500/20 rounded">
-          <p class="text-xs text-amber-200">All memories of the source project will be moved to the target project. The source project will be marked as removed and hidden.</p>
-        </div>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="btn ghost" onclick="closeMergeModal()">Cancel</button>
-          <button type="submit" class="btn">Merge</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
 <script>
 const $ = (id) => document.getElementById(id);
 let ghTopChart = null, ghTrendChart = null;
-$('auth-token').value = localStorage.getItem('omnistate_auth_token') || '';
+try { $('auth-token').value = localStorage.getItem('omnistate_auth_token') || ''; } catch(e) {}
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -501,6 +17,19 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
   });
 });
 
+function toggleSidebar() {
+  const sidebar = $('sidebar');
+  const overlay = $('sidebar-overlay');
+  if (sidebar) sidebar.classList.toggle('open');
+  if (overlay) overlay.classList.toggle('open');
+}
+function closeSidebarMobile() {
+  const sidebar = $('sidebar');
+  const overlay = $('sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+}
+
 async function api(path, opts) {
   const token = localStorage.getItem('omnistate_auth_token') || '';
   const baseHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
@@ -515,7 +44,7 @@ async function api(path, opts) {
 }
 
 function saveToken() {
-  const t = ($('auth-token').value || '').trim();
+  const t = ($('auth-token')?.value || '').trim();
   if (t) localStorage.setItem('omnistate_auth_token', t);
   else localStorage.removeItem('omnistate_auth_token');
   loadAll();
@@ -551,10 +80,10 @@ async function refreshVersionBadge() {
   try {
     const h = await api('/health');
     if (h && h.version) {
-      const el = $('version-badge');
-      if (el) el.textContent = 'OMNISTATE v' + h.version;
-      const status = $('server-status');
-      if (status && h.version) status.title = 'v' + h.version;
+      const el = $('version-badge'); if (el) el.textContent = 'OMNISTATE v' + h.version;
+      const sb = $('version-badge-sidebar'); if (sb) sb.textContent = 'v' + h.version;
+      const status = $('server-status'); if (status && h.version) status.title = 'v' + h.version;
+      const st = $('status-text'); if (st) st.textContent = 'SERVER';
     }
   } catch(e) {}
 }
@@ -569,7 +98,8 @@ async function loadOverview() {
   const ov=$('overview-stats'); if(ov && !ov.innerHTML.trim()) ov.innerHTML = [1,2,3,4].map(()=>`<div class="glass p-6 skel-card"><div class="skel skel-text" style="width:40%;height:.7rem;margin-bottom:.5rem"></div><div class="skel" style="width:30%;height:2rem"></div></div>`).join('');
   try {
     const stats = await api('/api/stats');
-    $('last-update').textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
+    const lu = $('last-update'); if (lu) lu.textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
+    const lus = $('last-update-sidebar'); if (lus) lus.textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
     const cards = [
       { l: 'Projects', v: fmt(stats.projects), c: 'text-blue-400' },
       { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
@@ -580,7 +110,7 @@ async function loadOverview() {
     if (stats.projects === 0) {
       cards.push({ l: 'Welcome', v: 'Let\'s go', c: 'text-amber-400', t: 'Register your first project: click "Projects" tab → "Register a project", or run the CLI: omnistate index /path/to/project' });
     }
-    $('overview-stats').innerHTML = cards.map(c => `
+    const osEl = $('overview-stats'); if (osEl) osEl.innerHTML = cards.map(c => `
       <div class="glass p-6 stat-card">
         <div class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 flex justify-between items-start gap-2">
           <span>${c.l}</span>
@@ -589,7 +119,7 @@ async function loadOverview() {
         <p class="text-2xl font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p>
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
-    $('overview-projects').innerHTML = projects.length ? projects.map(p => `
+    const projWrap = $('overview-projects'); if (projWrap) projWrap.innerHTML = projects.length ? projects.map(p => `
       <button type="button" class="glass p-5 stat-card w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" role="listitem" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details">
         <p class="font-bold mb-1 truncate">${esc(p.name)}</p>
         <p class="text-xs text-slate-400 mb-3 truncate" title="${esc(p.host_path)}">${esc(p.host_path)}</p>
@@ -623,31 +153,46 @@ const PROJECT_SECTIONS = [
 
 async function loadProjects() {
   try {
-    const projects = await api('/api/projects');
+    const [projects, workspaces] = await Promise.all([api('/api/projects'), api('/api/workspaces')]);
     backToProjects();
     if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p>'; $('projects-table-wrap').removeAttribute('tabindex'); return; }
     $('projects-table-wrap').setAttribute('tabindex', '0');
     _allProjects = projects;
-    const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects';
+    const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects' + (workspaces.length ? ' · ' + workspaces.length + ' workspaces' : '');
     const rows = (list) => list.map(p => `
       <tr class="cursor-pointer hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:bg-white/5 transition-colors" tabindex="0" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); showProject(this.dataset.name); }" title="View project memory" role="button" aria-label="Open project ${esc(p.name)}">
-        <td data-label="Project" class="font-semibold">${esc(p.name)}</td>
+        <td data-label="Project" class="font-semibold">${esc(p.name)}${p.workspace ? ' <span class="chip ml-1 text-xs">' + esc(p.workspace) + '</span>' : ''}</td>
         <td data-label="Done" class="num text-emerald-300">${fmt(p.doneTasks)}</td>
         <td data-label="Snapshots" class="num text-purple-300">${fmt(p.snapshots)}</td>
         <td data-label="Token savings" class="num">${fmt(Math.round(p.tokenSavings/1000))}k</td>
         <td data-label="Path" class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
       </tr>`).join('');
-    $('projects-table-wrap').innerHTML = `
-      <table class="responsive"><thead><tr>
+    // Group projects by workspace for display
+    const wsMap = new Map();
+    for (const ws of workspaces) wsMap.set(ws.name, []);
+    const wsNames = new Set(workspaces.map(w => w.name));
+    const ungrouped = [];
+    for (const p of projects) {
+      if (p.workspace && wsMap.has(p.workspace)) wsMap.get(p.workspace).push(p);
+      else if (!wsNames.has(p.name)) ungrouped.push(p);
+    }
+    let tableHtml = `<table class="responsive"><thead><tr>
         <th>Project</th><th class="num">Done</th>
         <th class="num">Snapshots</th><th class="num">Token savings</th><th>Path</th>
-      </tr></thead><tbody>
-      ${PROJECT_SECTIONS.map(s => {
-        const list = projects.filter(p => (p.category || 'active') === s.key);
-        if (!list.length) return '';
-        return `<tr class="section-row"><td colspan="5">${s.label} <span class="text-slate-500 font-normal">(${list.length})</span></td></tr>${rows(list)}`;
-      }).join('')}
-      </tbody></table>`;
+      </tr></thead><tbody>`;
+    for (const [wsName, wsProjects] of wsMap) {
+      if (!wsProjects.length) continue;
+      const ws = workspaces.find(w => w.name === wsName);
+      tableHtml += `<tr class="section-row"><td colspan="5">📁 ${esc(wsName)} <span class="text-slate-500 font-normal">(${wsProjects.length} projects)</span></td></tr>`;
+      tableHtml += rows(wsProjects);
+    }
+    tableHtml += PROJECT_SECTIONS.map(s => {
+      const list = ungrouped.filter(p => (p.category || 'active') === s.key);
+      if (!list.length) return '';
+      return `<tr class="section-row"><td colspan="5">${s.label} <span class="text-slate-500 font-normal">(${list.length})</span></td></tr>${rows(list)}`;
+    }).join('');
+    tableHtml += '</tbody></table>';
+    $('projects-table-wrap').innerHTML = tableHtml;
   } catch (e) {
     console.error(e);
     const wrap = $('projects-table-wrap');
@@ -1307,8 +852,15 @@ function toggleOnlyPrs() {
 
 
 // ---------- theme ----------
-function applyTheme(t){ document.documentElement.setAttribute('data-theme', t); localStorage.setItem('omnistate_theme', t); const b=$('theme-toggle'); if(b) b.textContent=t==='light'?'🌙':'☀️'; }
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme', t);
+  localStorage.setItem('omnistate_theme', t);
+  const b=$('theme-toggle'); if(b) b.textContent=t==='light'?'🌙':'☀️';
+  const sb=$('sidebar-theme-toggle'); if(sb) sb.setAttribute('data-theme', t);
+  const sel=$('theme-select'); if(sel) sel.value = t;
+}
 function toggleTheme(){ applyTheme((localStorage.getItem('omnistate_theme')||'dark')==='dark'?'light':'dark'); }
+function cycleTheme(){ toggleTheme(); }
 applyTheme(localStorage.getItem('omnistate_theme')||'dark');
 // ---------- toast ----------
 function toast(msg, kind='info', undoFn=null){
@@ -1718,5 +1270,3 @@ document.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') $('saved-searches-menu')?.classList.remove('open') });
 
 </script>
-</body>
-</html>
