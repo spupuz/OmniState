@@ -50,3 +50,5 @@ __pycache__/
 .venv/
 # local backups of split source files
 backups/
+*.bak
+server/dashboard/js/

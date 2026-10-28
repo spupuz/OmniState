@@ -1,4 +1,4 @@
-# OmniState v2.37.5
+# OmniState v2.37.6
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -495,7 +495,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.5 (current)
+### v2.37.6 (current)
+
+- **Bugfix (Dashboard)**: Fixed Chart.js "Canvas is already in use" error in `renderGhCharts` — destroy tracked and orphan charts via `Chart.getChart` before recreating, added a request-id guard to ignore stale async repo fetches, and null-guarded canvases.
+
+### v2.37.5
 
 - **Bugfix (Supermemory)**: The container now runs the built-in local Supermemory server (port 6767) automatically, so the dashboard's Supermemory tab works out of the box with no external API key; the local server endpoints were aligned with the client's request/response format and persist data to `/data/supermemory_local.json`.
 - **Bugfix (Dashboard)**: `loadSupermemory()` only fetches recent memories when Supermemory is configured, and guards against missing `results`, eliminating repeated 502 errors in the console.
