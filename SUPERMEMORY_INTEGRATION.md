@@ -152,9 +152,8 @@ SUPERMEMORY_DEFAULT_SPACE=sm_project_default
 
 ### Limitations
 
-1. **Runtime Dependency**: Requires Node.js runtime with `node-fetch` for HTTP API calls
-2. **Configuration Required**: Must set up Supermemory API credentials
-3. **Simulated Mode**: In non-Node environments, tools simulate API responses with notes
+1. **Configuration Required**: Must set up Supermemory API credentials
+2. **Processing Delay**: With dynamic dreaming, memories may take a few moments to appear after ingestion
 
 ### Testing
 

@@ -568,10 +568,23 @@
   </div>
 </div>
 
+<div id="sm-search-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sm-search-modal-title">
+  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
+    <div class="glass w-[92vw] max-w-md p-6 relative">
+      <h3 id="sm-search-modal-title" class="text-xl font-bold mb-3">Search Supermemory</h3>
+      <form id="sm-search-form" onsubmit="event.preventDefault(); submitSupermemorySearch()">
+        <label for="sm-search-input" class="block text-xs font-semibold text-slate-400 mb-2 uppercase tracking-wide">Query</label>
+        <input type="text" id="sm-search-input" class="w-full mb-5" placeholder="e.g. user preferences, project setup…" autocomplete="off">
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn ghost" onclick="closeSmSearchModal()">Cancel</button>
+          <button type="submit" class="btn">Search</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <div id="merge-project-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="merge-modal-title">
   <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
-    <div class="glass w-[92vw] max-w-lg p-6 relative">
-      <h3 id="merge-modal-title" class="text-xl font-bold mb-3 text-amber-400">Merge Project</h3>
       <p class="text-sm text-slate-300 mb-3">Merge the source project into a target project.</p>
       <p class="text-sm text-slate-400 mb-4"><strong>Source:</strong> <span id="merge-source-name"></span></p>
       <form id="merge-form" onsubmit="event.preventDefault(); submitMerge()">
@@ -1737,9 +1750,20 @@ async function loadSupermemoryRecent() {
   }
 }
 
-async function supermemorySearch() {
-  const q = prompt('Search Supermemory:');
-  if (!q) return;
+function openSmSearchModal() {
+  const modal = $('sm-search-modal');
+  if (modal) modal.classList.remove('hidden');
+  const inp = $('sm-search-input');
+  if (inp) { inp.value = ''; setTimeout(()=>inp.focus(), 50); }
+}
+function closeSmSearchModal() {
+  const modal = $('sm-search-modal');
+  if (modal) modal.classList.add('hidden');
+}
+async function submitSupermemorySearch() {
+  const q = ($('sm-search-input')?.value || '').trim();
+  if (!q) { closeSmSearchModal(); return; }
+  closeSmSearchModal();
   const namespace = $('sm-namespace')?.value || '';
   const container = $('sm-search-results');
   if (container) container.innerHTML = '<div class="glass p-4 mb-3" role="listitem">' + [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') + '</div>';
@@ -1760,6 +1784,9 @@ async function supermemorySearch() {
     console.error(e);
     toast('Search failed: ' + e.message, 'err');
   }
+}
+async function supermemorySearch() {
+  openSmSearchModal();
 }
 
 async function addSupermemoryMemory() {
@@ -1803,7 +1830,7 @@ async function supermemorySync() {
 
 document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const pal=$('palette'); if(pal && !pal.classList.contains('hidden')) closePalette(); else openPalette(); }
-  else if(e.key==='Escape'){ closePalette(); closeForgetModal(); closeRemoveModal(); closeMergeModal(); }
+  else if(e.key==='Escape'){ closePalette(); closeForgetModal(); closeRemoveModal(); closeMergeModal(); closeSmSearchModal(); }
   else if(e.key==='t' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='SELECT'){ toggleTheme(); }
   else if(e.key==='/' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){ e.preventDefault(); switchTab('search'); const q=$('search-q'); if(q) q.focus(); }
 });

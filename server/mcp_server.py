@@ -21,16 +21,10 @@ from .config import Config, save_config
 from .github_client import GithubClient
 from .indexer import discover_projects, import_legacy, register_project
 from .store import Store
+from .supermemory_client import SupermemoryClient, SupermemoryError
 from .version import get_version
 
 log = logging.getLogger("omnistate.mcp")
-
-
-# Check if we have fetch available (for Node.js/Host environment)
-HAS_FETCH = False
-# Note: Node environment would use node-fetch, but for testing we'll simulate
-# In production, node-fetch would be available
-# HAS_FETCH = True would be set when running in Node environment
 
 
 def _logged(fn: Any) -> Any:
@@ -566,125 +560,76 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
 
     # ---------- Supermemory bridge ----------
 
+    def _sm_client() -> SupermemoryClient:
+        return SupermemoryClient(cfg)
+
     @server.tool()
     @_logged
     async def supermemory_search(query: str, namespace: str = "", limit: int = 10, scope: str = "shared") -> str:
         """Search Supermemory memories.
-        
+
         Returns Supermemory search results for the given query.
         If namespace is empty, uses the configured default space.
         """
-        if not cfg.supermemory.enabled:
-            raise ToolError("Supermemory integration is disabled. Set SUPERMEMORY_ENABLED=1 in config.")
-        
-        target_namespace = namespace or cfg.supermemory.default_space
-        api_key = cfg.supermemory.api_key
-        if not api_key:
-            raise ToolError("Supermemory API key not configured. Set SUPERMEMORY_API_KEY in config.")
-        
-        try:
-            # Supermemory v5 API call - simplified for testing
-            # In production, this would use proper node-fetch
-            # For now, we simulate the API call
-            result = {
-                "query": query,
-                "namespace": target_namespace,
-                "results": [],
-                "total": 0,
-                "scope": scope,
-                "note": "Supermemory integration requires Node.js runtime with node-fetch for API calls"
-            }
+        def _run() -> str:
+            client = _sm_client()
+            try:
+                result = client.search(namespace=namespace, query=query, limit=limit)
+            except SupermemoryError as e:
+                raise ToolError(str(e))
+            result["scope"] = scope
             return json.dumps(result, indent=2)
-        except Exception as e:
-            raise ToolError(f"Supermemory search failed: {str(e)}")
+        return await asyncio.to_thread(_run)
 
     @server.tool()
     @_logged
     async def supermemory_profile(namespace: str = "") -> str:
         """Get Supermemory profile.
-        
+
         Returns user profile from Supermemory.
         If namespace is empty, uses the configured default space.
         """
-        if not cfg.supermemory.enabled:
-            raise ToolError("Supermemory integration is disabled. Set SUPERMEMORY_ENABLED=1 in config.")
-        
-        target_namespace = namespace or cfg.supermemory.default_space
-        api_key = cfg.supermemory.api_key
-        if not api_key:
-            raise ToolError("Supermemory API key not configured. Set SUPERMEMORY_API_KEY in config.")
-        
-        try:
-            # Simulate profile API call
-            result = {
-                "namespace": target_namespace,
-                "profile": {
-                    "static": [],
-                    "dynamic": [],
-                    "note": "Supermemory integration requires Node.js runtime for API calls"
-                }
-            }
+        def _run() -> str:
+            client = _sm_client()
+            try:
+                result = client.profile(namespace=namespace)
+            except SupermemoryError as e:
+                raise ToolError(str(e))
             return json.dumps(result, indent=2)
-        except Exception as e:
-            raise ToolError(f"Supermemory profile fetch failed: {str(e)}")
+        return await asyncio.to_thread(_run)
 
     @server.tool()
     @_logged
     async def supermemory_add(content: str, namespace: str = "", title: str = "", tags: str = "", source: str = "") -> str:
         """Add a memory to Supermemory.
-        
+
         Stores content in Supermemory.
         If namespace is empty, uses the configured default space.
         """
-        if not cfg.supermemory.enabled:
-            raise ToolError("Supermemory integration is disabled. Set SUPERMEMORY_ENABLED=1 in config.")
-        
-        target_namespace = namespace or cfg.supermemory.default_space
-        api_key = cfg.supermemory.api_key
-        if not api_key:
-            raise ToolError("Supermemory API key not configured. Set SUPERMEMORY_API_KEY in config.")
-        
-        try:
-            # Simulate add memory API call
-            result = {
-                "namespace": target_namespace,
-                "content_id": f"simulated-{hash(content)}",
-                "status": "success",
-                "title": title or f"Memory from OmniState",
-                "note": "Supermemory integration requires Node.js runtime for API calls"
-            }
+        def _run() -> str:
+            client = _sm_client()
+            try:
+                result = client.add(namespace=namespace, content=content, title=title, tags=tags, source=source)
+            except SupermemoryError as e:
+                raise ToolError(str(e))
             return json.dumps(result, indent=2)
-        except Exception as e:
-            raise ToolError(f"Supermemory add memory failed: {str(e)}")
+        return await asyncio.to_thread(_run)
 
     @server.tool()
     @_logged
     async def supermemory_sync(project: str = "", namespace: str = "", limit: int = 50) -> str:
         """Sync OmniState memories with Supermemory.
-        
+
         Extracts relevant memories from OmniState and syncs them to Supermemory.
         """
-        if not cfg.supermemory.enabled:
-            raise ToolError("Supermemory integration is disabled. Set SUPERMEMORY_ENABLED=1 in config.")
-        
-        target_namespace = namespace or cfg.supermemory.default_space
-        api_key = cfg.supermemory.api_key
-        if not api_key:
-            raise ToolError("Supermemory API key not configured. Set SUPERMEMORY_API_KEY in config.")
-        
-        try:
-            # Simulate sync API call
-            result = {
-                "project": project or "",
-                "namespace": target_namespace,
-                "memories_found": 0,
-                "memories_synced": 0,
-                "status": "sync_completed",
-                "note": "Supermemory integration requires Node.js runtime for API calls"
-            }
+        def _run() -> str:
+            client = _sm_client()
+            try:
+                result = client.sync_from_store(store, project=project, namespace=namespace, limit=limit)
+            except SupermemoryError as e:
+                raise ToolError(str(e))
             return json.dumps(result, indent=2)
-        except Exception as e:
-            raise ToolError(f"Supermemory sync failed: {str(e)}")
+        return await asyncio.to_thread(_run)
 
     @server.tool()
     @_logged
@@ -696,7 +641,7 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
             "base_url": cfg.supermemory.base_url,
             "api_version": cfg.supermemory.api_version,
             "default_space": cfg.supermemory.default_space,
-            "status": "configured" if cfg.supermemory.enabled and cfg.supermemory.api_key else "not_configured",
+            "status": "configured" if (cfg.supermemory.enabled and cfg.supermemory.api_key) else "not_configured",
         }, indent=2)
 
     return server

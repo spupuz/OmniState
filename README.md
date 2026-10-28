@@ -1,4 +1,4 @@
-# OmniState v2.36.0
+# OmniState v2.37.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -490,7 +490,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.36.0 (current)
+### v2.37.0 (current)
+
+- **Features**: Supermemory integration is now backed by real REST API calls (httpx) instead of stubs — new shared client `server/supermemory_client.py` with search/list/profile/add/sync; MCP tools and REST endpoints under `/api/supermemory/*` now return live data; enabled/disabled gating and error handling
+- **Bugfix**: Supermemory dashboard search now uses a site-styled modal instead of the browser's native `prompt()` dialog; fixed merge-project modal always appearing (missing container wrapper)
+- **UX**: Site-styled search modal for Supermemory with keyboard (Enter/Esc) support
+
+### v2.36.0
 
 - **Features**: Workspace support — directories containing ≥2 projects are now detected and registered as workspaces; projects are grouped under their workspace in the dashboard (section rows like "📁 VibeNVR-workspace (4 projects)"); new API endpoints `GET /api/workspaces` and `GET /api/workspaces/{name}/projects`; `project_register` accepts a `workspace` parameter; new store methods (`list_workspaces`, `upsert_workspace`, `get_workspace`, `get_projects_in_workspace`); `discover_projects_and_workspaces()` auto-detects workspaces
 - **UX**: Responsive sidebar navigation with hamburger menu (mobile); About and Settings sections added; Settings includes Access Token and Theme selector (dropdown); theme cycling button with monochromatic SVG icons (dark → light → system → dark); About section is last in tab order; version badge and server status indicator moved to sidebar footer; "OmniState v2" text removed from sidebar footer; removed version/last-update from section pages (kept only on main dashboard); system theme icon is now a distinct monitor icon
@@ -929,7 +935,7 @@ OmniState solves a common problem for developers working across multiple project
 - Offers **cross-project search** and **shared memory** common to all projects
 - Integrates **GitHub PR Health** monitoring in a built-in web dashboard
 - Provides **session management** (start/snapshot) and **agent handoffs** between AI sessions
-- Supports **Supermemory** integration for persistent memory across conversations
+- Supports **Supermemory** integration for persistent memory across conversations (real REST API via httpx: search, profile, add, sync, status)
 
 It's designed to work with **opencode**, **Claude Code**, and other AI tools that support the Model Context Protocol (MCP).
 

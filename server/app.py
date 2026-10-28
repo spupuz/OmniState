@@ -18,6 +18,7 @@ from .github_client import GithubClient
 from .indexer import discover_projects, discover_projects_and_workspaces, import_legacy, register_project
 from .mcp_server import create_server
 from .store import Store
+from .supermemory_client import SupermemoryClient, SupermemoryError
 from .version import get_version
 
 DASHBOARD_HTML = Path(__file__).parent / "dashboard.html"
@@ -729,15 +730,18 @@ class App:
         # ---------- Supermemory bridge ----------
 
         def _sm_enabled() -> tuple[bool, str | None]:
-            """Return (enabled, error_or_None). Centralised gate for Supermemory endpoints."""
             if not self.cfg.supermemory.enabled:
                 return False, "Supermemory integration is disabled. Set SUPERMEMORY_ENABLED=1."
             if not self.cfg.supermemory.api_key:
                 return False, "Supermemory API key not configured. Set SUPERMEMORY_API_KEY."
             return True, None
 
+        def _sm_client() -> SupermemoryClient:
+            return SupermemoryClient(self.cfg)
+
         @app.get("/api/supermemory/status")
         def api_supermemory_status() -> dict[str, Any]:
+            client = _sm_client()
             enabled, err = _sm_enabled()
             return {
                 "enabled": self.cfg.supermemory.enabled,
@@ -759,30 +763,27 @@ class App:
             enabled, err = _sm_enabled()
             if not enabled:
                 return JSONResponse({"error": err}, status_code=400)
-            target_namespace = namespace or self.cfg.supermemory.default_space
-            return {
-                "query": q,
-                "namespace": target_namespace,
-                "results": [],
-                "total": 0,
-                "scope": scope,
-                "note": "Supermemory integration requires Node.js runtime with node-fetch for API calls",
-            }
+            client = _sm_client()
+            try:
+                if (q or "").strip():
+                    result = client.search(namespace=namespace, query=q, limit=limit)
+                else:
+                    result = client.list_memories(namespace=namespace, limit=limit)
+            except SupermemoryError as e:
+                return JSONResponse({"error": str(e)}, status_code=502)
+            result["scope"] = scope
+            return result
 
         @app.get("/api/supermemory/profile")
         def api_supermemory_profile(namespace: str = "") -> dict[str, Any]:
             enabled, err = _sm_enabled()
             if not enabled:
                 return JSONResponse({"error": err}, status_code=400)
-            target_namespace = namespace or self.cfg.supermemory.default_space
-            return {
-                "namespace": target_namespace,
-                "profile": {
-                    "static": [],
-                    "dynamic": [],
-                    "note": "Supermemory integration requires Node.js runtime for API calls",
-                },
-            }
+            client = _sm_client()
+            try:
+                return client.profile(namespace=namespace)
+            except SupermemoryError as e:
+                return JSONResponse({"error": str(e)}, status_code=502)
 
         @app.post("/api/supermemory/add")
         def api_supermemory_add(body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -790,15 +791,17 @@ class App:
             enabled, err = _sm_enabled()
             if not enabled:
                 return JSONResponse({"error": err}, status_code=400)
-            content = body.get("content", "")
-            target_namespace = body.get("namespace", "") or self.cfg.supermemory.default_space
-            return {
-                "namespace": target_namespace,
-                "content_id": f"simulated-{hash(str(content))}",
-                "status": "success",
-                "title": body.get("title") or "Memory from OmniState",
-                "note": "Supermemory integration requires Node.js runtime for API calls",
-            }
+            client = _sm_client()
+            try:
+                return client.add(
+                    namespace=body.get("namespace", "") or "",
+                    content=body.get("content", ""),
+                    title=body.get("title", "") or "",
+                    tags=body.get("tags", "") or "",
+                    source=body.get("source", "") or "",
+                )
+            except SupermemoryError as e:
+                return JSONResponse({"error": str(e)}, status_code=502)
 
         @app.post("/api/supermemory/sync")
         def api_supermemory_sync(body: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -806,18 +809,16 @@ class App:
             enabled, err = _sm_enabled()
             if not enabled:
                 return JSONResponse({"error": err}, status_code=400)
-            project = body.get("project", "")
-            target_namespace = body.get("namespace", "") or self.cfg.supermemory.default_space
-            limit = int(body.get("limit", 50))
-            return {
-                "project": project,
-                "namespace": target_namespace,
-                "limit": limit,
-                "memories_found": 0,
-                "memories_synced": 0,
-                "status": "sync_completed",
-                "note": "Supermemory integration requires Node.js runtime for API calls",
-            }
+            client = _sm_client()
+            try:
+                return client.sync_from_store(
+                    self.store,
+                    project=body.get("project", "") or "",
+                    namespace=body.get("namespace", "") or "",
+                    limit=int(body.get("limit", 50)),
+                )
+            except SupermemoryError as e:
+                return JSONResponse({"error": str(e)}, status_code=502)
 
         # ---------- hooks endpoints (auto-population via OpenCode plugin) ----------
 
