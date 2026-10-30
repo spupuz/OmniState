@@ -370,6 +370,10 @@ class App:
         def health() -> dict[str, Any]:
             return {"status": "ok", "version": get_version(), "data_dir": str(self.cfg.data_dir)}
 
+        @app.get("/api/version")
+        def api_version() -> dict[str, Any]:
+            return {"version": get_version()}
+
         @app.get("/api/projects")
         def api_projects() -> list[dict[str, Any]]:
             return self._project_metrics_list()
