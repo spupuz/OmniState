@@ -49,8 +49,16 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def _text_tokens(text: str) -> set[str]:
-    """Lower-cased meaningful tokens from free text (compounds expanded)."""
+from functools import lru_cache
+
+@lru_cache(maxsize=4096)
+def _text_tokens(text: str) -> frozenset[str]:
+    """Lower-cased meaningful tokens from free text (compounds expanded).
+
+    Cached: this is called repeatedly during search/reinforcement over the
+    same memory content, so memoizing avoids recomputing the token set.
+    Returns a frozenset so the result is hashable for the cache.
+    """
     out: set[str] = set()
     for tok in _TOKEN_RE.findall(text or ""):
         tok = tok.lower()
@@ -62,7 +70,7 @@ def _text_tokens(text: str) -> set[str]:
             for part in tok.replace('-', '_').split('_'):
                 if len(part) > 1 and part not in out:
                     out.add(part)
-    return out
+    return frozenset(out)
 
 
 def _query_hash(text: str) -> str:
