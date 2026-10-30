@@ -121,7 +121,7 @@ async function loadOverview() {
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     const projWrap = $('overview-projects'); if (projWrap) projWrap.innerHTML = projects.length ? projects.map(p => `
-      <button type="button" class="glass p-5 stat-card w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" role="listitem" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details">
+      <button type="button" class="glass p-5 stat-card w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" role="listitem" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details" aria-label="Open project details">
         <p class="font-bold mb-1 truncate">${esc(p.name)}</p>
         <p class="text-xs text-slate-400 mb-3 truncate" title="${esc(p.host_path)}">${esc(p.host_path)}</p>
         <div class="flex gap-4 text-xs">
