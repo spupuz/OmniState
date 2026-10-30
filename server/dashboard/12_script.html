@@ -873,15 +873,44 @@ function toggleOnlyPrs() {
 
 // ---------- theme ----------
 function applyTheme(t){
+  const choice = t;
+  if (t === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    t = prefersDark ? 'dark' : 'light';
+  }
   document.documentElement.setAttribute('data-theme', t);
   localStorage.setItem('omnistate_theme', t);
-  const b=$('theme-toggle'); if(b) b.textContent=t==='light'?'🌙':'☀️';
-  const sb=$('sidebar-theme-toggle'); if(sb) sb.setAttribute('data-theme', t);
-  const sel=$('theme-select'); if(sel) sel.value = t;
+  localStorage.setItem('omnistate_theme_choice', choice);
+  updateThemeIcons(choice);
 }
-function toggleTheme(){ applyTheme((localStorage.getItem('omnistate_theme')||'dark')==='dark'?'light':'dark'); }
-function cycleTheme(){ toggleTheme(); }
-applyTheme(localStorage.getItem('omnistate_theme')||'dark');
+function updateThemeIcons(t) {
+  const sidebarIcon = $('sidebar-theme-icon');
+  const themeSelect = $('theme-select');
+  if (themeSelect) themeSelect.value = t;
+  if (sidebarIcon) {
+    if (t === 'light') {
+      sidebarIcon.innerHTML = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+    } else if (t === 'dark') {
+      sidebarIcon.innerHTML = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+    } else {
+      sidebarIcon.innerHTML = '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>';
+    }
+  }
+  const sb = $('sidebar-theme-toggle'); if (sb) sb.setAttribute('data-theme', t);
+}
+function cycleTheme() {
+  const current = localStorage.getItem('omnistate_theme_choice') || localStorage.getItem('omnistate_theme') || 'dark';
+  const next = current === 'dark' ? 'light' : current === 'light' ? 'system' : 'dark';
+  applyTheme(next);
+}
+function toggleTheme(){ cycleTheme(); }
+applyTheme(localStorage.getItem('omnistate_theme_choice') || localStorage.getItem('omnistate_theme') || 'dark');
+
+// Listen for system theme changes
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  const choice = localStorage.getItem('omnistate_theme_choice');
+  if (choice === 'system') applyTheme('system');
+});
 // ---------- toast ----------
 function toast(msg, kind='info', undoFn=null){
   const w=$('toast-wrap'); if(!w) return;

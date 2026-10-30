@@ -1,4 +1,4 @@
-# OmniState v2.37.6
+# OmniState v2.37.7
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -242,7 +242,7 @@ Open **http://localhost:8347** in the browser:
 - **Projects sections**: one aligned table grouped into **Active / Archived / Deleted** (path missing on disk, or remote repo deleted/archived on GitHub); the Overview lists only active projects.
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately; accounts and scan settings are persisted via `POST /api/github/config`), "Only with open PRs" filter (persisted via shared memory), "Save config" button and Advanced Settings panel (extended, include_forks, include_archived, scan_interval_hours, stale_days).
 - **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions, and a **⭐ Saved** dropdown (persisted in `localStorage`, max 15, Esc/outside to close) that auto-saves every query and lets you reload or remove past searches.
-- **Theme toggle**: the dashboard persists a light/dark preference (top-right moon/sun button, or the `T` key) with refined light-theme overrides for glass, table and chip surfaces.
+- **Theme toggle**: the dashboard persists a light/dark/system preference (sidebar cycle button, Settings dropdown, or the `T` key) — `system` follows the OS color scheme and updates live when it changes; the sidebar icon switches between sun, moon and a monitor for system. Refined light-theme overrides for glass, table and chip surfaces.
 - **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions with accessible interactive tooltip buttons for keyboard compatibility; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`, and every interactive utility button (copy, reinforce, forget) carries a descriptive `aria-label` for screen-reader context.
@@ -495,7 +495,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.6 (current)
+### v2.37.7 (current)
+
+- **Bugfix (Dashboard)**: Restored the three-state theme (`dark → light → system`): `system` now resolves against the OS color scheme and follows live OS preference changes, the sidebar cycle button advances through all three states, and the sidebar icon shows a distinct monitor icon for `system`.
+
+### v2.37.6
 
 - **Bugfix (Dashboard)**: Fixed Chart.js "Canvas is already in use" error in `renderGhCharts` — destroy tracked and orphan charts via `Chart.getChart` before recreating, added a request-id guard to ignore stale async repo fetches, and null-guarded canvases.
 
