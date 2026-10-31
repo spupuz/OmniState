@@ -740,9 +740,10 @@ class Store:
 
         q_tokens = tokens
         for r in rows:
-            row_tokens = _text_tokens(f"{r.get('title','')} {r.get('content','')} {r.get('tags','')}")
-            coverage = len(q_tokens & row_tokens) / len(q_tokens)
             tag_tokens = _text_tokens(r.get("tags") or "")
+            # Reuse memoized cache hits instead of re-allocating a new string per row
+            row_tokens = _text_tokens(r.get("title", "")) | _text_tokens(r.get("content", "")) | tag_tokens
+            coverage = len(q_tokens & row_tokens) / len(q_tokens)
             tag_cov = len(q_tokens & tag_tokens) / len(q_tokens) if tag_tokens else 0.0
             r["coverage"] = coverage
             r["tag_coverage"] = tag_cov
