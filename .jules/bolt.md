@@ -1,3 +1,0 @@
-## 2024-05-24 - Avoid string concatenation before memoized function calls
-**Learning:** `_text_tokens(f"{r.get('title','')} {r.get('content','')} {r.get('tags','')}")` inside a hot loop (like `search_memory`) defeats the purpose of the `@lru_cache` on `_text_tokens` because it creates a brand new unique string every time. The cache misses and `_text_tokens` is forced to re-run on the entire text.
-**Action:** Call memoized functions on the individual, stable data components (`_text_tokens(content) | _text_tokens(title)`) and combine the outputs (sets). This allows the cache to hit on identical content strings across different queries and loop iterations, yielding measurable speedups (e.g. 1.70s -> 1.45s in local search benchmarks).

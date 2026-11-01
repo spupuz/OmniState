@@ -1,4 +1,4 @@
-# OmniState v2.37.7
+# OmniState v2.37.9
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -495,7 +495,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.7 (current)
+### v2.37.9 (current)
+
+- **Security (CSP)**: Removed `'unsafe-eval'` from the Content-Security-Policy `script-src` directive in `server/app.py`.
+- **Performance (Search)**: Reuse memoized `_text_tokens` cache hits in `search_memory` by tokenizing title/content/tags separately and combining sets, instead of concatenating into a new string per row.
+- **UX (A11y)**: Added `aria-label` to the project card button in the dashboard overview for screen readers.
+
+### v2.37.7
 
 - **Bugfix (Dashboard)**: Restored the three-state theme (`dark → light → system`): `system` now resolves against the OS color scheme and follows live OS preference changes, the sidebar cycle button advances through all three states, and the sidebar icon shows a distinct monitor icon for `system`.
 
