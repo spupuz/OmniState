@@ -1010,7 +1010,9 @@ class Store:
         except Exception as e:
             raise ValueError(f"Invalid export path: {e}")
 
-        if not str(resolved_p).startswith(str(resolved_parent) + os.sep) and resolved_p != resolved_parent:
+        try:
+            resolved_p.relative_to(resolved_parent)
+        except ValueError:
             raise ValueError("Invalid export path: must be within the database directory")
 
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -1039,7 +1041,9 @@ class Store:
         except Exception as e:
             raise ValueError(f"Invalid export path: {e}")
 
-        if not str(resolved_p).startswith(str(resolved_parent) + os.sep) and resolved_p != resolved_parent:
+        try:
+            resolved_p.relative_to(resolved_parent)
+        except ValueError:
             raise ValueError("Invalid export path: must be within the database directory")
 
         out_dir.mkdir(parents=True, exist_ok=True)
