@@ -319,7 +319,9 @@ function backToProjects() {
 }
 
 let _pendingRemoveName = null;
+let _removeSourceElement = null;
 function openRemoveModal(name) {
+  _removeSourceElement = document.activeElement;
   _pendingRemoveName = name;
   $('remove-project-name').textContent = name;
   $('remove-reason').value = '';
@@ -329,6 +331,10 @@ function openRemoveModal(name) {
 function closeRemoveModal() {
   $('remove-project-modal').classList.add('hidden');
   _pendingRemoveName = null;
+  if (_removeSourceElement) {
+    _removeSourceElement.focus();
+    _removeSourceElement = null;
+  }
 }
 async function submitRemove() {
   const name = _pendingRemoveName;
@@ -355,7 +361,9 @@ async function removeProject(name) {
 }
 
 let _pendingMergeSource = null;
+let _mergeSourceElement = null;
 async function openMergeModal(source) {
+  _mergeSourceElement = document.activeElement;
   _pendingMergeSource = source;
   $('merge-source-name').textContent = source;
   $('merge-target-select').value = '';
@@ -384,6 +392,10 @@ async function openMergeModal(source) {
 function closeMergeModal() {
   $('merge-project-modal').classList.add('hidden');
   _pendingMergeSource = null;
+  if (_mergeSourceElement) {
+    _mergeSourceElement.focus();
+    _mergeSourceElement = null;
+  }
 }
 async function submitMerge() {
   const source = _pendingMergeSource;
