@@ -2,7 +2,7 @@
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8" id="overview-stats" role="list"></div>
       <div class="glass p-6 mb-6">
         <h2 class="text-xl font-bold mb-2">DB Backups</h2>
-        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button type="button" class="btn ghost small ml-2" onclick="loadBackups(this)">↻ Refresh</button></p>
+        <p class="text-xs text-slate-400" id="backups-info">Daily backups in <code>/data/backups/</code> — kept 7 days. <button type="button" class="btn ghost small ml-2" onclick="loadBackups(this)" aria-label="Refresh backups">↻ Refresh</button></p>
         <div id="backups-list" class="flex gap-3 flex-wrap" role="list"></div>
       </div>
       <div class="glass p-6">
