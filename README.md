@@ -1,4 +1,4 @@
-# OmniState v2.38.0
+# OmniState v2.38.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -495,7 +495,12 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.38.0 (current)
+### v2.38.1 (current)
+
+- **Security (GitHub Client)**: Added `_valid_repo_full_name` guard in `GithubClient` to reject crafted repo identifiers (path traversal / SSRF) before building API URLs (PR #180).
+- **Accessibility**: Added `aria-label="Refresh backups"` to the refresh backups button in the overview dashboard (PR #181).
+
+### v2.38.0
 
 - **Security (Export)**: Hardened export path traversal check using `Path.relative_to()` instead of string prefix matching — prevents bypasses via symlinks or path normalization edge cases (PR #178).
 - **Code Quality**: Removed duplicated `db_backup` method definition in `server/store.py` — the async wrapper `db_backup_async` now delegates to the standalone `db_backup` function (PR #179).
