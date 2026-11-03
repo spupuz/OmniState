@@ -237,6 +237,8 @@ class GithubClient:
         ]
 
     def count_open_prs_rest(self, full_name: str) -> int | None:
+        if not self._valid_repo_full_name(full_name):
+            return None
         url = f"{GITHUB_API}/repos/{full_name}/pulls?state=open&per_page=1"
         try:
             res = _get(url=url, headers=self._headers, timeout=30)
@@ -262,6 +264,16 @@ class GithubClient:
 
     # ---- single repo state ----
 
+    @staticmethod
+    def _valid_repo_full_name(full_name: str) -> bool:
+        """Guard against path traversal / SSRF via crafted repo identifiers."""
+        if not isinstance(full_name, str):
+            return False
+        parts = full_name.split("/")
+        if len(parts) != 2:
+            return False
+        return all(p and re.fullmatch(r"[A-Za-z0-9._-]+", p) is not None for p in parts)
+
     def repo_state(self, full_name: str) -> str:
         """Return 'ok' | 'archived' | 'deleted' | 'unknown' for owner/repo.
 
@@ -269,6 +281,8 @@ class GithubClient:
         must not change the previous state: only a 404 with a token that can see
         the repo proves deletion (unauthenticated 404 == private repo too).
         """
+        if not self._valid_repo_full_name(full_name):
+            return "unknown"
         try:
             res = _get(
                 url=f"{GITHUB_API}/repos/{full_name}",
