@@ -1502,42 +1502,6 @@ class Store:
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.db_backup, backup_dir)
 
-    def db_backup(self, backup_dir: Path | str | None = None) -> dict[str, Any]:
-        """Create a consistent backup of the SQLite DB using the SQLite backup API.
-
-        Safe while the server is running (WAL mode): the backup API handles the
-        transaction boundary correctly. Writes to /data/backups/index_YYYY-MM-DD_HHMMSS.db
-        plus a SHA-256 checksum, then rotates to keep the most recent 7 backups.
-        """
-        import hashlib
-        import os as _os
-        bdir = Path(backup_dir) if backup_dir else self.db_path.parent / "backups"
-        bdir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
-        out = bdir / f"index_{stamp}.db"
-        # Use SQLite's backup API for a consistent snapshot under WAL.
-        with self._lock:
-            dest = sqlite3.connect(str(out))
-            try:
-                self._conn.backup(dest)
-            finally:
-                dest.close()
-        checksum = hashlib.sha256(out.read_bytes()).hexdigest()
-        (out.with_suffix(out.suffix + ".sha256")).write_text(f"{checksum}  {out.name}\n", encoding="utf-8")
-        # Rotation: keep the 7 most recent backups + their checksums.
-        backups = sorted(bdir.glob("index_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
-        for old in backups[7:]:
-            old.unlink(missing_ok=True)
-            old.with_suffix(old.suffix + ".sha256").unlink(missing_ok=True)
-        size = out.stat().st_size
-        return {
-            "file": out.name,
-            "size_bytes": size,
-            "size_mb": round(size / 1024 / 1024, 2),
-            "sha256": checksum,
-            "kept": min(len(backups), 7),
-        }
-
     def db_maintenance(self, *, vacuum: bool = True, purge_days: int = 90,
                        purge_exposures_days: int = 60) -> dict[str, Any]:
         """Compact the DB and purge stale audit rows.
