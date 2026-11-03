@@ -1,4 +1,4 @@
-# OmniState v2.37.9
+# OmniState v2.38.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -495,11 +495,12 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.37.9 (current)
+### v2.38.0 (current)
 
-- **Security (CSP)**: Removed `'unsafe-eval'` from the Content-Security-Policy `script-src` directive in `server/app.py`.
-- **Performance (Search)**: Reuse memoized `_text_tokens` cache hits in `search_memory` by tokenizing title/content/tags separately and combining sets, instead of concatenating into a new string per row.
-- **UX (A11y)**: Added `aria-label` to the project card button in the dashboard overview for screen readers.
+- **Security (Export)**: Hardened export path traversal check using `Path.relative_to()` instead of string prefix matching — prevents bypasses via symlinks or path normalization edge cases (PR #178).
+- **Code Quality**: Removed duplicated `db_backup` method definition in `server/store.py` — the async wrapper `db_backup_async` now delegates to the standalone `db_backup` function (PR #179).
+
+### v2.37.9
 
 ### v2.37.7
 
