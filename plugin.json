@@ -1,32 +1,7 @@
 {
-  "name": "omnistate",
-  "version": "2.38.2",
-  "description": "Multi-project persistent memory MCP server with a built-in web dashboard and GitHub PR Health. Runs as a Docker container.",
+  "version": "2.39.0",
+  "description": "OmniState v2.39.0",
   "author": "spupuz",
-  "keywords": [
-    "memory",
-    "mcp",
-    "sqlite",
-    "omnistate",
-    "docker",
-    "dashboard",
-    "github",
-    "tokens"
-  ],
-  "platforms": [
-    "opencode",
-    "universal"
-  ],
-  "mcp": {
-    "type": "remote",
-    "url": "http://localhost:8347/mcp"
-  },
-  "docker": {
-    "compose": "docker-compose.yml",
-    "port": 8347,
-    "data_dir": "DATA_HOST_DIR (.env, default ./data)"
-  },
-  "opencode": {
-    "config": "opencode.json"
-  }
+  "license": "MIT",
+  "dependencies": {}
 }
