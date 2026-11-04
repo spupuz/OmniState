@@ -1528,14 +1528,16 @@ class Store:
         return report
 
     def stats(self) -> dict[str, Any]:
-        projects = self.one("SELECT COUNT(*) AS c FROM projects WHERE status='active'")["c"]
-        memory = self.one("SELECT COUNT(*) AS c FROM memory")["c"]
-        scans = self.one("SELECT COUNT(*) AS c FROM gh_scans")["c"]
-
+        row = self.one("""
+            SELECT
+                (SELECT COUNT(*) FROM projects WHERE status='active') AS projects,
+                (SELECT COUNT(*) FROM memory) AS memory,
+                (SELECT COUNT(*) FROM gh_scans) AS scans
+        """)
         return {
-            "projects": projects,
-            "memoryEntries": memory,
-            "ghScans": scans,
+            "projects": row["projects"] if row else 0,
+            "memoryEntries": row["memory"] if row else 0,
+            "ghScans": row["scans"] if row else 0,
             "lastUpdate": _now(),
         }
 
