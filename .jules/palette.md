@@ -1,0 +1,3 @@
+## 2024-03-14 - Keyboard focus loss on custom modal dismissal
+**Learning:** The "remove" and "merge" custom modals failed to store `document.activeElement` before opening, causing focus to drop back to the document body when closed. This breaks keyboard navigation flow, especially in long lists, forcing screen reader and keyboard-only users to tab from the top of the page again.
+**Action:** When creating or fixing custom HTML modals, always introduce a state variable (e.g., `_sourceElement = document.activeElement`) in the `openModal` function, and call `_sourceElement.focus()` in the `closeModal` function before clearing it.
