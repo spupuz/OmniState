@@ -2,6 +2,7 @@
 const $ = (id) => document.getElementById(id);
 let ghTopChart = null, ghTrendChart = null;
 let ghChartsReqId = 0;
+let ghChartsReqId = 0;
 try { $('auth-token').value = localStorage.getItem('omnistate_auth_token') || ''; } catch(e) {}
 
 document.querySelectorAll('.tab-btn').forEach(btn => {

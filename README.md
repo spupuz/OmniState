@@ -495,7 +495,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.38.1 (current)
+### v2.38.2 (current)
+
+- **Bugfix (Dashboard)**: Fixed Chart.js "Canvas is already in use" error in `renderGhCharts` — destroy tracked and orphan charts via `Chart.getChart` before recreating, added a request-id guard to ignore stale async repo fetches, and null-guarded canvases.
+
+### v2.38.1
 
 - **Security (GitHub Client)**: Added `_valid_repo_full_name` guard in `GithubClient` to reject crafted repo identifiers (path traversal / SSRF) before building API URLs (PR #180).
 - **Accessibility**: Added `aria-label="Refresh backups"` to the refresh backups button in the overview dashboard (PR #181).
