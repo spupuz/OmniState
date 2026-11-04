@@ -52,3 +52,4 @@ __pycache__/
 backups/
 *.bak
 server/dashboard/js/
+.vscode

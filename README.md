@@ -1,4 +1,4 @@
-# OmniState v2.38.1
+# OmniState v2.40.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -495,7 +495,15 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.38.2 (current)
+### v2.40.0 (current)
+
+- **Feature (Tailwind CSS Production)**: Replaced CDN-based Tailwind CSS with a production build using PostCSS — added `tailwind.config.js`, `postcss.config.js`, `src/input.css`, and built `public/output.css` with tree-shaking (14.9 KB minified). Removed external `cdn.tailwindcss.com` dependency from dashboard.
+- **Bugfix (Dashboard JS)**: Fixed duplicate declaration `ghChartsReqId` in `server/dashboard/12_script.html` that caused `Uncaught SyntaxError: Identifier 'ghChartsReqId' has already been declared`.
+- **Fix (Data Path)**: Updated `.env` to use absolute path `DATA_HOST_DIR=/zfsfiles/DockerConfig/DockerSource/Omnistate/data` for explicit, context-independent data location (previously used relative `./data`).
+- **Fix (MIME Type)**: Added `/output.css` route in FastAPI to serve CSS with correct `text/css` MIME type instead of `text/plain`; Dockerfile now copies `public/` folder.
+- **Chore**: Added `.vscode` to `.gitignore`.
+
+### v2.38.2
 
 - **Bugfix (Dashboard)**: Fixed Chart.js "Canvas is already in use" error in `renderGhCharts` — destroy tracked and orphan charts via `Chart.getChart` before recreating, added a request-id guard to ignore stale async repo fetches, and null-guarded canvases.
 

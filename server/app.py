@@ -222,6 +222,14 @@ class App:
     def _setup_routes(self) -> None:
         app = self.fastapi
 
+        @app.get("/output.css")
+        async def output_css():
+            file_path = Path(__file__).parent.parent / "public" / "output.css"
+            if file_path.exists():
+                return Response(content=file_path.read_text(), media_type="text/css")
+            else:
+                return Response(content="", media_type="text/css", status_code=404)
+
         @app.middleware("http")
         async def _structured_log(request: Request, call_next):
             """Structured JSON access log."""

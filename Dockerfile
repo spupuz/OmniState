@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')"
 
 COPY server/ ./server/
+COPY public/ ./public/
 COPY VERSION.txt ./VERSION.txt
 COPY supermemory_server.py ./supermemory_server.py
 
