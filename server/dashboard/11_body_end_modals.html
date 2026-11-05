@@ -80,3 +80,30 @@
   </div>
 </div>
 
+<div id="sm-update-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sm-update-modal-title">
+  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
+    <div class="glass w-[92vw] max-w-md p-6 relative">
+      <h3 id="sm-update-modal-title" class="text-xl font-bold mb-3 text-blue-400">Supermemory Update Available</h3>
+      <p class="text-sm text-slate-300 mb-4">A new version of the local Supermemory server is available.</p>
+      <p class="text-sm text-slate-400 mb-3"><strong>Current:</strong> <span id="sm-update-current"></span></p>
+      <p class="text-sm text-slate-400 mb-4"><strong>Latest:</strong> <span id="sm-update-latest"></span></p>
+      <div class="flex justify-end gap-3">
+        <button type="button" class="btn ghost" onclick="closeSmUpdateModal()">Later</button>
+        <button type="button" class="btn bg-blue-600/20 text-blue-400 border-blue-500/50 hover:bg-blue-600 hover:text-white focus-visible:ring-blue-400" onclick="applySmUpdate()">Apply Update</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sm-update-result-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="sm-update-result-title">
+  <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
+    <div class="glass w-[92vw] max-w-md p-6 relative">
+      <h3 id="sm-update-result-title" class="text-xl font-bold mb-3">Update Result</h3>
+      <p class="text-sm text-slate-300 mb-4" id="sm-update-result-message"></p>
+      <div class="flex justify-end gap-3">
+        <button type="button" class="btn" onclick="closeSmUpdateResultModal()">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+

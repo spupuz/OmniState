@@ -3,7 +3,9 @@
         <div class="flex items-center gap-3 mb-4">
           <h2 class="text-xl font-bold">Supermemory</h2>
           <span id="sm-status" class="chip">⚠️ Disconnected</span>
+          <span id="sm-update-status" class="chip hidden">📦 Update available</span>
           <button type="button" class="btn ghost ml-auto text-xs" onclick="supermemorySync()">Sync Memories</button>
+          <button type="button" class="btn ghost text-xs" onclick="checkSupermemoryUpdate()">Check for Updates</button>
         </div>
         <form class="flex gap-3 flex-wrap mb-4" onsubmit="event.preventDefault(); addSupermemoryMemory()">
           <input type="text" id="sm-content" aria-label="Memory content" placeholder="Memory content…" class="flex-1 min-w-[240px]" required>

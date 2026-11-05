@@ -1124,6 +1124,8 @@ async function loadSupermemory() {
       }
       badge.title = `Base URL: ${status.base_url} · Space: ${status.default_space}`;
     }
+    // Check for updates
+    updateSupermemoryStatus();
     if (status.status === 'configured') {
       loadSupermemoryRecent();
     } else {
@@ -1138,6 +1140,78 @@ async function loadSupermemory() {
       badge.className = 'chip danger';
     }
   }
+}
+
+async function updateSupermemoryStatus() {
+  try {
+    const res = await api('/api/supermemory/update-check', { cache: 'no-store' });
+    const updateBadge = $('sm-update-status');
+    if (!updateBadge) return;
+    if (res.update_available && res.latest && res.latest !== res.current) {
+      updateBadge.textContent = `📦 Update ${res.current} → ${res.latest} available`;
+      updateBadge.className = 'chip warning';
+      updateBadge.title = 'Click "Check for Updates" to apply';
+    } else {
+      updateBadge.classList.add('hidden');
+    }
+  } catch (e) {
+    console.error('Failed to check for updates', e);
+  }
+}
+
+async function checkSupermemoryUpdate() {
+  try {
+    const updateBadge = $('sm-update-status');
+    if (updateBadge) {
+      updateBadge.textContent = '⏳ Checking…';
+      updateBadge.className = 'chip';
+    }
+    const res = await api('/api/supermemory/update-check', { cache: 'no-store' });
+    if (updateBadge) {
+      if (res.update_available && res.latest && res.latest !== res.current) {
+        // Show custom modal instead of confirm()
+        $('sm-update-current').textContent = res.current;
+        $('sm-update-latest').textContent = res.latest;
+        $('sm-update-modal').classList.remove('hidden');
+      } else {
+        showSmUpdateResult('No update available.', false);
+      }
+    }
+  } catch (e) {
+    console.error(e);
+    showSmUpdateResult('Failed to check for updates', true);
+  }
+}
+
+function closeSmUpdateModal() {
+  $('sm-update-modal').classList.add('hidden');
+}
+
+async function applySmUpdate() {
+  closeSmUpdateModal();
+  try {
+    const applyRes = await api('/api/supermemory/update', { method: 'POST' });
+    if (applyRes.message && !applyRes.error) {
+      showSmUpdateResult(applyRes.message + (applyRes.restart_required ? ' (restart required)' : ''), false);
+      updateSupermemoryStatus();
+    } else {
+      showSmUpdateResult('Update failed: ' + (applyRes.error || 'Unknown error'), true);
+    }
+  } catch (e) {
+    showSmUpdateResult('Update failed: ' + e.message, true);
+  }
+}
+
+function showSmUpdateResult(message, isError) {
+  const title = $('sm-update-result-title');
+  const msgEl = $('sm-update-result-message');
+  if (title) title.textContent = isError ? 'Update Failed' : 'Update Result';
+  if (msgEl) msgEl.textContent = message;
+  $('sm-update-result-modal').classList.remove('hidden');
+}
+
+function closeSmUpdateResultModal() {
+  $('sm-update-result-modal').classList.add('hidden');
 }
 
 async function loadSupermemoryRecent() {

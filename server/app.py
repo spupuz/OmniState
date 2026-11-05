@@ -37,6 +37,7 @@ class App:
         self._stop_event = threading.Event()
         self._rate_limit_store: dict[str, list[float]] = {}
         self._rate_limit_lock = threading.Lock()
+        self.logger = logging.getLogger("omnistate.app")
         # Dashboard list cache: all_project_metrics() runs tiktoken on every
         # memory row, which is wasteful on every poll. TTL-bounded + explicitly
         # invalidated by writes/scans so a "Scan now" always shows fresh counts.
@@ -216,6 +217,54 @@ class App:
             "stale_days": self.cfg.github.stale_days,
             "token": info,
         }
+
+    # ---------- Supermemory auto-update helpers ----------
+
+    def _sm_current_version(self) -> str:
+        import re
+        try:
+            text = Path("/app/supermemory_server.py").read_text(encoding="utf-8")
+        except Exception:
+            try:
+                text = Path(os.path.join(os.path.dirname(__file__), "..", "supermemory_server.py")).read_text(encoding="utf-8")
+            except Exception:
+                return "unknown"
+        m = re.search(r'version="([^"]+)"', text)
+        return m.group(1) if m else "unknown"
+
+    def _sm_latest_version(self) -> tuple[str | None, str | None]:
+        import urllib.request, json
+        try:
+            req = urllib.request.Request(
+                "https://api.github.com/repos/spupuz/Omnistate/releases/latest",
+                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "OmniState"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read())
+            tag = data.get("tag_name", "").lstrip("v")
+            raw_url = f"https://raw.githubusercontent.com/spupuz/Omnistate/{data.get('tag_name', 'main')}/supermemory_server.py"
+            req2 = urllib.request.Request(raw_url, headers={"User-Agent": "OmniState"})
+            with urllib.request.urlopen(req2, timeout=10) as resp2:
+                text = resp2.read().decode("utf-8")
+            import re
+            m = re.search(r'version="([^"]+)"', text)
+            ver = m.group(1) if m else tag
+            return ver, raw_url
+        except Exception:
+            return None, None
+
+    def _check_supermemory_update(self) -> dict[str, Any] | None:
+        try:
+            current = self._sm_current_version()
+            latest, url = self._sm_latest_version()
+            return {
+                "current": current,
+                "latest": latest,
+                "update_available": bool(latest and latest != current),
+                "download_url": url,
+            }
+        except Exception:
+            return None
 
     # ---------- routes ----------
 
@@ -745,6 +794,64 @@ class App:
 
             return {"saved": True, "config": self._github_config_view()}
 
+        # ---------- Supermemory auto-update ----------
+
+        @app.get("/api/supermemory/update-check")
+        def api_supermemory_update_check() -> dict[str, Any]:
+            info = self._check_supermemory_update()
+            if info is None:
+                return {"error": "Failed to check for updates"}
+            return info
+
+        @app.post("/api/supermemory/update")
+        def api_supermemory_update() -> dict[str, Any]:
+            info = self._check_supermemory_update()
+            if not info or not info.get("update_available"):
+                return {"message": "No update available", "current": info.get("current") if info else "unknown"}
+            url = info.get("download_url")
+            if not url:
+                return {"error": "No download URL available"}
+            try:
+                import urllib.request
+                req = urllib.request.Request(url, headers={"User-Agent": "OmniState"})
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    new_content = resp.read()
+                # Write to temp file first, then atomically replace
+                target = Path("/app/supermemory_server.py")
+                backup = target.with_suffix(".bak")
+                try:
+                    if target.exists():
+                        target.rename(backup)
+                except Exception:
+                    pass
+                tmp = target.with_suffix(".tmp")
+                tmp.write_bytes(new_content)
+                tmp.replace(target)
+                # Clean up backup
+                try:
+                    backup.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                # Attempt to restart the Supermemory server process
+                try:
+                    import subprocess, signal
+                    # Find and kill the running supermemory_server.py process
+                    subprocess.run(["pkill", "-f", "supermemory_server.py"], capture_output=True, timeout=5)
+                    time.sleep(1)
+                    # Restart it
+                    subprocess.Popen(
+                        ["python3", str(target)],
+                        stdout=open("/tmp/supermemory.log", "a"),
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True,
+                    )
+                except Exception as e:
+                    self.logger.warning(f"Failed to restart Supermemory server: {e}")
+                    return {"message": "Update applied but restart failed", "version": info.get("latest"), "restart_required": True, "restart_error": str(e)}
+                return {"message": "Update applied and server restarted", "version": info.get("latest"), "restart_required": False}
+            except Exception as e:
+                return {"error": f"Update failed: {e}"}
+
         # ---------- Supermemory bridge ----------
 
         def _sm_enabled() -> tuple[bool, str | None]:
@@ -862,6 +969,19 @@ class App:
                     status_code=502,
                 )
 
+    def run_supermemory_sync(self) -> dict[str, Any]:
+        """Run Supermemory sync from background scheduler."""
+        enabled, err = _sm_enabled()
+        if not enabled:
+            return {"status": "disabled", "error": err}
+        client = _sm_client()
+        try:
+            return client.sync_from_store(self.store)
+        except SupermemoryError as e:
+            return {"status": "error", "error": str(e)}
+        except Exception as e:  # noqa: BLE001
+            return {"status": "error", "error": f"Supermemory backend unavailable: {e}"}
+
         # ---------- hooks endpoints (auto-population via OpenCode plugin) ----------
 
         @app.post("/api/hooks/remember")
@@ -939,7 +1059,19 @@ class App:
             elif existing:
                 self.store.update_memory(int(existing["id"]))
             self.invalidate_metrics_cache()
-            return {"snapshot_created": chunk_id, "archived_tasks": [t["title"] for t in done], "archived_count": len(done)}
+
+            # Auto-sync to Supermemory on session end (if enabled)
+            sm_result = {"status": "disabled"}
+            if self.cfg.supermemory.enabled and self.cfg.supermemory.sync_on_session_end:
+                enabled, err = _sm_enabled()
+                if enabled:
+                    client = _sm_client()
+                    try:
+                        sm_result = client.sync_from_store(self.store, project=project, limit=50)
+                    except Exception:
+                        sm_result = {"status": "error", "error": "Supermemory sync failed"}
+
+            return {"snapshot_created": chunk_id, "archived_tasks": [t["title"] for t in done], "archived_count": len(done), "supermemory_sync": sm_result}
 
         @app.post("/api/hooks/task/add")
         def api_hooks_task_add(body: dict[str, Any]) -> dict[str, Any]:
@@ -1118,12 +1250,16 @@ class App:
         return scan_id, summary
 
     def start_scheduler(self) -> threading.Thread:
-        """Background loop: periodic project discovery + scheduled GitHub scans (DESIGN §6, §7b)."""
+        """Background loop: periodic project discovery + scheduled GitHub scans + Supermemory sync (DESIGN §6, §7b)."""
         def loop() -> None:
             import time
             discovery_interval = max(30, self.cfg.scan_interval_seconds)
             scan_interval = max(1, self.cfg.github.scan_interval_hours) * 3600
+            sm_sync_interval = max(1, self.cfg.supermemory.sync_interval_hours) * 3600
+            sm_update_check_interval = 3600  # check for updates every hour
             last_scan = 0.0
+            last_sm_sync = 0.0
+            last_sm_update_check = 0.0
             while not self._stop_event.is_set():
                 try:
                     self.run_discovery()
@@ -1136,6 +1272,23 @@ class App:
                         last_scan = now
                     except Exception:
                         pass
+                if self.cfg.supermemory.enabled and now - last_sm_sync >= sm_sync_interval:
+                    try:
+                        self.run_supermemory_sync()
+                        last_sm_sync = now
+                    except Exception:
+                        pass
+                # Auto-check Supermemory server update
+                if self.cfg.supermemory.enabled and now - last_sm_update_check >= sm_update_check_interval:
+                    try:
+                        info = self._check_supermemory_update()
+                        if info and info.get("update_available"):
+                            self.logger.info(f"Supermemory server update available: {info['current']} -> {info['latest']}")
+                            # Store info somewhere accessible (e.g., store dict or cfg)
+                            # For now just log; dashboard can poll /api/supermemory/update-check
+                    except Exception as e:
+                        self.logger.warning(f"Supermemory update check failed: {e}")
+                    last_sm_update_check = now
                 try:
                     self.store.scheduled_purge(feedback_days=90, exposures_days=60)
                 except Exception:

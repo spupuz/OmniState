@@ -274,6 +274,45 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 
 The GitHub metrics collection is optimized for performance — filtering logic is pushed down to the database level via SQL `WHERE` clauses to avoid materializing unused Python dictionaries during frequent dashboard polls. This significantly reduces memory allocation and improves dashboard responsiveness, especially when processing large repositories.
 
+## Supermemory Integration
+
+OmniState can bridge to [Supermemory](https://github.com/supermemoryai/supermemory) — an external memory API — through a set of MCP tools and a REST API surface. This enables bidirectional sync between OmniState's project/session/task memory and Supermemory's advanced memory store.
+
+### How it is integrated
+
+1. **Configuration** (`server/config.py`): a `SupermemoryConfig` dataclass is part of the main `Config`, loaded from `config.json` and overridable via env vars (`SUPERMEMORY_ENABLED`, `SUPERMEMORY_API_KEY`, `SUPERMEMORY_BASE_URL`, `SUPERMEMORY_API_VERSION`, `SUPERMEMORY_DEFAULT_SPACE`).
+
+2. **REST client** (`server/supermemory_client.py`): a thin `httpx`-based client that calls the Supermemory REST API (v5) — `search`, `profile`, `add`, `sync`, `status`. All methods are synchronous and wrapped with `asyncio.to_thread` by the MCP tools.
+
+3. **Built-in local server** (`supermemory_server.py`): a FastAPI server on port 6767 that ships inside the container and implements the Supermemory API v5 endpoints locally. It persists data to `/data/supermemory_local.json`. The container entrypoint (`entrypoint.sh`) starts it automatically and waits for `/health` before launching OmniState.
+
+4. **MCP bridge tools** (`server/mcp_server.py`): five tools exposed to AI agents — `supermemory_search`, `supermemory_profile`, `supermemory_add`, `supermemory_sync`, `supermemory_status`.
+
+5. **Dashboard tab**: a "Supermemory" tab in the web dashboard with status indicator, search modal, add-memory form, and manual sync.
+
+### Usage modes
+
+- **Local (default)**: leave `SUPERMEMORY_API_KEY` as the placeholder `sm_your_local_api_key_here` and `SUPERMEMORY_BASE_URL=http://localhost:6767`. The built-in local server handles everything with no external account.
+- **Cloud**: set a real API key and `SUPERMEMORY_BASE_URL=https://api.supermemory.ai` to use the hosted Supermemory service.
+
+### Auto-update
+
+The Supermemory local server in the OmniState Docker image auto-updates:
+
+- Every hour, the OmniState scheduler controlls the GitHub releases page of the OmniState repository (which tracks releases of `supermemory_server.py`).
+- If a new version is found, you can apply it with a single POST to `/api/supermemory/update`.
+- The update downloads the new server code from GitHub and replaces the file atomically, then restarts the process.
+- If you prefer to keep the local server at its current version, disable this check by setting `SUPERMEMORY_AUTO_UPDATE=false` (env var not implemented yet – the check is optional and only logs)
+
+You can watch for updates via the dashboard Supermemory tab, or poll `/api/supermemory/update-check` to see if an update is available.
+
+### References
+
+- Supermemory project: https://github.com/supermemoryai/supermemory
+- Integration doc: `SUPERMEMORY_INTEGRATION.md`
+- Demo: `integration_demo.py`
+- Tests: `test_supermemory_integration.py`
+
 ## Architecture
 
 ```
@@ -495,491 +534,14 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.40.0 (current)
+### v2.41.0 (current)
 
-- **Feature (Tailwind CSS Production)**: Replaced CDN-based Tailwind CSS with a production build using PostCSS — added `tailwind.config.js`, `postcss.config.js`, `src/input.css`, and built `public/output.css` with tree-shaking (14.9 KB minified). Removed external `cdn.tailwindcss.com` dependency from dashboard.
-- **Bugfix (Dashboard JS)**: Fixed duplicate declaration `ghChartsReqId` in `server/dashboard/12_script.html` that caused `Uncaught SyntaxError: Identifier 'ghChartsReqId' has already been declared`.
-- **Fix (Data Path)**: Updated `.env` to use absolute path `DATA_HOST_DIR=/zfsfiles/DockerConfig/DockerSource/Omnistate/data` for explicit, context-independent data location (previously used relative `./data`).
-- **Fix (MIME Type)**: Added `/output.css` route in FastAPI to serve CSS with correct `text/css` MIME type instead of `text/plain`; Dockerfile now copies `public/` folder.
-- **Chore**: Added `.vscode` to `.gitignore`.
+- **Feature (Supermemory Auto-Update)**: Local Supermemory server now auto-checks for updates via GitHub releases API every hour; dashboard shows update badge and modal to apply update (downloads new `supermemory_server.py`, replaces atomically, restarts process).
+- **Feature (Supermemory Update UI)**: Custom modal dialogs replace native `confirm()`/`alert()` for update check and result, matching dashboard glass style.
+- **API**: New endpoints `GET /api/supermemory/update-check` and `POST /api/supermemory/update` for programmatic update control.
+- **Scheduler**: Background job logs available updates; non-blocking, optional (only runs when Supermemory enabled).
 
-### v2.38.2
-
-- **Bugfix (Dashboard)**: Fixed Chart.js "Canvas is already in use" error in `renderGhCharts` — destroy tracked and orphan charts via `Chart.getChart` before recreating, added a request-id guard to ignore stale async repo fetches, and null-guarded canvases.
-
-### v2.38.1
-
-- **Security (GitHub Client)**: Added `_valid_repo_full_name` guard in `GithubClient` to reject crafted repo identifiers (path traversal / SSRF) before building API URLs (PR #180).
-- **Accessibility**: Added `aria-label="Refresh backups"` to the refresh backups button in the overview dashboard (PR #181).
-
-### v2.38.0
-
-- **Security (Export)**: Hardened export path traversal check using `Path.relative_to()` instead of string prefix matching — prevents bypasses via symlinks or path normalization edge cases (PR #178).
-- **Code Quality**: Removed duplicated `db_backup` method definition in `server/store.py` — the async wrapper `db_backup_async` now delegates to the standalone `db_backup` function (PR #179).
-
-### v2.37.9
-
-### v2.37.7
-
-- **Bugfix (Dashboard)**: Restored the three-state theme (`dark → light → system`): `system` now resolves against the OS color scheme and follows live OS preference changes, the sidebar cycle button advances through all three states, and the sidebar icon shows a distinct monitor icon for `system`.
-
-### v2.37.6
-
-- **Bugfix (Dashboard)**: Fixed Chart.js "Canvas is already in use" error in `renderGhCharts` — destroy tracked and orphan charts via `Chart.getChart` before recreating, added a request-id guard to ignore stale async repo fetches, and null-guarded canvases.
-
-### v2.37.5
-
-- **Bugfix (Supermemory)**: The container now runs the built-in local Supermemory server (port 6767) automatically, so the dashboard's Supermemory tab works out of the box with no external API key; the local server endpoints were aligned with the client's request/response format and persist data to `/data/supermemory_local.json`.
-- **Bugfix (Dashboard)**: `loadSupermemory()` only fetches recent memories when Supermemory is configured, and guards against missing `results`, eliminating repeated 502 errors in the console.
-- **Docs**: Documented the `SUPERMEMORY_*` environment variables in `.env.example` and the README env table.
-
-### v2.37.4
-
-- **Bugfix (Dashboard)**: Removed the duplicated legacy header by keeping `12_script.html` script-only; restored `toggleSidebar`/`closeSidebarMobile` and guarded `last-update` (mirroring to sidebar) so the new sidebar layout renders without throwing; guarded `auth-token` init and other null element access.
-- **Bugfix (Supermemory)**: REST endpoints now catch connection/timeout errors and return a clear 502 instead of an unhandled failure.
-- **Feature (Workspace)**: `project_discover` now registers workspaces and assigns projects to them (restores workspace grouping in the dashboard).
-- **Tweak**: Per-IP rate limit raised from 120 to 300 req/60s.
-
-### v2.37.3
-
-- **Refactor**: PR #171 - Replace blocking prompt with custom search modal; split dashboard into component files; simplify indexer/store (removes workspace support); real httpx calls simplified to simulated API calls
-
-### v2.37.2
-
-- **Bugfix (UX)**: sidebar no longer overlaps/cover main content on narrow viewports; desktop margin-left and mobile off-canvas rules made authoritative against Tailwind overrides; stale open state is cleared on resize so the sidebar hides and the hamburger appears when narrowing.
-
-### v2.37.1
-
-- **UX**: Sidebar version badge now auto-updates from the /health endpoint (was hardcoded to V2.35.0); dashboard version badge refresh also updates the sidebar badge
-- **Refactor**: Split monolithic server/dashboard.html into 14 component files under server/dashboard/ for maintainability; assembled output is byte-identical to the original
-
-### v2.37.0
-
-- **Features**: Supermemory integration is now backed by real REST API calls (httpx) instead of stubs — new shared client `server/supermemory_client.py` with search/list/profile/add/sync; MCP tools and REST endpoints under `/api/supermemory/*` now return live data; enabled/disabled gating and error handling
-- **Bugfix**: Supermemory dashboard search now uses a site-styled modal instead of the browser's native `prompt()` dialog; fixed merge-project modal always appearing (missing container wrapper)
-- **UX**: Site-styled search modal for Supermemory with keyboard (Enter/Esc) support
-
-### v2.36.0
-
-- **Features**: Workspace support — directories containing ≥2 projects are now detected and registered as workspaces; projects are grouped under their workspace in the dashboard (section rows like "📁 VibeNVR-workspace (4 projects)"); new API endpoints `GET /api/workspaces` and `GET /api/workspaces/{name}/projects`; `project_register` accepts a `workspace` parameter; new store methods (`list_workspaces`, `upsert_workspace`, `get_workspace`, `get_projects_in_workspace`); `discover_projects_and_workspaces()` auto-detects workspaces
-- **UX**: Responsive sidebar navigation with hamburger menu (mobile); About and Settings sections added; Settings includes Access Token and Theme selector (dropdown); theme cycling button with monochromatic SVG icons (dark → light → system → dark); About section is last in tab order; version badge and server status indicator moved to sidebar footer; "OmniState v2" text removed from sidebar footer; removed version/last-update from section pages (kept only on main dashboard); system theme icon is now a distinct monitor icon
-- **Bugfix**: Fixed `_is_project_dir` to catch PermissionError/OSError; DockerSource root directory excluded from project list; workspaces no longer appear in deleted/archived/active project sections; theme "system" selection now persists and follows OS preference changes
-- **Docs**: Created `docs/skills/update_docs.md` skill for documentation updates
-
-### v2.35.0
-
-- **Features**: Added `POST /api/github/config` endpoint for persisting GitHub scan configuration (accounts, extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; dashboard now has a "Save config" button and an Advanced Settings panel for these options; improved error message when no accounts are configured
-- **Bugfix**: GitHub accounts entered in the dashboard UI are now persisted to config (previously they disappeared on page reload); scan endpoint returns a descriptive error message instead of generic "no accounts configured"
-- **Docs**: Updated `.env` with missing GitHub PR Health parameters (`GITHUB_ACCOUNTS`, `GITHUB_TOKEN`, `GITHUB_SCAN_INTERVAL_HOURS`)
-
-### v2.34.0
-
-- **Features**: Supermemory integration (bridge tools + REST API + dashboard tab) — 5 new MCP tools (`supermemory_search`, `supermemory_profile`, `supermemory_add`, `supermemory_sync`, `supermemory_status`) mirroring REST endpoints under `/api/supermemory/*`; new Supermemory dashboard tab with status indicator, memory search, add/save, sync, and recent memories list; `SupermemoryConfig` dataclass with env var support (`SUPERMEMORY_API_KEY`, `SUPERMEMORY_BASE_URL`, `SUPERMEMORY_API_VERSION`, `SUPERMEMORY_DEFAULT_SPACE`, `SUPERMEMORY_ENABLED`)
-- **UX**: Added Supermemory tab (brain icon) to dashboard navigation and command palette; CSP font-src updated to allow `https://frontend-cdn.perplexity.ai` for font loading
-- **Docs**: Added About section with author info (Alessandro "spupuz"), related projects (VibeNVR, proxmox-scripts), MIT License text with disclaimer in README and new LICENSE file
-
-### v2.33.0
-
-- **UX**: Add inline feedback to reinforce memory buttons (👍/⭐) in the dashboard — buttons temporarily show "✓ Saved" and disable during async operation, then restore after 2 seconds, preventing double-clicks and confirming the action without gaze shift
-- **Performance**: O(1) project metric lookup via new `get_project_metrics(project_id)` cache method — replaces full-list generation + filtering with direct dictionary access for `/api/projects/{name}`, `project_summary`, and `project_metrics` MCP tools
-
-### v2.32.1
-
-- **Security**: Fix authentication bypass in MCP endpoints — the `_auth_required` and `_rate_limit` middlewares in `server/app.py` incorrectly skipped token validation and rate limiting for `/mcp` requests that carried an `Mcp-Session-Id` header, allowing unauthenticated access. Both middlewares now uniformly enforce the `OMNISTATE_AUTH_TOKEN` check and rate limits on all `/mcp` and `/api/*` requests.
-
-### v2.32.0
-
-- **Performance**: batch token counting optimization using `tiktoken.get_encoding().encode_ordinary_batch()` to delegate loop to Rust-level multi-threaded code
-- **UX**: explicit `type="button"` on all interactive dashboard buttons to prevent accidental form submission; inline loading state feedback on async operations
-
-### v2.31.0
-
-- **Inline copy feedback**: dashboard copy buttons now show temporary '✓ Copied' visual feedback for 2 seconds after clicking
-- **Performance optimization**: `Store.all_project_metrics()` uses SQLite window functions (`ROW_NUMBER() OVER(PARTITION BY ...)`) to push sorting and top-N filtering directly to the database, eliminating Python dictionary allocations
-- **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
-
-### v2.30.0
-
-- **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
-  - Remove modal with project name, audit-trail reason field, Cancel / Remove buttons.
-  - Merge modal with source display, active-project dropdown, manual new path input, explanatory note about memory move and source removal, Cancel / Merge buttons.
-- **Accessibility**: Escape key closes the new modals; focus management retained.
-
-### v2.29.0
-
-- **UX**: Replace system `confirm()`/`prompt()` for project Remove and Merge with graphic modals in the dashboard.
-  - Remove modal with project name, audit-trail reason field, Cancel / Remove buttons.
-  - Merge modal with source display, active-project dropdown, manual new path input, explanatory note about memory move and source removal, Cancel / Merge buttons.
-- **Accessibility**: Escape key closes the new modals; focus management retained.
-
-### v2.28.0
-
-- **Features**: Project lifecycle management in the dashboard — **Remove project** (soft-delete: marks project as removed, hides from active lists, preserves memories) and **Merge projects** (moves all memories from source to target, marks source as removed). Available via REST API (`POST /api/projects/{name}/remove`, `POST /api/projects/merge`), MCP tools (`project_remove`, `project_merge`), and dashboard UI (buttons in project detail header).
-- **UX**: Dashboard project detail view now shows action buttons (Merge into…, Remove project) with confirmation prompts and toast feedback.
-
-### v2.27.0
-
-- **Features**: Add `omnistate-pp-cli` — a shell-native CLI generated with [CLI Printing Press](https://printingpress.dev) that wraps the REST API with a local SQLite data layer (sync, offline FTS5 search, compound analytics). Designed for AI agents: `--json` auto-when-piped, `--compact` for 60–80% fewer tokens, typed exit codes, `--dry-run`, `--agent` flag. Install instructions, configuration, usage examples, and a CLI-vs-MCP-vs-skills comparison table added to the README.
-- **Docs**: `.gitignore` updated to exclude generated CLI output (`omnistate-pp-cli/`, `openapi.json`).
-
-### v2.26.0
-
-- **Bugfix**: Fix timezone mismatch in `search_memory` date parser — `dateparser` now resolves "today" and relative dates in UTC, consistent with `created_at` timestamps, so same-day queries no longer miss entries near the day boundary.
-- **Accessibility** (PR #161): Add `aria-label` attributes to all dashboard utility buttons (copy, reinforce, forget) for screen-reader context.
-- **Performance** (PR #162): `project_metrics()` and `/api/projects/{name}` now use O(1) dictionary lookup from the already-fetched `_project_metrics_list()` cache instead of re-running expensive DB queries and token counting.
-
-### v2.25.0
-
-- **UX** (PR #160): Surface missing stat tooltips on dashboard overview cards - adds accessible tooltip buttons with aria-label for keyboard compatibility and proper DOM rendering.
-
-### v2.24.0
-
-- **Accessibility** (PR #159): Handoff form now uses visible `<label>` elements for every field (Current state marked `required`), reads project context from the active detail-view heading instead of the global filter, and focuses the form heading on open for smoother keyboard navigation and screen reader flow.
-- **Performance** (PR #158): `Store.context_token_measure()` and the token-savings hot path now count tokens via `tiktoken.encode_ordinary_batch()` (Rust-level batch processing) instead of calling `encode_ordinary()` per row in a Python loop, cutting CPU on large indexes.
-
-### v2.23.0
-
-- **Accessibility** (PR #156): Enhance command palette and checkbox accessibility - added `aria-label` attributes for screen reader support, improved keyboard navigation with `aria-activedescendant`, and enhanced focus management for command palette items.
-
-### v2.22.0
-
-- **UX** (PR #155): Enhanced focus management for drill-downs and modals, improving keyboard navigation and screen reader flow with explicit focus handling when transitioning between project details, handoffs, and the command palette.
-
-### v2.21.0
-
-- **UX improvement** (PR #151): Add loading states to async dashboard buttons (Reload, Auto-discover, Export Markdown) to improve UX by showing loading feedback during async operations with proper error handling in finally blocks.
-
-### v2.20.0
-
-- **UX** (PR #152): Async dashboard forms (handoff save, project register, shared memory add, memory delete) now disable their submit button and show a pending label while the request is in flight, always restoring the original label and state in a `finally` block so failures never leave a stuck button.
-- **Performance** (PR #153): `Store.context_token_measure()` now streams memory rows through a native `sqlite3.Row` cursor with `fetchmany(1000)` instead of `q_iter()` dictionaries, cutting CPU and allocations on large indexes and releasing the connection lock between chunks.
-
-### v2.19.0
-
-- **UX**: Replace blocking native dialogs (`confirm()` and `prompt()`) with custom accessible HTML modals for memory deletion, preserving required audit trail data and improving accessibility with keyboard navigation and proper ARIA labels.
-- **Performance**: Optimize archived repository filtering by pushing down to SQL (using `WHERE` clauses) to avoid materializing thousands of unused repo dictionaries in Python during every dashboard poll.
-
-### v2.18.1
-
-- **Security**: Fix Path Traversal bypass via Directory Symlink (HIGH)
-
-### v2.18.0
-
-- **Performance**: Optimized _text_tokens processing to avoid unnecessary string allocations in hot loops (~35% speedup).
-- **Dashboard**: Replace blocking confirm dialogs with seamless optimistic undo toasts for delete and clear operations.
-### v2.17.0 
-- **Plugin**: rewritten `.opencode/plugins/omnistate/` with automatic session lifecycle hooks (`context` recall injection, `prompt` auto-remember, `execute.after` file tracking, `compaction`/`session.idle` snapshots); fire-and-forget REST to `/api/hooks/*`; tolerates legacy double-encoded JSON bodies.
-- **UI**: palette fix for broken `reinforceMemory` button and improved feedback UI.
-- **Server**: fixed double-encoded response in `/api/hooks/session/start` (return dict, not `json.dumps()` string).
-
-### v2.16.0
-- **UX**: dashboard redesign — responsive tables with `data-label` card layout on mobile, virtual scroll (chunked rendering) for memory lists >50 entries, hash-based deep-linking (URL tab state), improved skeleton loading, undo-capable toast, focus-visible rings.
-- **UX**: undo toast infrastructure (Toast with Undo action) for reversible operations.
-- **UX**: design tokens CSS variables (`:root`) fully adopted; skeleton variants (`skel-card`, `skel-text`, `skel-row`).
-
-### v2.15.0
-- **Auto-population hooks**: OpenCode plugin (`.opencode/plugins/omnistate/`) hooks into session events — `prompt` auto-remembers user messages, `context` tracks tool usage, `compaction`/`session.remove` auto-snapshot. Fire-and-forget, non-blocking.
-- New REST endpoints `POST /api/hooks/remember`, `/session/start`, `/session/snapshot`, `/task/add`, `/task/update` for plugin ↔ server communication.
-- README documents the hooks feature with configuration options.
-
-### v2.14.0
-- **UX**: `install.sh` / `install.ps1` interactive installers generate `.env` with guided prompts (PROJECTS_ROOT, GitHub PAT); Windows path guidance added to README.
-- **UX**: Docker `healthcheck` added to `docker-compose.yml`; dashboard welcome card when no projects exist; inline error banners with Retry on Overview/Projects load failures.
-- **UX**: version badge uses `data-version` attribute (robust replacement instead of fragile string match).
-- **Security**: `store.search_memory` tag filtering moved from Python post-filter to SQL `json_each` subquery (proper AND logic, no TODO `pass`); `github_client.scan_graphql` hardcoded values documented as safe.
-- **Performance**: shared-memory backfill runs in a daemon thread (non-blocking boot); rate-limit store auto-cleans stale IPs.
-- **Cleanup**: removed dead `server/store.py.backup` from repo.
-
-### v2.13.0
-- **Perf (PR #143)**: `Store.all_project_metrics()` now streams through native `sqlite3.Row` + `fetchmany(1000)` instead of `q_iter()` dictionaries, and `q_iter()` uses `yield from map(dict, rows)` — cutting dashboard bulk-read CPU time by ~40–45% for ~1500-row datasets. Only rows kept for `_tasks`/`_recent`/`_recall` are cast to `dict`.
-
-### v2.12.3
-- **Security (PR #141)**: `Store.export_memories_markdown()` now sanitizes the `kind` field with the same allowlist used for titles, closing a path-traversal vector in markdown export filename construction.
-- **Accessibility (PR #142)**: visible `:focus-visible` indicators (box-shadow ring) for `.btn`, `.tab-btn`, `.copy-btn` in the dashboard palette and keyboard navigation.
-
-### v2.11.1
-- **Security (PR #140)**: the `/api/backups` endpoint now opens every SQLite scan index with `sqlite3.connect(..., uri=True)` and `?mode=ro` (read-only URI), preventing accidental writes/lock issues; all API responses also carry `X-Content-Type-Options: nosniff` and `X-Frame-Options: DENY` headers as defense-in-depth against MIME sniffing and clickjacking.
-
-### v2.12.2
-- **Perf**: `store._find_near_duplicate` checks `content_hash` index for exact dupes before the Jaccard scan (200-row); `store._record_exposures` batches inserts with `executemany` + single `UPDATE` in one lock hold.
-- **Fix**: `app.py` duplicate `import time` + unused `json as _json` removed; duplicate `_metrics_cache`/`_metrics_cache_ts`/`_metrics_lock` declarations deduped in `App.__init__`.
-- **Fix**: `config.py` `GITHUB_TOKEN` env override now uses key-presence (`"GITHUB_TOKEN" in env`) so an empty value can clear the token (consistent with `GITHUB_ACCOUNTS`).
-- **Docs**: `DESIGN.md` §7 adds `POST /api/memory/:id/reinforce`, `DELETE /api/memory/:id`, `GET /api/memory/export`, `GET /api/memory/export-markdown`, `DELETE /api/shared/:id`, `GET /api/github/config` to the REST table.
-
-### v2.12.1
-- **Docs**: DESIGN.md synced — content_hash DB schema, token validation, CSP/rate-limiting/Referrer-Policy, Prometheus /metrics, scheduled purge, expanded REST/MCP tables.
-
-### v2.12.0
-- **Security**: CSP headers (CDN sources allowed), Referrer-Policy, per-IP rate limiting (300 req/60s), oversized payload rejection (>1MB).
-- **Memory engine**: `content_hash` column (SHA-256 normalized content) with partial-index dedup; tag filtering on `memory_search` (comma-separated, AND logic); `memory_feedback_for` MCP tool.
-- **Ops**: async `db_backup_async`, scheduled purge (expired memories, feedback 90d, exposures 60d), Prometheus `/metrics` endpoint.
-- **GitHub**: token validation in `github_config` before saving.
-- **Deploy**: entrypoint.sh with automatic `/data` ownership fix for non-root container.
-
-### v2.11.2
-- **Data integrity (task archiving)**: `session_snapshot` now archives done tasks (`lifecycle_state='archived'`) instead of deleting them — they remain consultable in the project drill-down and counted in `doneTasks`. The new `archive_done_tasks()` method handles the move; `list_tasks()` excludes archived rows by default (`include_archived=True` to restore).
-- **Summary sync**: `session_snapshot` now keeps the project summary (`kind='summary'`) in sync with the distilled context, so `project_summary()` returns the latest snapshot content.
-- **DB maintenance**: new `db_backup()` (SHA-256 checksum + 7-day rotation, WAL-safe SQLite backup API) and `db_maintenance()` (WAL checkpoint + VACUUM + purge of stale `memory_feedback` / `memory_recall_exposures`) — exposed as MCP tools and REST endpoints (`POST /api/backups/create`, `POST /api/backups/maintain`).
-- **Dedup kind-scoped**: `_find_near_duplicate(kind=...)` now filters by `kind`, so a chunk and a summary with the same text no longer collapse into each other.
-
-### v2.11.0
-- **UX / Accessibility (dashboard, PR #139)**: every dashboard button is now an explicit `<button type="button">` (previously bare `<button>` elements, which could fall through to submit enclosing forms); hover-revealed controls (e.g. the saved-search delete button) also reveal on `:focus-within`, so keyboard users can reach them; the form textareas in the handoff and project-memory controls gained `aria-label`s for screen readers.
-
-### v2.10.3
-- **Performance (PR #138)**: `all_project_metrics()` no longer calls `json.loads()` on every task row in Python — `status` and `title` are projected via SQLite `json_extract(content, '$.status')`/`$.title'` (guarded by `json_valid()`) inside the `q_iter()` SELECT, cutting per-row JSON parsing overhead in the dashboard's hot path.
-
-### v2.10.2
-- **Security (PR #135)**: `Store.export_memories_markdown()` now enforces a strict allowlist (`re.sub(r'[^a-z0-9]+', '-', ...)`) on memory titles used as filenames, closing a path-traversal vector that allowed `../` escapes to write outside the export directory.
-- **Performance (PR #137)**: `count_tokens()` uses `tiktoken.encode_ordinary()` instead of `encode()` — faster and immune to special-token collisions on arbitrary user input.
-- **UX (dashboard, PR #136)**: saved-search dropdown items are now native `<button type="button">` elements with `aria-label`s, restoring full keyboard navigability and screen-reader support.
-
-### v2.10.1
-- **Performance (PR #134)**: `project_list` MCP tool reuses the TTL-cached `_project_metrics_list()` from the `App` instance instead of calling `store.project_metrics()` per project — removing the N+1 query bottleneck (falls back to per-project queries only when a project is missing from the cache).
-- **UX (dashboard)**: stat cards use smaller, consistent typography (`text-2xl`/`text-lg`/`text-sm` instead of `text-3xl`/`text-4xl`) with `break-words` and tighter padding, so long values like the GitHub "Last scan" timestamp no longer overflow their card.
-
-### v2.10.0
-- **UI (dashboard)**: unified design system — single `<style>` with CSS tokens (`--bg/--card/--border/--accent/--radius/--shadow`), radial gradients, blur/saturate glass cards with hover lift, pill tabs/buttons/inputs with focus ring, tabular-nums tables with sticky headers, pill chips and `health-*` badges, accent-bordered toasts, and blur-backed command palette.
-- **UX (dashboard)**: added **⭐ Saved** searches dropdown (auto-saves every query with scope, 15 max in `localStorage`, reload/remove/clear, Esc + outside-click to close) and dedicated polished menu styles with pop animation.
-- **Fix (dashboard)**: real app version in the header injected from `VERSION.txt` via `GET /health` (`server/app.py:index()` + `refreshVersionBadge()`) — was hardcoded `OMNISTATE v2`.
-- **Fix (dashboard)**: all remaining Italian copy translated to English; removed duplicate `Salta al contenuto` skip-link; translated aria-labels, placeholders and stats (`Repos scanned`/`Total open PRs`/`Method`/`Projects`/`Top repos by open PRs`/`Open PR trend`/`Language`/`no token (REST mode)`).
-- **Fix (dashboard)**: deduped 3 duplicated `SavedSearchesManager` injections (115KB -> 66KB), single CDN include for Tailwind + Chart.js, single `</script>` close.
-- **Cleanup**: removed transient patch scripts + backups (~120KB) from prior phases (`enhance-dashboard*.py`, `apply-enhancements.sh`, `ENHANCEMENTS.md`, `server/dashboard.html.backup.*`, `server/dashboard-features.js`).
-
-### v2.9.0
-- **UX (PR #133)**: every `alert()` in the dashboard is replaced by a non-blocking corner toast (`ok` / `err` / `info` kinds) — covering project registration, auto-discover, shared-note add/delete, GitHub preference saving, GitHub scan and handoff submission — so the page context is never interrupted by a modal dialog.
-- **UX (PR #133)**: form validation moved to native HTML5 constraints (`required` on the register-path and shared-note inputs) so empty submissions are blocked in place by the browser with a localized tooltip instead of a round-trip to the server.
-- **CI**: the release workflow accepts a manual `workflow_dispatch` trigger, so the tag and GitHub Release can be regenerated for the current `VERSION.txt` without tagging by hand (re-runs are no-ops once the tag exists).
-
-### v2.8.0
-- **Security (PR #119, #123, #125, #132)**: `Store.export_memories_markdown()` resolves and contains the export path to the database directory, blocking path-traversal writes (`../` escapes raise `ValueError`).
-- **Accessibility (PR #124, #126, #128, #131)**: Projects table rows are keyboard-operable (`tabindex="0"`, Enter/Space opens the project drill-down) with a visible focus ring; the richest variant adds `role="button"` + `aria-label="Open project …"`; DB-backups refresh gets an `aria-label`; the register-project input validates (`required`).
-- **UX (PR #118, #121)**: search filters (project, dates, limit) live inside the search `<form>` and update live (`oninput`/`onchange`); the handoff create box is a real `<form>` so Enter submits; Overview stat cards include tooltip descriptions.
-- **Performance (PR #120, #122, #127, #129, #130)**: `_text_tokens()` and `_parse_temporal()` use pre-compiled module-level regexes plus native string split instead of per-call `re` compilation, speeding up memory indexing and search.
-- **Tests**: fixed time-brittle `test_scan_graphql_parsing` — stale-PR fixtures are now relative to "now" instead of hardcoded 2026 dates. 82 passed.
-
-### v2.7.0
-- **Performance / DB**: composited indexes (`scope+lifecycle+updated_at`) on `memory`; `Store.purge_feedback()` retention audit; backup checksum rotation.
-- **API / Metrics**: `GET /api/metrics` endpoint; structured logging.
-- **UI / Access**: refined glass UI, accessible tab navigation (`aria-label`, `aria-live`), skip-link, PWA manifest (`/manifest.json`), theme-color meta.
-- **Security / Ops**: no malicious operations in changes; anti-leak verified.
-
-### v2.6.1
-- **Performance (PR #117)**: bulk database metrics stream in chunks via `Store.q_iter()` instead of materializing every memory row at once, preventing OOM on large indexes. Each chunk is fetched and materialized inside the connection lock and the lock is released before yielding, so no SQLite cursor stays live across the consumer boundary (avoids `InterfaceError` / "database is locked" on concurrent use) and `chunk_size <= 0` is clamped instead of spinning.
-- **Accessibility (PR #116)**: dashboard dynamic grids (overview stats, DB backups, project cards, shared memory, search results, handoffs, per-project memory, GitHub cards) expose `role="list"` / `role="listitem"` so screen readers announce structured lists; Overview project cards are keyboard-focusable `<button>` elements with a visible focus ring; horizontally scrollable regions drop `tabindex` when empty to avoid focus traps.
-- **Tests**: new `test_store.py` coverage for `q_iter` (chunked iteration, equivalence with `q()`, concurrent queries between chunks) and for `all_project_metrics()` correctness.
-
-### v2.6.0
-- **Agent handoffs**: new `memory_handoff` MCP tool creates structured context handoffs (`current_state`, `completed`, `next_steps`, `risks`, `validation`) browsable in the dashboard's **Handoffs** tab.
-- **Memory provenance + validity**: `memory_remember` accepts `source`; `memory_save` supports `valid_from`/`valid_until` for time-bounded facts.
-- **Insert-time deduplication**: `memory_remember` collapses near-identical notes (token Jaccard ≥ 0.9) instead of inserting duplicates.
-- **Markdown export**: new `memory_export_markdown` tool and `/api/memory/export-markdown` REST endpoint dump active memories as `.md` files — decisions as `ADR-XXXX.md` under `decisions/`.
-- **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
-- **Sentinel**: fixed arbitrary-file-write path traversal in `Store.export_memories`/`export_memories_markdown` — export paths are now resolved and contained to the database directory.
-- **Bolt**: `api_stats()` computes token savings from the already-cached `_project_metrics_list()` instead of calling `store.stats()` per request.
-- **UX (dashboard)**: new **Handoffs** tab with create form; palette adds "Export Markdown" and "Handoff" commands; search results gain a **🗑 forget** action.
-
-### v2.5.0
-- **UX (dashboard)**: light/dark theme toggle (header button or `T` key, persisted in `localStorage`), command palette (`Ctrl/⌘+K` or `/` to jump to search) with keyboard navigation, and toast notifications replacing silent failures. Overview and search show skeleton loaders while data loads.
-- **Search** (dashboard): live debounced input, advanced filters (project name, start/end date, result limit), result counter, and inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions on every result.
-- **Projects & memory** (dashboard): inline filter box with live count on the Projects section; project-memory cards gain **Copy / 👍 useful / ⭐ important** actions.
-- **Accessibility** (dashboard): actionable input groups (token, project register, GitHub scan, shared note, search) are wrapped in semantic `<form>` elements so **Enter** submits natively — improving keyboard and mobile usability.
-- **Details**: shared-memory section shows a live note count + refresh button; empty/error states give clearer guidance.
-
-### v2.4.0
-- **Security**: optional access token (`OMNISTATE_AUTH_TOKEN` in `.env` / `server/config.py:auth_token`) protecting everything reachable over the network — `BaseHTTPMiddleware` `/_auth_required` guards `/api/*` and MCP session creation (`POST /mcp` without `Mcp-Session-Id`), while `/`, `/health`, `/favicon.*` and already-authenticated `Mcp-Session-Id` follow-ups stay open. Dashboard shows a header token prompt stored in `localStorage` (`omnistate_auth_token`); `opencode.json` uses `{file:...}` header interpolation and Antigravity uses `~/.gemini/config/mcp_config.json:httpHeaders` — no secret hardcoded.
-- **Features (branding)**: `server/favicon.svg` (indigo→cyan gradient "O") served at `GET /favicon.svg` and legacy `GET /favicon.ico` (`server/app.py:Response`), linked via `<link rel="icon">` in `dashboard.html` and as `<img src="server/favicon.svg">` in the README.
-- **Bugfix (MCP)**: harden `server/mcp_server.py:_logged` — new `_make_wrap` closure owns its `*argv/**kwargs`, separate async/sync wrappers with `functools.wraps`, `OMNISTATE_DEBUG` traceback, all tools now wrapped with `@_logged` (fixes `NameError: name 'a' is not defined` + unreachable dead-code after `return wrapper`).
-- **Bugfix (dashboard)**: `/_project_metrics_list` TTL cache now caches only `all_project_metrics()` and recomputes `category`/`gh_state` every poll (fixes stale `archived` after de-archiving, `test_project_category_archived_via_github_scan` — 63 passed); `server/dashboard.html:api()` header-merge bug fixed (`...rest, headers` instead of clobbering `opts.headers`, fixes 401 on `Scan now`); `api_github_scan` now returns `400` on `ValueError`/`RuntimeError` and `502` on unexpected errors instead of `500`; dashboard `fetch` uses `cache: 'no-store'` and server sends `no-store` on `/api/*`.
-- **Bugfix (GitHub)**: `server/github_client.py` scans use `pullRequests(first:100, states:OPEN, orderBy:updatedAt)` + `reviews.totalCount`, `noReviewer` gated on `!isDraft`, stale on `updatedAt`, retry/backoff `_get`/`_post` (`RETRIES=3`, 1.5^n on `403/429/5xx`), `github_scan` runs via `asyncio.to_thread`.
-- **Performance**: `server/store.py` adds indices (`idx_memory_*`, `idx_feedback_*`), `memory_recent` bounded (`limit=200`), decayed importance anchored to `COALESCE(last_reinforced_at, created_at)`, `context_token_measure` accepts precomputed `ctx`; `server/main.py` pre-warms `tiktoken` via `logging.basicConfig`.
-- **CI**: new `ci.yml` smoke workflow (compile, temporary-DB roundtrip, auth probes, version consistency) on every PR/push to `main`; `release.yml` adds `concurrency` guard; `version-check.yml` tightened semver enforcement.
-
-### v2.3.4
-- **Bugfix**: the "Only with open PRs" filter is now restored reliably after a scan or a refresh — the dashboard read its shared-memory note with a case-mismatched comparison (`content.toLowerCase()` against a non-lowercased `GH_ONLY_PR_` prefix), so it always resolved to "off" and unchecked the box after every reload. The preference is read case-insensitively and survives scans, refreshes and page loads.
-
-### v2.3.3
-- **Security**: fixed a stored XSS in the dashboard — the `esc()` function emitted a literal `"` instead of `&quot;`, leaving attribute injections possible; it now emits proper entities.
-- **Performance**: fixed N+1 queries in the project-metrics dashboard — metrics for every project are now fetched in a single pass (counts + measured token savings), falling back per project only if absent.
-- **UX**: chart accessibility and actionable empty states — trend/top-repo charts expose summary stats via `aria-label` (`role="img"`), and empty states show the exact next command to run.
-- **Bugfix**: `/health` and the MCP server reported a hardcoded `2.0.0` instead of the real release version. The version now has a single source of truth — `server/version.py` reads `VERSION.txt` (also baked into the image at `/app/VERSION.txt`) — used by `/health`, the FastAPI app and the MCP server; a test guards against drift.
-- **Metrics**: token savings are now **real measured data, not an estimate**. `session_start` returns a single bounded, deduplicated context (`recent_memory` with the 3 latest chunks at ≤600 chars + `recall` of notes at ≤400 chars, chunks/tasks excluded) built by one shared source (`Store.session_context`), and both `project_metrics` and `/api/stats` compute `tokenSavings = stored raw tokens − loaded session payload tokens` with a real tokenizer (`tiktoken` cl100k_base, BPE cache pre-warmed in the image). The old `words × 1.3 + chunks × 4000` heuristic is gone.
-- **Features (memory engine)**: recall is now a scored hybrid instead of raw FTS5. `memory_search` scores results by keyword coverage + tag boost (applied only in the headroom above the relevance score), decayed importance (half-life anchored to the last `used`/`important` signal) and a saturating familiarity boost (≤0.03) drawn from recalled-in-the-last-30-days exposures; a relevance gate (0.55, 0.75 for long queries) filters noise; near-duplicate memories (token Jaccard ≥0.9) collapse instead of filling the results.
-- **Features (lifecycle, non-destructive)**: memories gain `importance`, `lifecycle_state` (`active`/`outdated`/`incorrect`), `reinforcement_count`, `last_reinforced_at`, `access_count`, `last_accessed`. `memory_reinforce` applies feedback signals (`used` +0.08, `important` +0.18, `irrelevant` −0.2, `incorrect` −0.5, `outdated`) with every event appended to an audit table (`memory_feedback`); `outdated`/`incorrect` suppress from recall **without deleting**, `restore` re-activates. Note/task/chunk tables and the dashboard show the state; suppressed entries stay hidden unless `include_outdated=True`.
-- **Features (temporal + audit + backup)**: `memory_search`/`memory_recall` accept `startDate`/`endDate` (ISO) and parse natural-language dates in the query ("last week", "2025-03-01", "yesterday"); pure-date queries rank by recency. `memory_recent` lists latest entries, `memory_export` dumps memories + feedback to JSON (refuses to overwrite), and `memory_feedback` for a memory is exposed via the API.
-
-### v2.3.2
-- **Bugfix**: "Scan now" could leave the GitHub PR counts unchanged — the dashboard fired the reload without awaiting it and the browser could reuse a cached `/api/*` response. The scan button now awaits the reload (with a "Scanning…" state and an error message on failure), all API calls are made with `cache: 'no-store'`, and the server sends `Cache-Control: no-store` on `/api/*` and `/health`.
-- **Docs**: the session protocol now requires registering an MCP task for every significant activity (`task_add` before, `task_update` → `done` after, no batch at the end); the `commit-push` and `pr-push` skills register and close their task accordingly.
-
-### v2.3.1
-- **Bugfix**: "Only with open PRs" filter now actually persists — the dashboard had signed a note field the API doesn't accept (`content` instead of `text`), so every toggle failed with "Could not save preference". The preference is stored as a `GH_ONLY_PR_`-prefixed shared-memory note matching the API schema.
-
-### v2.3.0
-- **Features**: The GitHub PR Health repos table is now clickable — the repository name and every metric (open PRs, drafts, no-reviewer, stale, issues, stars) link straight to the matching GitHub page (`/pulls`, the filtered `?q=is:pr is:open draft:true` / `no:review` views, the oldest-sorted list, `/issues`, `/stargazers`), so you can drill from a count to the actual PRs/issues without leaving the dashboard. Only `github.com` repository URLs are linked; missing or foreign URLs render as plain text.
-
-### v2.2.0
-- **Features**: Added "Only with open PRs" filter in GitHub PR Health dashboard (persisted via shared memory).
-- **Performance**: Optimized metrics queries in store for task/chunk counting and token savings calculation (single-pass SQL aggregation).
-
-### v2.1.0
-- **Features**: project lifecycle in the dashboard — Projects tab grouped into aligned Active / Archived / Deleted sections; Overview shows only active projects and its cards now drill down into the project detail.
-- **Features**: GitHub-authoritative project state — each project is mapped to its repo via the local `origin` remote and verified on GitHub (`gh_state` ok/archived/deleted, TTL-cached); a deleted or archived repo classifies the project as Deleted/Archived even if the local folder exists; discovery now marks projects whose path is gone as deleted (never on mount failures).
-- **Features**: data now lives in a plain host folder (`DATA_HOST_DIR`, bind-mounted at `/data`) instead of a Docker named volume; shared-memory files backfilled on startup; MCP tools raise clean `ToolError`s; `session_start` returns shared memory.
-- **Security**: fix stored XSS in dashboard escaping — `esc()` now also escapes quotes so project/label values can no longer break out of HTML attributes (PR #106).
-- **Accessibility**: `aria-label` on all dashboard inputs/selects and high-contrast `:focus-visible` outlines for keyboard navigation (PR #107).
-
-### v2.0.0
-- **New architecture**: from file-based system with local skills to a **Docker MCP server** with central SQLite memory.
-- **Web dashboard v2**: served by the server, aggregate view, per-project drill-down, shared memory, global search.
-- **GitHub PR Health**: server-side GitHub scans (REST/GraphQL), open-PR metrics, historical trends and delta, stored in the central DB.
-- **Shared memory**: namespace common to all projects, searchable together with projects.
-- **Auto-registration**: projects are registered/indexed when they use the MCP.
-- **Automatic discovery + legacy import**: the scheduler finds new projects under `PROJECTS_ROOT` and optionally imports old v1 memory files (`OMNISTATE_AUTO_IMPORT_LEGACY`).
-- **Per-project drill-down**: click a project in the dashboard to browse its saved memory entries with filtering.
-- **Privacy**: DB, metrics and token isolated in the host data folder (`DATA_HOST_DIR`), never versioned nor exposed.
-
-### v1.17.0
-- **Security**: Fix [HIGH] arbitrary file read / permission manipulation via symlinks in `migrate.sh` and `update.sh` by skipping symlinked configs and `.gitignore`, and removing the `cp -a` symlink copy fallback
-- **Performance**: Optimize chunk label parsing in `collect-dashboard-data.py` — parse labels only for the 5 most recent chunks; use fast word-count path for older chunks
-- **Accessibility**: Add dynamic ARIA labels to saved-token stats and Chart.js canvas in the dashboard for screen reader users
-
-### v1.16.0
-- **Security**: Fix [HIGH] arbitrary file read / permission manipulation in `sync-workflows.sh` by skipping symlinks entirely in the sync loop
-- **Performance**: Optimize task counting and session word/file-reading overhead in `collect-dashboard-data.py` (single-pass line reads, native list counting)
-- **Accessibility**: Wrap global empty-state injections in `<main id="main-content">`, remove `tabindex="0"` from non-scrollable empty containers, and pair `aria-valuetext` with `aria-valuenow` on the progress bar
-
-### v1.15.1
-- **Security**: Fix [HIGH] JSON injection in `collect-dashboard-data.sh` bash fallback logic by escaping backslashes and double quotes with native `bash` parameter expansion when `jq` is unavailable
-- **Accessibility**: Fix `<main>` landmark boundaries in dashboard so the stat grid and optimization/timeline sections are enclosed, preventing skip-links from bypassing critical metrics
-
-### v1.15.0
-- **Security**: Fix arbitrary file read via symlink backup in `migrate.sh` with `mktemp -d` + `cp -a` for atomic, symlink-preserving backups (TOCTOU-safe)
-- **Security**: Fix [HIGH] arbitrary file read / symlink destruction in `migrate.sh` backup and fallback copy paths by preserving symlinks with `cp -a`
-- **Performance**: Batch jq string escaping into a single call in `collect-dashboard-data.sh` to eliminate N+1 subprocess spawning
-- **Accessibility**: Improve screen reader semantics in dashboard — replace `<h3>` with `<p>` for numerical stats, fix heading nesting (`h3` under `h2`), keep `tabindex="0"` on scrollable timeline, and remove redundant `title` attributes
-
-### v1.14.0
-- **Security**: Fix symlink traversal bypass in `migrate.sh` by replacing `cp -a` with `mktemp` + `cat` + `mv` for atomic, symlink-safe file writes and preserving file attributes
-- **Performance**: Consolidate `collect-dashboard-data.py` file reads into a single pass with early exit to prevent redundant disk I/O
-- **UX**: Enhance dashboard metrics with exact token tooltips and number formatting
-
-### v1.13.0
-- **Security**: Fix JSON injection in `sync-workflows.sh` by escaping backslashes and double quotes before injecting filenames into manually constructed JSON
-- **Performance**: Cache multiple chunk metrics simultaneously in `collect-dashboard-data.py` to prevent redundant I/O
-- **UX**: Fix contrast on dashboard stat cards by removing opacity modifier that caused WCAG contrast failures
-
-### v1.12.2
-- **Security**: Fix JSON injection in dashboard data — properly escape `costTotal` via `jq -n --arg` in `collect-dashboard-data.sh`
-- **UX**: Improve empty state CLI command scannability in dashboard (monospace styling via `innerHTML` with static strings)
-
-### v1.12.1
-- **Bugfix**: Fix double-escaping of project name in `collect-dashboard-data.sh` that produced invalid JSON output (removed redundant manual escaping now that `jq -n --arg` handles it)
-
-### v1.12.0
-- **Security**: Fix JSON injection vulnerabilities in `collect-dashboard-data.sh` (awk backslash escaping bypass, quote/backslash escaping for dates, labels, project name)
-- **Performance**: Avoid eager evaluation of `dict.get()` default argument in `collect-dashboard-data.py` (lazy dict lookup passes)
-- **Accessibility**: Improve screen reader semantics for metrics and empty states in dashboard (`role="list"`/`role="listitem"`)
-
-### v1.11.0
-- **Security**: Fix symlink traversal mitigation bypass in `migrate.sh` (`cp -a` preserving symlinks)
-- **Security**: Fix CRITICAL symlink traversal vulnerability in `mktemp` mitigation across `migrate.sh` and `sync-workflows.sh`
-- **Accessibility**: Add skip-to-main-content link and `<main>` landmark to dashboard
-- **Accessibility**: Add semantic `list`/`listitem` roles to dynamically generated dashboard lists
-- **Performance**: Cache config JSON loads and per-chunk word counts in `collect-dashboard-data.py` to eliminate redundant disk I/O
-
-### v1.10.0
-- **Security**: Fix symlink traversal vulnerabilities in `update.sh` using `mktemp` + `mv` for atomic file operations
-- **Performance**: Optimize skill directory copying to prevent N+1 process spawning overhead
-- **UX**: Add chart empty state for better context in dashboard
-
-### v1.9.4
-- **Security**: Fix symlink traversal vulnerability in `sync-workflows.sh` using `mktemp` + `mv` for atomic file operations
-- **UX**: Improve dark mode text contrast for secondary labels in dashboard
-- **Performance**: Optimize JSON loading and task counting in Python dashboard script
-
-### v1.9.3
-- **Security**: Fix symlink traversal vulnerabilities in shell scripts (`migrate.sh`, `collect-dashboard-data.sh`) using `mktemp` + `mv` for atomic file operations
-- **UX**: Improve dark mode contrast and screen reader accessibility in dashboard
-- **Accessibility**: Add `aria-hidden`/`sr-only` labels to status indicator
-
-### v1.9.2
-- **Performance**: Optimize file reading in Python dashboard script
-- Use line-by-line iteration instead of `read_text().split()`
-- Add error handling for file read operations
-
-### v1.9.1
-- **UX**: Style inline CLI commands in empty states
-- **Performance**: Optimize resource loading in dashboard (defer chart.js, preconnect fonts)
-
-### v1.9.0
-- **UX**: Improve empty states with helpful CTAs and actionable subtext
-- **Security**: Fix gitignore substring matching vulnerability
-- **Security**: Fix bash arithmetic injection risk
-- **Performance**: Batch `wc -w` calls to remove N+1 overhead
-- **Performance**: Replace external processes with native bash string matching
-
-### v1.8.0
-- **UX**: Add empty states to dashboard data views
-
-### v1.7.1
-- **Performance**: Replace `basename` with parameter expansion for performance
-- **Security**: Fix XSS vulnerability in JSON escaping (`<` and `>`)
-
-### v1.7.0
-- **Security**: Escape `<` in dashboard JSON to prevent XSS
-- **Security**: Replace `innerHTML` with DOM building to fix XSS
-- **Accessibility**: Add ARIA progressbar roles to dashboard
-- **Performance**: Batch file copy, subprocess, and jq query operations
-
-### v1.6.1
-- **Security**: Fix command injection in Python embedded scripts
-
-### v1.6.0
-- **Performance**: Optimize JSON parsing in dashboard collection script using `jq`
-- **Accessibility**: Improve dashboard keyboard and screen reader accessibility
-
-### v1.5.1
-- **Support section**: Added Buy Me a Coffee link
-
-### v1.5.0
-- **Platform-specific installation**: Skills installed in correct format per platform
-- **Smart detection**: Detects which platform your project uses
-- **opencode/Claude Code**: Subdirectory + `SKILL.md` format
-- **Antigravity/Kilocode/Roo**: Flat `.md` workflow format
-- **Mixed projects**: Supports multiple platforms simultaneously
-
-### v1.4.0
-- **Migration scripts**: Auto-migrate `antigravity.config.json` → `omnistate.config.json`
-- **Safe backups**: Old configs backed up to `.omnistate/backups/` before migration
-- **Git safety**: Old config files added to `.gitignore` automatically
-- **Idempotent migration**: Safe to run multiple times without side effects
-
-### v1.3.0
-- **Universal**: Works with any AI coding tool, not just specific platforms
-- **Auto-detect**: Installer finds all installed AI tools and syncs to all of them
-- **Auto-update**: Skills and scripts auto-update from GitHub daily
-- **Renamed config**: `antigravity.config.json` → `omnistate.config.json`
-- **Platform-agnostic**: No more hardcoded platform names in skills or templates
-- **New config**: `omnistate.config.json` with empty model fields (user fills in their own)
-
-### v1.2.0
-- opencode native support with `.opencode/skills/` format
-- Multi-platform installer
-
-### v1.1.3
-- DOM optimization for dashboard (~80% faster)
-- XSS prevention with textContent
-
-### v1.1.2
-- Auto-generated documentation
-- Cleaner dist/ structure
-
-### v1.1.1
-- Background sync and auto-update
-- Task auto-archiving
-- Dashboard auto-refresh
-
----
+See the full changelog in the [GitHub Releases](https://github.com/spupuz/Omnistate/releases) section of the repository.
 
 ## About
 

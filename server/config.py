@@ -49,6 +49,8 @@ class SupermemoryConfig:
     api_version: str = "v5"
     default_space: str = "sm_project_default"
     enabled: bool = False
+    sync_interval_hours: int = 6
+    sync_on_session_end: bool = True
 
 
 @dataclass
@@ -147,6 +149,8 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
             api_version=str(sm.get("api_version", cfg.supermemory.api_version)),
             default_space=str(sm.get("default_space", cfg.supermemory.default_space)),
             enabled=bool(sm.get("enabled", cfg.supermemory.enabled)),
+            sync_interval_hours=int(sm.get("sync_interval_hours", 6)),
+            sync_on_session_end=bool(sm.get("sync_on_session_end", True)),
         )
         cfg.github.accounts = list(gh.get("accounts", []))
         cfg.github.token = str(gh.get("token", "") or "")
