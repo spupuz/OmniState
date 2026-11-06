@@ -1,0 +1,3 @@
+{
+  "plan": "1. Modify `server/store.py` to optimize `project_metrics` by combining the two separate SQLite queries (one for total count, and one for task/chunk sums) into a single query using a subselect.\n2. Ensure no functionality changes and `project_metrics` returns the exact same data structure.\n3. Complete pre commit steps to make sure proper testing, verifications, reviews and reflections are done.\n4. Create PR with title `⚡ Bolt: [performance improvement]` with the required description format."
+}
