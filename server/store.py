@@ -1114,14 +1114,23 @@ class Store:
             text = (text or "").strip()
             return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
+        # OPTIMIZATION: Fetch and parse active tasks directly at the database level.
+        # Previously, session_context fetched all tasks and parsed their JSON `content` in Python,
+        # which allocated massive dictionary objects and slowed down query times as tasks grew.
+        # Using SQLite json_extract() and json_valid() eliminates this Python object allocation.
+        sql_tasks = """
+            SELECT id, title, created_at,
+                   CASE WHEN json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status,
+                   CASE WHEN json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title
+            FROM memory
+            WHERE project_id = ? AND kind = 'task' AND lifecycle_state != 'archived'
+            ORDER BY created_at DESC
+        """
         active = []
-        for t in self.list_tasks(project_id):
-            try:
-                meta = json.loads(t["content"])
-            except Exception:
-                meta = {"title": t.get("title"), "status": "todo"}
-            if meta.get("status", "todo") != "done":
-                active.append({"id": t["id"], "title": meta.get("title", t["title"]), "status": meta.get("status", "todo")})
+        for r in self.q(sql_tasks, (project_id,)):
+            if r["task_status"] != "done":
+                t_title = r["task_title"] if r["task_title"] is not None else r["title"]
+                active.append({"id": r["id"], "title": t_title, "status": r["task_status"]})
         recent = self.q(
             "SELECT title, content, created_at FROM memory WHERE project_id = ? AND lifecycle_state = 'active' "
             "AND kind IN ('chunk','summary') ORDER BY created_at DESC LIMIT 3",
