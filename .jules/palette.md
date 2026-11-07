@@ -1,0 +1,3 @@
+## 2024-11-07 - Add missing aria-labelledby target and aria-label in merge modal
+**Learning:** The merge modal was missing an `id` that matched its `aria-labelledby`, and its close button needed an `aria-label` for better accessibility.
+**Action:** When adding modals with `aria-labelledby`, ensure that the `id` of the title element exactly matches the `aria-labelledby` attribute on the modal wrapper, and that icon-only or generic buttons like 'Cancel' include clear `aria-labels` explaining their specific context.
