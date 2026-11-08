@@ -56,6 +56,8 @@
 </div>
 <div id="merge-project-modal" class="hidden" role="dialog" aria-modal="true" aria-labelledby="merge-modal-title">
   <div class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-start justify-center pt-[18vh]">
+    <div class="glass w-[92vw] max-w-md p-6 relative">
+      <h3 id="merge-modal-title" class="text-xl font-bold mb-3">Merge Project</h3>
       <p class="text-sm text-slate-300 mb-3">Merge the source project into a target project.</p>
       <p class="text-sm text-slate-400 mb-4"><strong>Source:</strong> <span id="merge-source-name"></span></p>
       <form id="merge-form" onsubmit="event.preventDefault(); submitMerge()">
@@ -76,6 +78,7 @@
           <button type="submit" class="btn">Merge</button>
         </div>
       </form>
+      </div>
     </div>
   </div>
 </div>
