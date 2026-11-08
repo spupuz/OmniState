@@ -1216,22 +1216,20 @@ class Store:
         )
 
     def project_metrics(self, project_id: int) -> dict[str, Any]:
-        total = self.one(
-            "SELECT COUNT(*) AS c FROM memory WHERE project_id = ?", (project_id,)
-        )["c"]
-
         row = self.one("""
             SELECT
+                (SELECT COUNT(*) FROM memory WHERE project_id = ?) as total_tasks,
                 SUM(CASE WHEN kind = 'task' AND json_valid(content) AND COALESCE(json_extract(content, '$.status'), 'todo') = 'done' THEN 1 ELSE 0 END) as done_tasks,
                 SUM(CASE WHEN kind = 'task' AND (NOT json_valid(content) OR COALESCE(json_extract(content, '$.status'), 'todo') != 'done') THEN 1 ELSE 0 END) as active_tasks,
                 SUM(CASE WHEN kind = 'chunk' THEN 1 ELSE 0 END) as chunks
             FROM memory
             WHERE project_id = ? AND kind IN ('task', 'chunk')
-        """, (project_id,))
+        """, (project_id, project_id))
 
-        done = row["done_tasks"] or 0
-        active = row["active_tasks"] or 0
-        chunks = row["chunks"] or 0
+        total = row["total_tasks"] or 0 if row else 0
+        done = row["done_tasks"] or 0 if row else 0
+        active = row["active_tasks"] or 0 if row else 0
+        chunks = row["chunks"] or 0 if row else 0
 
         tokens = self.context_token_measure(project_id)
         return {
