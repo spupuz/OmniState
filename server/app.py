@@ -242,6 +242,10 @@ class App:
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read())
             tag = data.get("tag_name", "").lstrip("v")
+            # Validate tag name to prevent path traversal in the constructed URL
+            import re
+            if not re.fullmatch(r"[A-Za-z0-9._-]+", data.get("tag_name", "")):
+                return None, None
             raw_url = f"https://raw.githubusercontent.com/spupuz/Omnistate/{data.get('tag_name', 'main')}/supermemory_server.py"
             req2 = urllib.request.Request(raw_url, headers={"User-Agent": "OmniState"})
             with urllib.request.urlopen(req2, timeout=10) as resp2:
