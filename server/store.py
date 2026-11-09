@@ -1114,23 +1114,14 @@ class Store:
             text = (text or "").strip()
             return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
-        # OPTIMIZATION: Fetch and parse active tasks directly at the database level.
-        # Previously, session_context fetched all tasks and parsed their JSON `content` in Python,
-        # which allocated massive dictionary objects and slowed down query times as tasks grew.
-        # Using SQLite json_extract() and json_valid() eliminates this Python object allocation.
-        sql_tasks = """
-            SELECT id, title, created_at,
-                   CASE WHEN json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status,
-                   CASE WHEN json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title
-            FROM memory
-            WHERE project_id = ? AND kind = 'task' AND lifecycle_state != 'archived'
-            ORDER BY created_at DESC
-        """
         active = []
-        for r in self.q(sql_tasks, (project_id,)):
-            if r["task_status"] != "done":
-                t_title = r["task_title"] if r["task_title"] is not None else r["title"]
-                active.append({"id": r["id"], "title": t_title, "status": r["task_status"]})
+        for t in self.list_tasks(project_id):
+            try:
+                meta = json.loads(t["content"])
+            except Exception:
+                meta = {"title": t.get("title"), "status": "todo"}
+            if meta.get("status", "todo") != "done":
+                active.append({"id": t["id"], "title": meta.get("title", t["title"]), "status": meta.get("status", "todo")})
         recent = self.q(
             "SELECT title, content, created_at FROM memory WHERE project_id = ? AND lifecycle_state = 'active' "
             "AND kind IN ('chunk','summary') ORDER BY created_at DESC LIMIT 3",
@@ -1225,9 +1216,10 @@ class Store:
         )
 
     def project_metrics(self, project_id: int) -> dict[str, Any]:
+        # ⚡ Bolt: Combines uncorrelated scalar aggregates into a single query using subselects to avoid DB round-trips
         row = self.one("""
             SELECT
-                (SELECT COUNT(*) FROM memory WHERE project_id = ?) as total_tasks,
+                (SELECT COUNT(*) FROM memory WHERE project_id = ?) as total,
                 SUM(CASE WHEN kind = 'task' AND json_valid(content) AND COALESCE(json_extract(content, '$.status'), 'todo') = 'done' THEN 1 ELSE 0 END) as done_tasks,
                 SUM(CASE WHEN kind = 'task' AND (NOT json_valid(content) OR COALESCE(json_extract(content, '$.status'), 'todo') != 'done') THEN 1 ELSE 0 END) as active_tasks,
                 SUM(CASE WHEN kind = 'chunk' THEN 1 ELSE 0 END) as chunks
@@ -1235,10 +1227,10 @@ class Store:
             WHERE project_id = ? AND kind IN ('task', 'chunk')
         """, (project_id, project_id))
 
-        total = row["total_tasks"] or 0 if row else 0
-        done = row["done_tasks"] or 0 if row else 0
-        active = row["active_tasks"] or 0 if row else 0
-        chunks = row["chunks"] or 0 if row else 0
+        total = row["total"] or 0
+        done = row["done_tasks"] or 0
+        active = row["active_tasks"] or 0
+        chunks = row["chunks"] or 0
 
         tokens = self.context_token_measure(project_id)
         return {

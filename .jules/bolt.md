@@ -1,7 +1,6 @@
 ## 2024-05-01 - [Avoid ROW_NUMBER if missing index or better subselect exists]
 **Learning:** [Subselects for scalar counts can avoid materializing or sorting entire sets]
 **Action:** [Check all query counts]
-
 ## 2024-05-18 - Avoid Python JSON Parsing on DB Rows
 **Learning:** Pulling SQLite rows containing JSON strings into Python and parsing them via `json.loads()` inside a loop causes huge dictionary allocations and deserialization overhead.
 **Action:** Use native SQLite JSON functions like `json_extract()` and `json_valid()` within the SQL query to push filtering and extraction to the database, drastically reducing memory bloat.
