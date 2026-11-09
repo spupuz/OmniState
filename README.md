@@ -1,4 +1,4 @@
-# OmniState v2.40.0
+# OmniState v2.41.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,6 +535,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 ## Changelog
 
 ### v2.41.0 (current)
+
+- **Performance (Bolt)**: Combine project_metrics queries — eliminates N+1 database overhead by using subselects for aggregate metrics, dramatically faster dashboard loading and fewer database round-trips.
+- **Performance (Bolt)**: Optimize session context to avoid Python JSON parsing — move JSON extraction and validation to SQLite native functions, eliminating massive dictionary allocations and speeding up session start times.
+- **Security (Sentinel)**: Validate supermemory update tag name to prevent path traversal in the constructed URL — rejects malformed tags that could escape the repo path.
+- **Security (Sentinel)**: Validate supermemory update download URL host to prevent SSRF — only allows `raw.githubusercontent.com` and `github.com` as trusted hosts.
+- **UI (Palette)**: Fix broken merge modal layout and add missing `aria-labelledby` reference — restores visual consistency with the design system and screen reader accessibility.
+- **UI (Palette)**: Add missing `aria-labelledby` target and `aria-label` in merge modal — improves accessibility for screen reader users.
 
 - **Feature (Supermemory Auto-Update)**: Local Supermemory server now auto-checks for updates via GitHub releases API every hour; dashboard shows update badge and modal to apply update (downloads new `supermemory_server.py`, replaces atomically, restarts process).
 - **Feature (Supermemory Update UI)**: Custom modal dialogs replace native `confirm()`/`alert()` for update check and result, matching dashboard glass style.
