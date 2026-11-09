@@ -1,4 +1,4 @@
-# OmniState v2.41.0
+# OmniState v2.42.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -534,7 +534,7 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.41.0 (current)
+### v2.42.0 (current)
 
 - **Performance (Bolt)**: Combine project_metrics queries — eliminates N+1 database overhead by using subselects for aggregate metrics, dramatically faster dashboard loading and fewer database round-trips.
 - **Performance (Bolt)**: Optimize session context to avoid Python JSON parsing — move JSON extraction and validation to SQLite native functions, eliminating massive dictionary allocations and speeding up session start times.
@@ -547,6 +547,8 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 - **Feature (Supermemory Update UI)**: Custom modal dialogs replace native `confirm()`/`alert()` for update check and result, matching dashboard glass style.
 - **API**: New endpoints `GET /api/supermemory/update-check` and `POST /api/supermemory/update` for programmatic update control.
 - **Scheduler**: Background job logs available updates; non-blocking, optional (only runs when Supermemory enabled).
+
+- **Performance (Bolt)**: Optimized `project_metrics` query combines two separate SQLite queries into a single subselect for total count, reducing database round-trips by ~50% per call.
 
 See the full changelog in the [GitHub Releases](https://github.com/spupuz/Omnistate/releases) section of the repository.
 
