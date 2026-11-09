@@ -815,6 +815,11 @@ class App:
             url = info.get("download_url")
             if not url:
                 return {"error": "No download URL available"}
+            # Validate download URL host to prevent SSRF / arbitrary code execution
+            from urllib.parse import urlparse
+            parsed = urlparse(url)
+            if parsed.scheme != "https" or parsed.netloc not in ("raw.githubusercontent.com", "github.com"):
+                return {"error": "Untrusted download URL"}
             try:
                 import urllib.request
                 req = urllib.request.Request(url, headers={"User-Agent": "OmniState"})
