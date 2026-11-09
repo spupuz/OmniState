@@ -1115,13 +1115,22 @@ class Store:
             return text if len(text) <= limit else text[:limit].rstrip() + "…"
 
         active = []
-        for t in self.list_tasks(project_id):
-            try:
-                meta = json.loads(t["content"])
-            except Exception:
-                meta = {"title": t.get("title"), "status": "todo"}
-            if meta.get("status", "todo") != "done":
-                active.append({"id": t["id"], "title": meta.get("title", t["title"]), "status": meta.get("status", "todo")})
+        # ⚡ Bolt: Push task JSON parsing to SQLite using json_extract to avoid massive dict allocations
+        sql_tasks = """
+            SELECT id, title,
+                   CASE WHEN json_valid(content) THEN COALESCE(json_extract(content, '$.status'), 'todo') ELSE 'todo' END as task_status,
+                   CASE WHEN json_valid(content) THEN json_extract(content, '$.title') ELSE NULL END as task_title
+            FROM memory
+            WHERE project_id = ? AND kind = 'task' AND lifecycle_state != 'archived'
+              AND (NOT json_valid(content) OR COALESCE(json_extract(content, '$.status'), 'todo') != 'done')
+            ORDER BY created_at DESC
+        """
+        for t in self.q(sql_tasks, (project_id,)):
+            active.append({
+                "id": t["id"],
+                "title": t["task_title"] if t["task_title"] is not None else t["title"],
+                "status": t["task_status"]
+            })
         recent = self.q(
             "SELECT title, content, created_at FROM memory WHERE project_id = ? AND lifecycle_state = 'active' "
             "AND kind IN ('chunk','summary') ORDER BY created_at DESC LIMIT 3",
