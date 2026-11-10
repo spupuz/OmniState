@@ -534,7 +534,8 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.42.0 (current)
+### v2.43.0 (current)
+- **Performance (Bolt)**: Push task JSON parsing to SQLite in session_context — replaces Python `json.loads()` loop with native SQLite `json_extract`/`json_valid` functions, reducing `session_context` execution time by ~68% on projects with large task histories.
 
 - **Performance (Bolt)**: Combine project_metrics queries — eliminates N+1 database overhead by using subselects for aggregate metrics, dramatically faster dashboard loading and fewer database round-trips.
 - **Performance (Bolt)**: Optimize session context to avoid Python JSON parsing — move JSON extraction and validation to SQLite native functions, eliminating massive dictionary allocations and speeding up session start times.
