@@ -1,4 +1,4 @@
-# OmniState v2.42.0
+# OmniState v2.43.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -80,7 +80,7 @@ cp .env.example .env
 | `PROJECTS_ROOT` | ✅ | **Absolute** path on the host to your projects root (e.g. `/home/mario/projects`). Mounted at `/workspaces` **read-only** and used for MCP path translation. |
 | `OMNISTATE_HOST_PORT` | — | Host port for dashboard+MCP (default `8347`; the container always listens on 8347). |
 | `GITHUB_ACCOUNTS` | — | GitHub accounts/orgs to scan, comma-separated (empty = scans disabled). |
-| `GITHUB_TOKEN` | — | GitHub PAT: enables GraphQL, private repos and extended metrics. **Never exposed** by API/dashboard/MCP. |
+| `GITHUB_TOKEN` | — | GitHub PAT: enables GraphQL, private repos and extended metrics. **Never exposed** by API/dashboard/MCP. An env-var reference stored in `config.json` (e.g. `GITHUB_TOKEN` or `${GITHUB_TOKEN}`) is resolved from this variable. |
 | `GITHUB_SCAN_INTERVAL_HOURS` | — | Hours between automatic scans (default `6`). |
 | `OMNISTATE_SCAN_INTERVAL_SECONDS` | — | Seconds between discovery scans (default `300`). |
 | `OMNISTATE_AUTH_TOKEN` | — | **Optional** access token for everything reachable over the network (`/api/*` + MCP sessions) — set it if the box is reachable by others on the LAN. Read below for how each client sends it. |
@@ -195,7 +195,7 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 | `project_summary` / `project_metrics` | Project state and metrics |
 | `github_scan` | Runs a GitHub scan (open PRs + metrics) |
 | `github_metrics` / `github_delta` / `github_history` | GitHub scan results |
-| `github_config` | Configures accounts/token for automatic scans |
+| `github_config` | Configures accounts/token for automatic scans (validates the PAT; rejects invalid or placeholder tokens) |
 
 ## OpenCode plugin — auto-population hooks
 
@@ -268,7 +268,8 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 - **GraphQL** (with PAT via `GITHUB_TOKEN` or `github_config`): up to 50 repos/request, private repos included, extended metrics (drafts, PR age, no-reviewer, stale >30d, open issues, stars).
 - **Automatic scan** every 6h (configurable) + manual scans; a manual "Scan now" waits for the reload and the API is served `Cache-Control: no-store`, so the dashboard never shows a stale count.
 - **Delta** and **historical trend** computed from scans stored in the DB.
-- **Token validation**: `github_config` validates the PAT against the GitHub API before saving (opt-out with `validate=false`).
+- **Token validation**: `github_config` and `POST /api/github/config` validate the PAT against the GitHub API before saving; an invalid token, or a placeholder (an env-var name such as `GITHUB_TOKEN`, or `${GITHUB_TOKEN}`), is rejected so a bad token can never silently break scans (opt out of the API check with `validate=false`).
+- **Placeholder resolution**: if `config.json` holds an env-var reference (`GITHUB_TOKEN` / `${GITHUB_TOKEN}`) instead of a literal token, the server resolves it from the environment at load time; if the variable is unset the token is cleared, so scans fall back to REST mode instead of sending a bogus token (which would surface as a 401 → HTTP 400 on `/api/github/scan`).
 - **Config persistence**: `POST /api/github/config` saves accounts and scan settings (extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; the dashboard now has a "Save config" button and an Advanced Settings panel for these options.
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
@@ -534,7 +535,12 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.43.0 (current)
+### v2.43.1 (current)
+- **Bugfix (Security)**: Fix HTTP 400 on `POST /api/github/scan` — the MCP `github_config` tool validated only `token_set` (true for any non-empty string), so a placeholder such as `GITHUB_TOKEN` could overwrite the valid PAT and be persisted to `config.json`, making every scan return 401 → 400.
+- **Security**: `github_config` and `POST /api/github/config` now require the PAT to pass GitHub validation (`valid`, not merely present) and reject env-var placeholders before saving.
+- **Bugfix**: `config.json` tokens written as an env-var reference (`GITHUB_TOKEN` / `${GITHUB_TOKEN}`) are resolved from the environment at load time, or cleared to fall back to REST mode when the variable is unset.
+
+### v2.43.0
 - **Performance (Bolt)**: Push task JSON parsing to SQLite in session_context — replaces Python `json.loads()` loop with native SQLite `json_extract`/`json_valid` functions, reducing `session_context` execution time by ~68% on projects with large task histories.
 
 - **Performance (Bolt)**: Combine project_metrics queries — eliminates N+1 database overhead by using subselects for aggregate metrics, dramatically faster dashboard loading and fewer database round-trips.

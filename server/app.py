@@ -13,7 +13,7 @@ from typing import Any
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from .config import Config, GithubConfig
+from .config import Config, GithubConfig, token_env_ref
 from .github_client import GithubClient
 from .indexer import discover_projects_and_workspaces, import_legacy, register_project
 from .mcp_server import create_server
@@ -783,7 +783,21 @@ class App:
                 if field_name in body:
                     value = body[field_name]
                     if field_name == "token":
-                        self.cfg.github.token = str(value or "")
+                        token_value = str(value or "").strip()
+                        if token_env_ref(token_value):
+                            return JSONResponse(
+                                {"error": "token looks like an env-var placeholder, not a real token"},
+                                status_code=400,
+                            )
+                        if token_value:
+                            info = GithubClient(token_value, stale_days=self.cfg.github.stale_days).token_info()
+                            if not info.get("valid"):
+                                status = info.get("status") or info.get("error") or "unknown"
+                                return JSONResponse(
+                                    {"error": f"token rejected by GitHub ({status})"},
+                                    status_code=400,
+                                )
+                        self.cfg.github.token = token_value
                     elif field_name in ("extended", "include_forks", "include_archived"):
                         self.cfg.github.__dict__[field_name] = bool(value)
                     elif field_name in ("scan_interval_hours", "stale_days"):

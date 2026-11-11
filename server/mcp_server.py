@@ -17,7 +17,7 @@ from typing import Any
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
-from .config import Config, save_config
+from .config import Config, save_config, token_env_ref
 from .github_client import GithubClient
 from .indexer import discover_projects_and_workspaces, import_legacy, register_project
 from .store import Store
@@ -550,12 +550,21 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         if accounts:
             cfg.github.accounts = [a.strip() for a in accounts.split(",") if a.strip()]
         if token:
+            # A placeholder reference (e.g. "GITHUB_TOKEN") is not a token.
+            if token_env_ref(token):
+                raise ToolError(
+                    "Token looks like an env-var placeholder, not a real token. "
+                    "Set the variable in .env (or pass the actual value)."
+                )
             # Validate token against GitHub API before saving
             if validate:
                 client = GithubClient(token, stale_days=cfg.github.stale_days)
                 info = await asyncio.to_thread(client.token_info)
-                if not info.get("token_set"):
-                    raise ToolError("Token validation failed: invalid or insufficient permissions")
+                if not info.get("valid"):
+                    status = info.get("status") or info.get("error") or "unknown"
+                    raise ToolError(
+                        f"Token validation failed: GitHub rejected it ({status})."
+                    )
             cfg.github.token = token
         cfg.github.extended = extended
         save_config(cfg)

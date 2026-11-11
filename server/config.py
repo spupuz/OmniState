@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -120,6 +121,41 @@ def _parse_roots(value: str | None) -> list[Root]:
     return roots
 
 
+_ENV_REF_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+_ENV_NAME_RE = re.compile(r"[A-Z][A-Z0-9_]*")
+
+
+def token_env_ref(value: str) -> str | None:
+    """Return the environment-variable name when `value` is a placeholder
+    reference rather than a real token.
+
+    `config.json` is sometimes written with the *name* of the variable
+    (e.g. "GITHUB_TOKEN" or "${GITHUB_TOKEN}") instead of its value. Real
+    GitHub tokens are never bare all-caps names (they are `ghp_...`,
+    `github_pat_...`, ...), so such a value is always a placeholder.
+    """
+    v = (value or "").strip()
+    m = _ENV_REF_RE.fullmatch(v)
+    if m:
+        return m.group(1)
+    if _ENV_NAME_RE.fullmatch(v):
+        return v
+    return None
+
+
+def resolve_token_placeholder(value: str, env: dict | None = None) -> str:
+    """Resolve a placeholder token from the environment, or clear it.
+
+    A placeholder that cannot be resolved is returned as an empty string so
+    the server falls back to unauthenticated REST mode instead of sending a
+    bogus token to GitHub (which yields confusing 401/400 errors).
+    """
+    name = token_env_ref(value)
+    if name is None:
+        return value
+    return str((env or {}).get(name, "") or "")
+
+
 def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config:
     env = env if env is not None else os.environ
     data_dir = data_dir or _default_data_dir()
@@ -153,7 +189,7 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
             sync_on_session_end=bool(sm.get("sync_on_session_end", True)),
         )
         cfg.github.accounts = list(gh.get("accounts", []))
-        cfg.github.token = str(gh.get("token", "") or "")
+        cfg.github.token = resolve_token_placeholder(str(gh.get("token", "") or ""), env)
         cfg.github.extended = bool(gh.get("extended", True))
         cfg.github.include_forks = bool(gh.get("include_forks", False))
         cfg.github.include_archived = bool(gh.get("include_archived", False))
