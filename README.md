@@ -1,4 +1,4 @@
-# OmniState v2.43.2
+# OmniState v2.43.3
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -534,6 +534,9 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 - **Releases**: `.github/workflows/release.yml` auto-creates the annotated tag `vX.Y.Z` and the GitHub Release when a push to `main` changes `VERSION.txt`/`plugin.json`. It can also be re-dispatched manually (`gh workflow run release.yml`) to regenerate them for the current `VERSION.txt`; a re-run is a no-op when the tag already exists.
 
 ## Changelog
+
+### v2.43.3 (current)
+- Release v2.43.3 with version bump
 
 ### v2.43.2 (current)
 - **Security (Sentinel)**: Fix shell injection in `entrypoint.sh` — properly quote container CMD arguments passed to `su -c` to prevent word splitting and glob expansion when executing user-supplied commands.
