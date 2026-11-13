@@ -538,7 +538,7 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 ### v2.43.3 (current)
 - Release v2.43.3 with version bump
 
-### v2.43.2 (current)
+### v2.43.2
 - **Security (Sentinel)**: Fix shell injection in `entrypoint.sh` — properly quote container CMD arguments passed to `su -c` to prevent word splitting and glob expansion when executing user-supplied commands.
 
 ### v2.43.1
