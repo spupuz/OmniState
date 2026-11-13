@@ -98,12 +98,14 @@ class App:
     def _project_category(project: dict[str, Any], archived_names: set[str]) -> str:
         """Dashboard lifecycle — GitHub wins over the local disk:
         deleted (path gone OR repo deleted on GitHub) > archived (GitHub) > active."""
-        if project.get("status") == "removed":
-            return "deleted"
+        # GitHub state takes priority over local disk status
         if project.get("gh_state") == "deleted":
             return "deleted"
         if project.get("gh_state") == "archived":
             return "archived"
+        # Then fall back to local disk checks
+        if project.get("status") == "removed":
+            return "deleted"
         if str(project.get("name", "")).lower() in archived_names:
             return "archived"
         return "active"
