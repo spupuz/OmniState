@@ -1,4 +1,4 @@
-# OmniState v2.43.1
+# OmniState v2.43.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,7 +535,10 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.43.1 (current)
+### v2.43.2 (current)
+- **Security (Sentinel)**: Fix shell injection in `entrypoint.sh` — properly quote container CMD arguments passed to `su -c` to prevent word splitting and glob expansion when executing user-supplied commands.
+
+### v2.43.1
 - **Bugfix (Security)**: Fix HTTP 400 on `POST /api/github/scan` — the MCP `github_config` tool validated only `token_set` (true for any non-empty string), so a placeholder such as `GITHUB_TOKEN` could overwrite the valid PAT and be persisted to `config.json`, making every scan return 401 → 400.
 - **Security**: `github_config` and `POST /api/github/config` now require the PAT to pass GitHub validation (`valid`, not merely present) and reject env-var placeholders before saving.
 - **Bugfix**: `config.json` tokens written as an env-var reference (`GITHUB_TOKEN` / `${GITHUB_TOKEN}`) are resolved from the environment at load time, or cleared to fall back to REST mode when the variable is unset.
