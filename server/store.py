@@ -1270,8 +1270,12 @@ class Store:
         }
 
         # 1. Stream ONLY content for token counting and basic aggregation to avoid dict allocations
+        # Shared/global memories (project_id IS NULL) are excluded: they are not part of any
+        # project's metrics/token savings, so counting their tokens here would be wasted work.
         with self._lock:
-            cur = self._conn.execute("SELECT project_id, kind, content FROM memory")
+            cur = self._conn.execute(
+                "SELECT project_id, kind, content FROM memory WHERE project_id IS NOT NULL"
+            )
         try:
             while True:
                 with self._lock:
@@ -1280,9 +1284,9 @@ class Store:
                     break
                 tokens = _count_tokens_batch([r["content"] or "" for r in rows])
                 for r, t in zip(rows, tokens):
-                    if (pid := r["project_id"]) not in res:
+                    m = res.get(r["project_id"])
+                    if m is None:
                         continue
-                    m = res[pid]
                     m["totalTasks"] += 1
                     m["storedTokens"] += t
                     if r["kind"] == "chunk":
