@@ -233,6 +233,12 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
 
 
 def save_config(cfg: Config) -> None:
+    # Never persist secrets to disk. Both `supermemory.api_key` and
+    # `github.token` are loaded back from the environment on startup
+    # (see load_config), so the on-disk copy is redundant and only a
+    # leak risk: config.json is world-readable inside the data dir and
+    # gets copied into container images / backups. Write empty strings
+    # instead; the running in-memory values are untouched.
     payload = {
         "port": cfg.port,
         "roots": [{"host": r.host, "container": r.container} for r in cfg.roots],
@@ -241,7 +247,7 @@ def save_config(cfg: Config) -> None:
         "auto_import_legacy": cfg.auto_import_legacy,
         "auth_token": cfg.auth_token,
         "supermemory": {
-            "api_key": cfg.supermemory.api_key,
+            "api_key": "",
             "base_url": cfg.supermemory.base_url,
             "api_version": cfg.supermemory.api_version,
             "default_space": cfg.supermemory.default_space,
@@ -249,7 +255,7 @@ def save_config(cfg: Config) -> None:
         },
         "github": {
             "accounts": cfg.github.accounts,
-            "token": cfg.github.token,
+            "token": "",
             "extended": cfg.github.extended,
             "include_forks": cfg.github.include_forks,
             "include_archived": cfg.github.include_archived,
