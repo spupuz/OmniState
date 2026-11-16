@@ -1,4 +1,4 @@
-# OmniState v2.43.3
+# OmniState v2.43.4
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -97,7 +97,7 @@ The file also holds the GitHub token: **do not share it, do not commit it, do no
 
 When `OMNISTATE_AUTH_TOKEN` is set in `.env`, the server requires a **Bearer token** on `/api/*` and on **MCP session creation** (`POST /mcp` without an `Mcp-Session-Id`). Routes that stay open on purpose: `/` (dashboard shell, so the token prompt loads), `/health`, `/favicon.*`, and MCP follow-ups that already carry a server-issued `Mcp-Session-Id`. Without the variable the server is wide open, as before.
 
-Verify: `curl http://localhost:8347/health` → `{"status":"ok","version":"X.Y.Z",...}` (the version always mirrors `VERSION.txt`). With a token set, `curl http://localhost:8347/api/projects` returns **401** unless you send `-H "Authorization: Bearer $TOKEN"`.
+Verify: `curl http://localhost:8347/health` → `{"status":"ok","version":"X.Y.Z",...}` (the version always mirrors `VERSION.txt`). With a token set, `curl http://localhost:8347/api/projects` returns **401** unless you send `-H "Authorization: Bearer $TOKEN"`; it accepts an optional `?category=active|archived|deleted|all` filter (default `all`).
 
 ### Where the data lives (mount points)
 
@@ -255,7 +255,7 @@ Open **http://localhost:8347** in the browser:
 
 The dashboard includes accessible modals for memory deletion that support keyboard dismissal (Escape key), proper focus management and maintain all required data collection functionality.
 - **Responsive mobile layout**: tables collapse into stacked cards under 640px (`data-label` header attributes), tabs scroll horizontally, toast wraps full-width, inputs go full-width.
-- **Responsive sidebar navigation**: persistent sidebar on desktop; on mobile (below 1024px) it is off-canvas and toggled by the hamburger button with an overlay, and its open state is reset on viewport resize so it never covers the main content.
+- **Responsive sidebar navigation**: persistent sidebar on desktop; on mobile (below 1024px) it is off-canvas and toggled by the hamburger button with an overlay, and its open state is reset on viewport resize so it never covers the main content. Pressing `Escape` closes the open mobile sidebar/overlay (alongside palette, modals and saved-search menus).
 - **Virtual scroll**: memory-entry lists over 50 items render via chunked scroll-based windowing (only visible rows are in the DOM), keeping large project drills smooth.
 - **Deep-linking**: the active tab is mirrored into the URL hash (`#overview`, `#projects`, …) so tabs survive refresh, bookmarking and back/forward navigation.
 - **Dynamic version badge + English-only copy**: the header badge is injected from `VERSION.txt` via `GET /health` and kept in sync live (was hardcoded `v2`); all dashboard copy is English.
@@ -330,7 +330,7 @@ Mounts:  DATA_HOST_DIR → /data (rw)   |   PROJECTS_ROOT → /workspaces (read-
 ```
 
 - The server is the **single source of truth**; old per-project files (v1) can be imported once via `project_import_legacy`.
-- **Performance**: `Store.all_project_metrics()` uses SQLite window functions (`ROW_NUMBER() OVER(PARTITION BY ...)`) to push sorting and top-N filtering directly to the database, eliminating Python dictionary allocations and improving token counting efficiency.
+- **Performance**: `Store.all_project_metrics()` uses SQLite window functions (`ROW_NUMBER() OVER(PARTITION BY ...)`) to push sorting and top-N filtering directly to the database, eliminating Python dictionary allocations and improving token counting efficiency. The token-count scan skips shared/global memories (`project_id IS NULL`) since they do not contribute to per-project metrics or token savings.
 - **Performance**: New `App.get_project_metrics(project_id)` provides O(1) single-project metric lookup from the TTL-cached dictionary instead of generating a full metrics list and filtering — used by `/api/projects/{name}`, `project_summary`, and `project_metrics` MCP tools.
 - All SQLite access is serialized through a single re-entrant connection lock. Bulk reads (`Store.all_project_metrics()` behind the dashboard Projects/Overview lists, and `Store.context_token_measure()` when measuring stored tokens) stream natively via `cursor.execute()` + `fetchmany(1000)` over `sqlite3.Row`, avoiding generic `q_iter()` dictionary allocations (only rows that are actually kept are cast with `dict(r)`), so allocation overhead is minimal even on large indexes and the lock is released between chunks. `Store.q_iter()` itself uses `yield from map(dict, rows)` (C-level `map`) to cut Python interpreter overhead for any remaining callers. Task fields (`status`, `title`) are projected directly in the SQL via `json_extract()`/`json_valid()` rather than parsed with `json.loads()` in Python, so no per-row JSON decoding happens in the hot path.
 - Projects track `gh_repo` (parsed from the local `.git/config` origin remote — only a literal `github.com` host qualifies, credentials in the URL are discarded) and `gh_state` for the Active/Archived/Deleted lifecycle; the discovery loop also marks projects whose path disappeared as `removed`.
@@ -535,7 +535,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.43.3 (current)
+### v2.43.4 (current)
+- **API**: `GET /api/projects` accepts optional `?category=active|archived|deleted|all` (default `all`) to return a single lifecycle group without client-side filtering (PR #196).
+- **Performance**: `Store.all_project_metrics()` skips shared/global memories (`project_id IS NULL`) in the token-count scan, avoiding wasted tokenization work on rows that never contribute to per-project metrics (PR #194).
+- **UX / Accessibility**: pressing `Escape` closes the mobile sidebar overlay alongside palette, modals and saved-search menus (PR #195).
+- **Security / Reliability**: `scripts/db-backup.sh` hardened for WAL-safe online backups (`sqlite3 .backup` with `cp` fallback), restrictive permissions (`umask 077`, `700`/`600`), and safer rotation (PRs #193, #194).
+
+### v2.43.3
 - Release v2.43.3 with version bump
 
 ### v2.43.2
