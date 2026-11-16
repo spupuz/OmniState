@@ -46,6 +46,9 @@ class App:
         self._metrics_cache: dict[int, dict[str, Any]] | None = None
         self._metrics_cache_ts = 0.0
         self._metrics_lock = threading.Lock()
+        # Bolt: cache archived repo names with the same TTL as metrics so the
+        # dashboard poll doesn't re-query gh_repos on every request.
+        self._archived_cache: set[str] | None = None
         self._setup_routes()
 
     def invalidate_metrics_cache(self) -> None:
@@ -53,6 +56,7 @@ class App:
         with self._metrics_lock:
             self._metrics_cache = None
             self._metrics_cache_ts = 0.0
+            self._archived_cache = None
 
     # ---------- MCP mount ----------
 
@@ -76,10 +80,17 @@ class App:
     # ---------- helpers ----------
 
     def _archived_repo_names(self) -> set[str]:
-        """Lower-cased repo names (and full names) flagged archived in the latest GitHub scan."""
+        """Lower-cased repo names (and full names) flagged archived in the latest GitHub scan.
+
+        Bolt: cached alongside the metrics TTL so dashboard polls don't re-query
+        gh_repos on every request; invalidated by invalidate_metrics_cache().
+        """
+        if self._archived_cache is not None:
+            return self._archived_cache
         scan = self.store.latest_gh_scan()
         if scan is None:
-            return set()
+            self._archived_cache = set()
+            return self._archived_cache
         names: set[str] = set()
         # Optimization: Fetch only archived repos directly using SQL to avoid materializing
         # thousands of unused repo dictionaries in Python during every dashboard poll.
@@ -92,6 +103,7 @@ class App:
                 names.add(str(r["name"]).lower())
             if r.get("full_name"):
                 names.add(str(r["full_name"]).lower())
+        self._archived_cache = names
         return names
 
     @staticmethod
