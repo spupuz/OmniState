@@ -1324,7 +1324,19 @@ async function supermemorySync() {
 
 document.addEventListener('keydown', e=>{
   if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); const pal=$('palette'); if(pal && !pal.classList.contains('hidden')) closePalette(); else openPalette(); }
-  else if(e.key==='Escape'){ closePalette(); closeForgetModal(); closeRemoveModal(); closeMergeModal(); }
+  else if(e.key==='Escape'){
+    const sidebar=$('sidebar');
+    const sidebarOpen = sidebar && sidebar.classList.contains('open');
+    if (sidebarOpen) { closeSidebarMobile(); }
+    closePalette();
+    closeForgetModal();
+    closeRemoveModal();
+    closeMergeModal();
+    closeSmSearchModal && closeSmSearchModal();
+    closeSmUpdateModal && closeSmUpdateModal();
+    closeSmUpdateResultModal && closeSmUpdateResultModal();
+    const savedMenu=$('saved-searches-menu'); if(savedMenu) savedMenu.classList.remove('open');
+  }
   else if(e.key==='t' && !e.metaKey && !e.ctrlKey && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA' && document.activeElement.tagName!=='SELECT'){ toggleTheme(); }
   else if(e.key==='/' && document.activeElement.tagName!=='INPUT' && document.activeElement.tagName!=='TEXTAREA'){ e.preventDefault(); switchTab('search'); const q=$('search-q'); if(q) q.focus(); }
 });
