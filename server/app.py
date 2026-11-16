@@ -438,8 +438,12 @@ class App:
             return {"version": get_version()}
 
         @app.get("/api/projects")
-        def api_projects() -> list[dict[str, Any]]:
-            return self._project_metrics_list()
+        def api_projects(category: str = "all") -> list[dict[str, Any]]:
+            items = self._project_metrics_list()
+            cat = (category or "all").strip().lower()
+            if cat in ("active", "archived", "deleted"):
+                return [p for p in items if p.get("category") == cat]
+            return items
 
         @app.post("/api/register")
         def api_register(body: dict[str, Any]) -> dict[str, Any]:
