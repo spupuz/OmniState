@@ -1,4 +1,4 @@
-# OmniState v2.43.4
+# OmniState v2.44.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -91,7 +91,7 @@ cp .env.example .env
 | `SUPERMEMORY_BASE_URL` | — | Supermemory base URL (default `http://localhost:6767` for the built-in local server). |
 | `SUPERMEMORY_DEFAULT_SPACE` | — | Default Supermemory namespace (default `sm_project_default`). |
 
-The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. If you lose it, rotate it on GitHub.
+The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. The token is never written to `config.json` (it is read from `GITHUB_TOKEN` at startup, so the on-disk config stays secret-free). If you lose it, rotate it on GitHub.
 
 ### Access token (optional auth)
 
@@ -105,7 +105,7 @@ Everything is stored in **one plain folder on your host** — `DATA_HOST_DIR` (d
 
 | Host path | Container path | Mode | What it is |
 |---|---|---|---|
-| `DATA_HOST_DIR` (e.g. `~/OmniState/data`) | `/data` | **read-write** | The server's whole brain: `index.db` (memory + GitHub metrics), `shared/` (shared memory files), `config.json` (accounts + token), `logs/` |
+| `DATA_HOST_DIR` (e.g. `~/OmniState/data`) | `/data` | **read-write** | The server's whole brain: `index.db` (memory + GitHub metrics), `shared/` (shared memory files), `config.json` (accounts + settings, no secrets), `logs/` |
 | `PROJECTS_ROOT` (e.g. `/home/mario/projects`) | `/workspaces` | **read-only** | Your projects: discovery + one-shot legacy import only — the server *never writes* into them |
 
 Inside `DATA_HOST_DIR`:
@@ -114,7 +114,7 @@ Inside `DATA_HOST_DIR`:
 data/
 ├── index.db      ← SQLite: projects, memory (FTS5, content_hash dedup), gh_* GitHub scan tables
 ├── shared/       ← shared memory entries as readable files
-├── config.json   ← runtime config incl. GitHub token (local only, never committed)
+├── config.json   ← runtime config: accounts + settings (secret-free, local only, never committed)
 └── logs/
 ```
 
@@ -243,7 +243,7 @@ Open **http://localhost:8347** in the browser:
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately; accounts and scan settings are persisted via `POST /api/github/config`), "Only with open PRs" filter (persisted via shared memory), "Save config" button and Advanced Settings panel (extended, include_forks, include_archived, scan_interval_hours, stale_days).
 - **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions, and a **⭐ Saved** dropdown (persisted in `localStorage`, max 15, Esc/outside to close) that auto-saves every query and lets you reload or remove past searches.
 - **Theme toggle**: the dashboard persists a light/dark/system preference (sidebar cycle button, Settings dropdown, or the `T` key) — `system` follows the OS color scheme and updates live when it changes; the sidebar icon switches between sun, moon and a monitor for system. Refined light-theme overrides for glass, table and chip surfaces.
-- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (`/` focuses search, `Esc` closes).
+- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (every item is focusable and runs with `Enter`/`Space`; `/` focuses search, `Esc` closes).
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions with accessible interactive tooltip buttons for keyboard compatibility; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`, and every interactive utility button (copy, reinforce, forget) carries a descriptive `aria-label` for screen-reader context.
 - **Inline copy feedback**: dashboard copy buttons now show temporary '✓ Copied' visual feedback for 2 seconds after clicking, confirming the action without requiring gaze shift. This was added via the inline feedback pattern where the button text changes and then restores automatically.
@@ -270,10 +270,10 @@ The server scans your GitHub accounts/organizations and stores the metrics in th
 - **Delta** and **historical trend** computed from scans stored in the DB.
 - **Token validation**: `github_config` and `POST /api/github/config` validate the PAT against the GitHub API before saving; an invalid token, or a placeholder (an env-var name such as `GITHUB_TOKEN`, or `${GITHUB_TOKEN}`), is rejected so a bad token can never silently break scans (opt out of the API check with `validate=false`).
 - **Placeholder resolution**: if `config.json` holds an env-var reference (`GITHUB_TOKEN` / `${GITHUB_TOKEN}`) instead of a literal token, the server resolves it from the environment at load time; if the variable is unset the token is cleared, so scans fall back to REST mode instead of sending a bogus token (which would surface as a 401 → HTTP 400 on `/api/github/scan`).
-- **Config persistence**: `POST /api/github/config` saves accounts and scan settings (extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; the dashboard now has a "Save config" button and an Advanced Settings panel for these options.
+- **Config persistence**: `POST /api/github/config` saves accounts and scan settings (extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; the GitHub token is never saved (it comes from `GITHUB_TOKEN`), so the file stays secret-free. The dashboard has a "Save config" button and an Advanced Settings panel for these options.
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
-The GitHub metrics collection is optimized for performance — filtering logic is pushed down to the database level via SQL `WHERE` clauses to avoid materializing unused Python dictionaries during frequent dashboard polls. This significantly reduces memory allocation and improves dashboard responsiveness, especially when processing large repositories.
+The GitHub metrics collection is optimized for performance — filtering logic is pushed down to the database level via SQL `WHERE` clauses to avoid materializing unused Python dictionaries during frequent dashboard polls. This significantly reduces memory allocation and improves dashboard responsiveness, especially when processing large repositories. Archived repo names (used for the project lifecycle category) are cached with the same TTL and keyed by the latest scan id, so a poll never re-queries `gh_repos` until a new scan lands.
 
 ## Supermemory Integration
 
@@ -535,7 +535,12 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.43.4 (current)
+### v2.44.0 (current)
+- **Security (Sentinel)**: stop persisting the GitHub token and Supermemory API key to `config.json` — both are read from the environment (`GITHUB_TOKEN` / `SUPERMEMORY_API_KEY`) at startup, so the on-disk config, backups and container images stay secret-free (PR #197).
+- **Performance (Bolt)**: cache archived repo names alongside the dashboard metrics TTL, keyed by the latest scan id, so dashboard polls stop re-querying `gh_repos` on every request (PR #198).
+- **UX / Accessibility (Palette)**: command-palette items are keyboard-focusable and reachable (`tabindex`, `aria-expanded`, visible focus ring, Enter/Space activation) (PR #199).
+
+### v2.43.4
 - **API**: `GET /api/projects` accepts optional `?category=active|archived|deleted|all` (default `all`) to return a single lifecycle group without client-side filtering (PR #196).
 - **Performance**: `Store.all_project_metrics()` skips shared/global memories (`project_id IS NULL`) in the token-count scan, avoiding wasted tokenization work on rows that never contribute to per-project metrics (PR #194).
 - **UX / Accessibility**: pressing `Escape` closes the mobile sidebar overlay alongside palette, modals and saved-search menus (PR #195).

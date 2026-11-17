@@ -48,7 +48,9 @@ class App:
         self._metrics_lock = threading.Lock()
         # Bolt: cache archived repo names with the same TTL as metrics so the
         # dashboard poll doesn't re-query gh_repos on every request.
+        # Keyed by the latest gh_scans id so a new scan auto-invalidates.
         self._archived_cache: set[str] | None = None
+        self._archived_cache_scan: int | None = None
         self._setup_routes()
 
     def invalidate_metrics_cache(self) -> None:
@@ -57,6 +59,7 @@ class App:
             self._metrics_cache = None
             self._metrics_cache_ts = 0.0
             self._archived_cache = None
+            self._archived_cache_scan = None
 
     # ---------- MCP mount ----------
 
@@ -84,26 +87,28 @@ class App:
 
         Bolt: cached alongside the metrics TTL so dashboard polls don't re-query
         gh_repos on every request; invalidated by invalidate_metrics_cache().
+        Keyed by the latest gh_scans id so a new scan (even one written straight
+        to the store) never serves a stale set.
         """
-        if self._archived_cache is not None:
-            return self._archived_cache
         scan = self.store.latest_gh_scan()
-        if scan is None:
-            self._archived_cache = set()
+        scan_id = int(scan["id"]) if scan else None
+        if self._archived_cache is not None and self._archived_cache_scan == scan_id:
             return self._archived_cache
         names: set[str] = set()
-        # Optimization: Fetch only archived repos directly using SQL to avoid materializing
-        # thousands of unused repo dictionaries in Python during every dashboard poll.
-        rows = self.store.q(
-            "SELECT name, full_name FROM gh_repos WHERE scan_id = ? AND is_archived = 1",
-            (int(scan["id"]),)
-        )
-        for r in rows:
-            if r.get("name"):
-                names.add(str(r["name"]).lower())
-            if r.get("full_name"):
-                names.add(str(r["full_name"]).lower())
+        if scan is not None:
+            # Optimization: Fetch only archived repos directly using SQL to avoid materializing
+            # thousands of unused repo dictionaries in Python during every dashboard poll.
+            rows = self.store.q(
+                "SELECT name, full_name FROM gh_repos WHERE scan_id = ? AND is_archived = 1",
+                (int(scan["id"]),)
+            )
+            for r in rows:
+                if r.get("name"):
+                    names.add(str(r["name"]).lower())
+                if r.get("full_name"):
+                    names.add(str(r["full_name"]).lower())
         self._archived_cache = names
+        self._archived_cache_scan = scan_id
         return names
 
     @staticmethod
