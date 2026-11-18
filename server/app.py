@@ -401,8 +401,15 @@ class App:
         async def _request_size(request: Request, call_next):
             """Reject oversized JSON bodies (>1MB)."""
             content_length = request.headers.get("content-length")
-            if content_length and int(content_length) > 1_000_000:
-                return JSONResponse({"error": "payload too large"}, status_code=413)
+            try:
+                if content_length and int(content_length) > 1_000_000:
+                    return JSONResponse({"error": "payload too large"}, status_code=413)
+                if not content_length:
+                    body = await request.body()
+                    if len(body) > 1_000_000:
+                        return JSONResponse({"error": "payload too large"}, status_code=413)
+            except (ValueError, TypeError):
+                return JSONResponse({"error": "invalid content-length"}, status_code=400)
             return await call_next(request)
 
         @app.middleware("http")
