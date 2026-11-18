@@ -1,6 +1,7 @@
 """OmniState web app: FastAPI mounting MCP (Streamable HTTP) + REST API + dashboard."""
 from __future__ import annotations
 
+import hmac
 import json
 import logging
 import threading
@@ -340,7 +341,9 @@ class App:
             protected = path.startswith("/api/") or path.startswith("/mcp")
             if not protected:
                 return await call_next(request)
-            if request.headers.get("authorization", "") != f"Bearer {token}":
+            provided = request.headers.get("authorization", "")
+            expected = f"Bearer {token}"
+            if not hmac.compare_digest(provided, expected):
                 return JSONResponse(
                     {"error": "unauthorized"},
                     status_code=401,
