@@ -1,4 +1,4 @@
-# OmniState v2.44.0
+# OmniState v2.44.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,7 +535,10 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.44.0 (current)
+### v2.44.1 (current)
+- **Security (Sentinel)**: harden request size limit against missing content-length (chunked bypass) — read the body and reject oversized payloads even when `Content-Length` is absent (PR #200).
+
+### v2.44.0
 - **Security (Sentinel)**: stop persisting the GitHub token and Supermemory API key to `config.json` — both are read from the environment (`GITHUB_TOKEN` / `SUPERMEMORY_API_KEY`) at startup, so the on-disk config, backups and container images stay secret-free (PR #197).
 - **Performance (Bolt)**: cache archived repo names alongside the dashboard metrics TTL, keyed by the latest scan id, so dashboard polls stop re-querying `gh_repos` on every request (PR #198).
 - **UX / Accessibility (Palette)**: command-palette items are keyboard-focusable and reachable (`tabindex`, `aria-expanded`, visible focus ring, Enter/Space activation) (PR #199).
