@@ -867,6 +867,9 @@ class App:
             parsed = urlparse(url)
             if parsed.scheme != "https" or parsed.netloc not in ("raw.githubusercontent.com", "github.com"):
                 return {"error": "Untrusted download URL"}
+            # Restrict to official OmniState repo to prevent SSRF/supply-chain abuse
+            if not parsed.path.startswith("/spupuz/Omnistate/"):
+                return {"error": "Untrusted download URL"}
             try:
                 import urllib.request
                 req = urllib.request.Request(url, headers={"User-Agent": "OmniState"})
