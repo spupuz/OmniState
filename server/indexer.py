@@ -239,7 +239,9 @@ def _read_safe(path: Path, base_dir: Path) -> str | None:
 
         resolved_base = base_dir.resolve(strict=False)
 
-        if not str(resolved).startswith(str(resolved_base) + os.sep) and resolved != resolved_base:
+        try:
+            resolved.relative_to(resolved_base)
+        except ValueError:
             return None
 
         if resolved.stat().st_size > 2_000_000:
