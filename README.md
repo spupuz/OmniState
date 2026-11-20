@@ -262,7 +262,7 @@ The dashboard includes accessible modals for memory deletion that support keyboa
 
 ## GitHub PR Health
 
-The server scans your GitHub accounts/organizations and stores the metrics in the central DB:
+The GitHub client securely handles API redirects, preventing SSRF via crafted URLs, as part of standard GitHub scan logic. The server scans your GitHub accounts/organizations and stores the metrics in the central DB:
 
 - **REST** (no token): open-PR count per repo (~60 req/h).
 - **GraphQL** (with PAT via `GITHUB_TOKEN` or `github_config`): up to 50 repos/request, private repos included, extended metrics (drafts, PR age, no-reviewer, stale >30d, open issues, stars).
@@ -535,8 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.44.1 (current)
+### v2.44.1
 - **Security (Sentinel)**: harden request size limit against missing content-length (chunked bypass) — read the body and reject oversized payloads even when `Content-Length` is absent (PR #200).
+
+### v2.45.0 (current)
+- **Security (Sentinel)**: disable redirect following in GitHub client to prevent SSRF via crafted redirect (PR #201).
 
 ### v2.44.0
 - **Security (Sentinel)**: stop persisting the GitHub token and Supermemory API key to `config.json` — both are read from the environment (`GITHUB_TOKEN` / `SUPERMEMORY_API_KEY`) at startup, so the on-disk config, backups and container images stay secret-free (PR #197).
