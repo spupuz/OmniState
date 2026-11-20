@@ -286,7 +286,7 @@ class GithubClient:
         try:
             res = _get(
                 url=f"{GITHUB_API}/repos/{full_name}",
-                headers=self._headers, timeout=15, follow_redirects=True,
+                headers=self._headers, timeout=15, follow_redirects=False,
             )
         except Exception:
             return "unknown"
