@@ -871,7 +871,9 @@ class App:
                 import urllib.request
                 req = urllib.request.Request(url, headers={"User-Agent": "OmniState"})
                 with urllib.request.urlopen(req, timeout=30) as resp:
-                    new_content = resp.read()
+                    new_content = resp.read(10 * 1024 * 1024 + 1)
+                    if len(new_content) > 10 * 1024 * 1024:
+                        return {"error": "Downloaded update exceeds size limit"}
                 # Write to temp file first, then atomically replace
                 target = Path("/app/supermemory_server.py")
                 backup = target.with_suffix(".bak")
