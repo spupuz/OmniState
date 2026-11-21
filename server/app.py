@@ -674,10 +674,15 @@ class App:
         def api_backup_maintain(body: dict[str, Any] | None = None) -> dict[str, Any]:
             """Compact the DB (WAL checkpoint + VACUUM) and purge stale audit rows."""
             body = body or {}
+            try:
+                purge_days = int(body.get("purge_days", 90))
+                purge_exposures_days = int(body.get("purge_exposures_days", 60))
+            except (ValueError, TypeError):
+                return JSONResponse({"error": "purge_days/purge_exposures_days must be integers"}, status_code=400)
             return self.store.db_maintenance(
                 vacuum=bool(body.get("vacuum", True)),
-                purge_days=int(body.get("purge_days", 90)),
-                purge_exposures_days=int(body.get("purge_exposures_days", 60)),
+                purge_days=purge_days,
+                purge_exposures_days=purge_exposures_days,
             )
 
         @app.get("/api/metrics")
