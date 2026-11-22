@@ -1,4 +1,4 @@
-# OmniState v2.44.1
+# OmniState v2.45.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -24,7 +24,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Memory feedback audit**: `memory_feedback_for(memory_id)` returns the full feedback audit trail for any memory entry.
 - **Async backup + scheduled purge**: `db_backup_async` runs SQLite backup in a thread (non-blocking); the scheduler auto-purges expired memories (`valid_until`), old feedback (90d) and exposure records (60d).
 - **Prometheus `/metrics` endpoint**: `GET /metrics` exposes `omnistate_projects_active`, `omnistate_memory_entries`, `omnistate_gh_scans`, `omnistate_version`.
-- **Security headers + rate limiting**: CSP (CDN-allowed sources), Referrer-Policy, per-IP rate limit (300 req/60s on `/api/*` and `/mcp`), oversized-payload rejection (>1MB).
+- **Security headers + rate limiting**: CSP (CDN-allowed sources), Referrer-Policy, HSTS (`Strict-Transport-Security`), `Permissions-Policy` (geolocation/microphone/camera disabled), `X-Permitted-Cross-Domain-Policies: none`, per-IP rate limit (300 req/60s on `/api/*` and `/mcp`), oversized-payload rejection (>1MB).
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
@@ -535,11 +535,17 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
+### v2.45.1 (current)
+- **Security (Sentinel)**: add `X-Permitted-Cross-Domain-Policies: none` to the security-headers middleware, blocking Adobe cross-domain policy loading (PR #205).
+- **Security (Sentinel)**: add `Strict-Transport-Security` (HSTS, 1y `includeSubDomains`) and `Permissions-Policy` (geolocation/microphone/camera disabled) response headers (PR #202).
+- **Security / Reliability (Sentinel)**: validate `purge_days`/`purge_exposures_days` in `/api/backup/maintain` are integers, returning HTTP 400 instead of a 500 on bad input (PR #203).
+- **Security (Sentinel)**: cap the Supermemory self-update download at 10MB to prevent unbounded-memory DoS during update checks (PR #204).
+
+### v2.45.0
+- **Security (Sentinel)**: disable redirect following in GitHub client to prevent SSRF via crafted redirect (PR #201).
+
 ### v2.44.1
 - **Security (Sentinel)**: harden request size limit against missing content-length (chunked bypass) — read the body and reject oversized payloads even when `Content-Length` is absent (PR #200).
-
-### v2.45.0 (current)
-- **Security (Sentinel)**: disable redirect following in GitHub client to prevent SSRF via crafted redirect (PR #201).
 
 ### v2.44.0
 - **Security (Sentinel)**: stop persisting the GitHub token and Supermemory API key to `config.json` — both are read from the environment (`GITHUB_TOKEN` / `SUPERMEMORY_API_KEY`) at startup, so the on-disk config, backups and container images stay secret-free (PR #197).
