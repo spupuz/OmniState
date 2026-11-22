@@ -245,7 +245,7 @@ def save_config(cfg: Config) -> None:
         "scan_interval_seconds": cfg.scan_interval_seconds,
         "reindex_on_change": cfg.reindex_on_change,
         "auto_import_legacy": cfg.auto_import_legacy,
-        "auth_token": cfg.auth_token,
+        "auth_token": "",
         "supermemory": {
             "api_key": "",
             "base_url": cfg.supermemory.base_url,
