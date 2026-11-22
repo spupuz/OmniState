@@ -370,6 +370,7 @@ class App:
             response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
             response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+            response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
             return response
 
         @app.middleware("http")
