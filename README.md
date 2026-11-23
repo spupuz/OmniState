@@ -1,4 +1,4 @@
-# OmniState v2.45.1
+# OmniState v2.45.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -91,7 +91,7 @@ cp .env.example .env
 | `SUPERMEMORY_BASE_URL` | — | Supermemory base URL (default `http://localhost:6767` for the built-in local server). |
 | `SUPERMEMORY_DEFAULT_SPACE` | — | Default Supermemory namespace (default `sm_project_default`). |
 
-The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. The token is never written to `config.json` (it is read from `GITHUB_TOKEN` at startup, so the on-disk config stays secret-free). If you lose it, rotate it on GitHub.
+The file also holds the GitHub token: **do not share it, do not commit it, do not paste it**. Neither the GitHub token nor the access token (`OMNISTATE_AUTH_TOKEN`) is ever written to `config.json` — both are read from the environment at startup, so the on-disk config stays secret-free. If you lose the GitHub token, rotate it on GitHub.
 
 ### Access token (optional auth)
 
@@ -270,7 +270,7 @@ The GitHub client securely handles API redirects, preventing SSRF via crafted UR
 - **Delta** and **historical trend** computed from scans stored in the DB.
 - **Token validation**: `github_config` and `POST /api/github/config` validate the PAT against the GitHub API before saving; an invalid token, or a placeholder (an env-var name such as `GITHUB_TOKEN`, or `${GITHUB_TOKEN}`), is rejected so a bad token can never silently break scans (opt out of the API check with `validate=false`).
 - **Placeholder resolution**: if `config.json` holds an env-var reference (`GITHUB_TOKEN` / `${GITHUB_TOKEN}`) instead of a literal token, the server resolves it from the environment at load time; if the variable is unset the token is cleared, so scans fall back to REST mode instead of sending a bogus token (which would surface as a 401 → HTTP 400 on `/api/github/scan`).
-- **Config persistence**: `POST /api/github/config` saves accounts and scan settings (extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; the GitHub token is never saved (it comes from `GITHUB_TOKEN`), so the file stays secret-free. The dashboard has a "Save config" button and an Advanced Settings panel for these options.
+- **Config persistence**: `POST /api/github/config` saves accounts and scan settings (extended, include_forks, include_archived, scan_interval_hours, stale_days) to `config.json`; neither the GitHub token nor the access token (`OMNISTATE_AUTH_TOKEN`) is ever saved — both are read from the environment at startup, so the file stays secret-free. The dashboard has a "Save config" button and an Advanced Settings panel for these options.
 - **Repo state check**: each registered project is mapped to its GitHub repo via the local `origin` remote (`gh_repo`); the server verifies it exists (`GET /repos/...`, rate-limited by a TTL) and records `gh_state` = `ok | archived | deleted`. A deleted/archived repo **wins over the local folder** when classifying the project; ambiguous results (missing token, untrusted owner, network errors) never flip the previous state.
 
 The GitHub metrics collection is optimized for performance — filtering logic is pushed down to the database level via SQL `WHERE` clauses to avoid materializing unused Python dictionaries during frequent dashboard polls. This significantly reduces memory allocation and improves dashboard responsiveness, especially when processing large repositories. Archived repo names (used for the project lifecycle category) are cached with the same TTL and keyed by the latest scan id, so a poll never re-queries `gh_repos` until a new scan lands.
@@ -535,7 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.45.1 (current)
+### v2.45.2 (current)
+
+- **Security (Sentinel)**: stop persisting the `auth_token` secret to `config.json` — it is read from the environment at startup, so the on-disk config, backups and container images stay secret-free (PR #206).
+
+### v2.45.1
 - **Security (Sentinel)**: add `X-Permitted-Cross-Domain-Policies: none` to the security-headers middleware, blocking Adobe cross-domain policy loading (PR #205).
 - **Security (Sentinel)**: add `Strict-Transport-Security` (HSTS, 1y `includeSubDomains`) and `Permissions-Policy` (geolocation/microphone/camera disabled) response headers (PR #202).
 - **Security / Reliability (Sentinel)**: validate `purge_days`/`purge_exposures_days` in `/api/backup/maintain` are integers, returning HTTP 400 instead of a 500 on bad input (PR #203).
