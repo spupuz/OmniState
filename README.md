@@ -1,4 +1,4 @@
-# OmniState v2.45.2
+# OmniState v2.45.3
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -302,7 +302,7 @@ The Supermemory local server in the OmniState Docker image auto-updates:
 
 - Every hour, the OmniState scheduler controlls the GitHub releases page of the OmniState repository (which tracks releases of `supermemory_server.py`).
 - If a new version is found, you can apply it with a single POST to `/api/supermemory/update`.
-- The update downloads the new server code from GitHub and replaces the file atomically, then restarts the process.
+- The update downloads the new server code only from `github.com` / `raw.githubusercontent.com` with redirects disabled (a 3xx response is rejected), so a trusted host cannot bounce the request to an internal address (SSRF), and replaces the file atomically, then restarts the process.
 - If you prefer to keep the local server at its current version, disable this check by setting `SUPERMEMORY_AUTO_UPDATE=false` (env var not implemented yet – the check is optional and only logs)
 
 You can watch for updates via the dashboard Supermemory tab, or poll `/api/supermemory/update-check` to see if an update is available.
@@ -535,7 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.45.2 (current)
+### v2.45.3 (current)
+
+- **Security (Sentinel)**: block SSRF via redirect in the Supermemory update download — the URL host was validated but `urlopen` followed redirects to any host, whose payload was then written to `/app/supermemory_server.py` and executed; added a no-redirect opener (redirects disabled, 3xx rejected) for the release check, version probe and download (PR #207).
+
+### v2.45.2
 
 - **Security (Sentinel)**: stop persisting the `auth_token` secret to `config.json` — it is read from the environment at startup, so the on-disk config, backups and container images stay secret-free (PR #206).
 
