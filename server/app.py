@@ -875,13 +875,27 @@ class App:
             parsed = urlparse(url)
             if parsed.scheme != "https" or parsed.netloc not in ("raw.githubusercontent.com", "github.com"):
                 return {"error": "Untrusted download URL"}
+            # Only allow downloads from the official OmniState repository
+            allowed_paths = ("/spupuz/Omnistate/", "/spupuz/omnistate/")
+            if not any(parsed.path.startswith(p) for p in allowed_paths):
+                return {"error": "Download URL is not from the official OmniState repository"}
             try:
                 import urllib.request
                 req = urllib.request.Request(url, headers={"User-Agent": "OmniState"})
                 with urllib.request.urlopen(req, timeout=30) as resp:
+                    # Check Content-Length header before reading to avoid memory exhaustion
+                    content_length = resp.headers.get("Content-Length")
+                    if content_length and int(content_length) > 10 * 1024 * 1024:
+                        return {"error": "Downloaded update exceeds size limit"}
                     new_content = resp.read(10 * 1024 * 1024 + 1)
                     if len(new_content) > 10 * 1024 * 1024:
                         return {"error": "Downloaded update exceeds size limit"}
+                # Validate the downloaded content looks like Python source (not HTML error page)
+                stripped = new_content.lstrip()
+                if not (stripped.startswith(b"#") or stripped.startswith(b"import ") or
+                        stripped.startswith(b"from ") or stripped.startswith(b'"') or
+                        stripped.startswith(b"'''")):
+                    return {"error": "Downloaded content is not valid Python source"}
                 # Write to temp file first, then atomically replace
                 target = Path("/app/supermemory_server.py")
                 backup = target.with_suffix(".bak")
@@ -898,25 +912,11 @@ class App:
                     backup.unlink(missing_ok=True)
                 except Exception:
                     pass
-                # Attempt to restart the Supermemory server process
-                try:
-                    import subprocess, signal
-                    # Find and kill the running supermemory_server.py process
-                    subprocess.run(["pkill", "-f", "supermemory_server.py"], capture_output=True, timeout=5)
-                    time.sleep(1)
-                    # Restart it
-                    subprocess.Popen(
-                        ["python3", str(target)],
-                        stdout=open("/tmp/supermemory.log", "a"),
-                        stderr=subprocess.STDOUT,
-                        start_new_session=True,
-                    )
-                except Exception as e:
-                    self.logger.warning(f"Failed to restart Supermemory server: {e}")
-                    return {"message": "Update applied but restart failed", "version": info.get("latest"), "restart_required": True, "restart_error": str(e)}
-                return {"message": "Update applied and server restarted", "version": info.get("latest"), "restart_required": False}
+                # Note: server restart should be handled externally (systemd/supervisord)
+                # Do not auto-restart from within the running server to avoid PID conflicts
+                return {"message": "Update applied successfully", "version": info.get("latest"), "restart_required": True}
             except Exception as e:
-                return {"error": f"Update failed: {e}"}
+                            return {"error": f"Update failed: {e}"}
 
         # ---------- Supermemory bridge ----------
 
