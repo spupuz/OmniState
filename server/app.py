@@ -25,6 +25,29 @@ from .version import get_version
 DASHBOARD_DIR = Path(__file__).parent / "dashboard"
 
 
+def _download_no_redirect(url: str, *, timeout: int) -> bytes:
+    """Fetch a URL with redirects disabled so a trusted host cannot bounce the
+    request to an internal address (SSRF). Mirrors the GithubClient policy of
+    follow_redirects=False."""
+    import urllib.error
+    import urllib.request
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            return None
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    try:
+        with opener.open(url, timeout=timeout) as resp:
+            return resp.read()
+    except urllib.error.HTTPError as e:
+        # 3xx with redirects disabled surfaces as HTTPError: reject it.
+        if 300 <= e.code < 400:
+            raise ValueError(f"Download URL attempted a redirect ({e.code})")
+        raise
+
+
+
 class App:
     METRICS_TTL_SECONDS = 60.0
     RATE_LIMIT_WINDOW = 60.0
@@ -253,23 +276,20 @@ class App:
         return m.group(1) if m else "unknown"
 
     def _sm_latest_version(self) -> tuple[str | None, str | None]:
-        import urllib.request, json
+        import json
         try:
-            req = urllib.request.Request(
+            release_bytes = _download_no_redirect(
                 "https://api.github.com/repos/spupuz/Omnistate/releases/latest",
-                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "OmniState"},
+                timeout=10,
             )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read())
+            data = json.loads(release_bytes)
             tag = data.get("tag_name", "").lstrip("v")
             # Validate tag name to prevent path traversal in the constructed URL
             import re
             if not re.fullmatch(r"[A-Za-z0-9._-]+", data.get("tag_name", "")):
                 return None, None
             raw_url = f"https://raw.githubusercontent.com/spupuz/Omnistate/{data.get('tag_name', 'main')}/supermemory_server.py"
-            req2 = urllib.request.Request(raw_url, headers={"User-Agent": "OmniState"})
-            with urllib.request.urlopen(req2, timeout=10) as resp2:
-                text = resp2.read().decode("utf-8")
+            text = _download_no_redirect(raw_url, timeout=10).decode("utf-8")
             import re
             m = re.search(r'version="([^"]+)"', text)
             ver = m.group(1) if m else tag
@@ -876,12 +896,9 @@ class App:
             if parsed.scheme != "https" or parsed.netloc not in ("raw.githubusercontent.com", "github.com"):
                 return {"error": "Untrusted download URL"}
             try:
-                import urllib.request
-                req = urllib.request.Request(url, headers={"User-Agent": "OmniState"})
-                with urllib.request.urlopen(req, timeout=30) as resp:
-                    new_content = resp.read(10 * 1024 * 1024 + 1)
-                    if len(new_content) > 10 * 1024 * 1024:
-                        return {"error": "Downloaded update exceeds size limit"}
+                new_content = _download_no_redirect(url, timeout=30)[: 10 * 1024 * 1024 + 1]
+                if len(new_content) > 10 * 1024 * 1024:
+                    return {"error": "Downloaded update exceeds size limit"}
                 # Write to temp file first, then atomically replace
                 target = Path("/app/supermemory_server.py")
                 backup = target.with_suffix(".bak")
