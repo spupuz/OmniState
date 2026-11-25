@@ -1,4 +1,4 @@
-# OmniState v2.46.2
+# OmniState v2.46.3
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,7 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.2 (current)
+### v2.46.3 (current)
+
+- **Fix**: sidebar version badge updated from stale hardcoded value (V2.37.1) to live version.
+
+### v2.46.2
 
 - **Fix**: dashboard UI strings corrected to English (GitHub top-repo aria-label, token card tooltip/labels).
 
