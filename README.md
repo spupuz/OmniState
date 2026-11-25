@@ -1,4 +1,4 @@
-# OmniState v2.46.5
+# OmniState v2.46.6
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -254,6 +254,8 @@ Open **http://localhost:8347** in the browser:
 - **Non-blocking notifications**: every result and failure is reported with a transient toast in the corner (success / error / info with left-border accent), so the page context is never interrupted by a modal dialog. Toasts may include optional undo actions for certain operations. For destructive actions like memory deletion, custom accessible HTML modals replace native `confirm()` and `prompt()` dialogs, preserving required audit trail data (like deletion reasons) while improving accessibility with keyboard navigation and proper ARIA labels.
 
 The dashboard includes accessible modals for memory deletion that support keyboard dismissal (Escape key), proper focus management and maintain all required data collection functionality.
+- **DB Backups card loads on tab open**: the backups list in the Overview tab fetches from `/api/backups` whenever the Overview tab is opened, so the seven daily backups are visible as soon as you land on the tab; the manual "Refresh" button remains available for on-demand reload.
+- **Shared search text wraps**: long shared-memory titles and content wrap within their cards instead of overflowing, keeping entries readable on narrow viewports.
 - **Responsive mobile layout**: tables collapse into stacked cards under 640px (`data-label` header attributes), tabs scroll horizontally, toast wraps full-width, inputs go full-width.
 - **Responsive sidebar navigation**: persistent sidebar on desktop; on mobile (below 1024px) it is off-canvas and toggled by the hamburger button with an overlay, and its open state is reset on viewport resize so it never covers the main content. Pressing `Escape` closes the open mobile sidebar/overlay (alongside palette, modals and saved-search menus).
 - **Virtual scroll**: memory-entry lists over 50 items render via chunked scroll-based windowing (only visible rows are in the DOM), keeping large project drills smooth.
@@ -535,7 +537,13 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.5 (current)
+### v2.46.6 (current)
+
+- **Fix**: DB Backups card in the Overview tab loads on tab open (not only on manual Refresh), so the seven daily backups are visible as soon as you land on the tab.
+- **Fix**: dashboard KPI grid uses explicit responsive CSS columns instead of Tailwind utility classes, keeping the stat-card layout correct even when the pre-built CSS is stale.
+- **Fix**: shared-search entries wrap long titles and content within their cards instead of overflowing on narrow viewports.
+
+### v2.46.5
 
 - **Fix**: dashboard header title now follows the active tab instead of staying "Overview" while another tab (e.g. Shared Memory) is open.
 

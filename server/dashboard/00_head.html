@@ -57,6 +57,13 @@
   .stat-card:hover::after{opacity:1}
   .glow-text{line-height:1.05;font-weight:800}
 
+  /* KPI grid (overview stat cards): explicit responsive columns.
+     Not relying on Tailwind utilities so the layout stays correct even when
+     the pre-built output.css is stale or regenerated with a partial class scan. */
+  #overview-stats{display:grid;grid-template-columns:repeat(1,minmax(0,1fr));gap:1.25rem;margin-bottom:2rem}
+  @media(min-width:640px){#overview-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(min-width:1280px){#overview-stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
   /* Tabs */
   .tab-btn{padding:.58rem 1rem;border-radius:999px;font-size:.78rem;font-weight:650;letter-spacing:.02em;border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.02);transition:all .18s;display:inline-flex;align-items:center;gap:.45rem;min-height:40px}
   .tab-btn:hover{color:var(--text);border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.08)}

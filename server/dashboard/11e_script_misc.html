@@ -147,7 +147,7 @@ function switchTab(name){
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
   const el=$('tab-'+name); if(el) el.classList.remove('hidden');
   dsSet(DS_KEY_TAB, name);
-  if(name==='overview') loadOverview();
+  if(name==='overview'){ loadOverview(); loadBackups(); }
   if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); if(name==='supermemory') loadSupermemory();
   location.hash = name; closePalette();
 }

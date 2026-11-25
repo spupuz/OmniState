@@ -10,13 +10,13 @@ async function loadShared(btn = null) {
     $('shared-list').innerHTML = list.length ? list.map(m => `
       <div class="glass p-4 mb-3" role="listitem" id="shared-item-${m.id}">
         <div class="flex justify-between gap-4">
-          <p class="font-semibold">${esc(m.title)}</p>
+          <p class="font-semibold min-w-0 break-words">${esc(m.title)}</p>
           <div class="flex items-center gap-3 shrink-0">
             <span class="text-xs text-slate-500">${fmtDate(m.created_at)}</span>
             <button type="button" class="btn ghost small" onclick="deleteShared(${m.id})" title="Delete entry" aria-label="Delete entry">✕</button>
           </div>
         </div>
-        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content)}</p>
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap break-words">${esc(m.content)}</p>
         ${m.tags ? `<div class="mt-2">${JSON.parse(m.tags).map(t => `<span class="chip">#${esc(t)}</span>`).join('')}</div>` : ''}
       </div>`).join('') : '<p class="text-slate-400 text-sm">No shared notes.</p>';
   } catch (e) { console.error(e); } finally {
