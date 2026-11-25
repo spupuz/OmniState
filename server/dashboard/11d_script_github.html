@@ -1,0 +1,238 @@
+<script>
+// ---------- GitHub ----------
+async function loadGithub(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+  $('github-stats').innerHTML = [1,2,3,4].map(()=>'<div class="glass p-6 skel-card"><div class="skel skel-text" style="width:40%;height:.7rem;margin-bottom:.5rem"></div><div class="skel" style="width:30%;height:2rem"></div></div>').join('');
+  try {
+    const [cfg, metrics, delta, history] = await Promise.all([
+      api('/api/github/config'), api('/api/github/metrics'), api('/api/github/delta'), api('/api/github/history')
+    ]);
+    $('gh-accounts').value = (cfg.accounts||[]).join(', ');
+    // Load advanced settings
+    $('gh-extended').checked = !!cfg.extended;
+    $('gh-include-forks').checked = !!cfg.include_forks;
+    $('gh-include-archived').checked = !!cfg.include_archived;
+    $('gh-scan-interval').value = cfg.scan_interval_hours || 6;
+    $('gh-stale-days').value = cfg.stale_days || 30;
+    const t = cfg.token || {};
+    $('gh-token-info').textContent = t.token_set ? ('token: ' + (t.login || '?') + ' · ' + (t.scopes||[]).join('+') + (t.valid === false ? ' (invalid)' : '')) : 'no token (REST mode)';
+    if (metrics.error) { $('github-stats').innerHTML = '<p class="text-slate-400">No scans yet. Click "Scan now".</p>'; return; }
+    $('github-stats').innerHTML = [
+      { l: 'Repos scanned', v: fmt(metrics.total_repos), c: 'text-blue-400', s: 'text-2xl' },
+      { l: 'Total open PRs', v: fmt(metrics.total_prs), c: 'text-emerald-400', s: 'text-2xl' },
+      { l: 'Method', v: esc(metrics.method), c: 'text-purple-400', s: 'text-lg' },
+      { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300', s: 'text-sm md:text-base' },
+    ].map(c => `<div class="glass p-6 stat-card" role="listitem"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="${c.s} font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p></div>`).join('');
+    $('gh-delta-text').textContent = delta.error ? delta.error : `Δ PR: ${delta.delta_prs >= 0 ? '+' : ''}${fmt(delta.delta_prs)} · Δ repos: ${delta.delta_repos >= 0 ? '+' : ''}${fmt(delta.delta_repos)} (${fmtDate(delta.latest)} vs ${fmtDate(delta.previous)})`;
+    const repos = await renderGhRepos();
+    renderGhCharts(history, metrics, repos);
+    loadGhAggs();
+    // Load preference for "Only with open PRs" checkbox
+    await loadGithubPreference();
+  } catch (e) {
+    console.error(e);
+    $('github-stats').innerHTML = `<p class="text-red-400 text-sm">Could not load GitHub data: ${esc(e.message)}</p>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+function toggleGhAdvanced() {
+  const panel = $('gh-advanced');
+  const btn = document.querySelector('#tab-github button[onclick="toggleGhAdvanced()"]');
+  if (panel.style.display === 'none') {
+    panel.style.display = 'block';
+    if (btn) btn.textContent = '⚙️ Hide advanced settings';
+  } else {
+    panel.style.display = 'none';
+    if (btn) btn.textContent = '⚙️ Advanced settings';
+  }
+}
+
+async function saveGithubConfig() {
+  const btn = document.querySelector('#tab-github button[onclick="saveGithubConfig()"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    const accountsInput = $('gh-accounts').value.trim();
+    const accounts = accountsInput ? accountsInput.split(',').map(s => s.trim()).filter(s => s) : [];
+    const body = {
+      accounts,
+      extended: $('gh-extended').checked,
+      include_forks: $('gh-include-forks').checked,
+      include_archived: $('gh-include-archived').checked,
+      scan_interval_hours: parseInt($('gh-scan-interval').value || '6', 10),
+      stale_days: parseInt($('gh-stale-days').value || '30', 10),
+    };
+    await api('/api/github/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    toast('GitHub config saved', 'ok');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+// Preference handling for GitHub "Only with open PRs" checkbox
+const PREF_NOTE_PREFIX = 'GH_ONLY_PR_';
+
+async function loadGithubPreference() {
+  try {
+    const sharedNotes = await api('/api/shared');
+    const note = sharedNotes.find(n => (n.title || '').startsWith(PREF_NOTE_PREFIX));
+    if (note) {
+      // Content is stored as PREF_NOTE_PREFIX + "true"/"false"
+      const checked = (note.content || '').trim().toUpperCase() === PREF_NOTE_PREFIX + 'TRUE';
+      $('gh-only-prs').checked = checked;
+      // Immediately render repos with the loaded preference
+      renderGhRepos();
+    }
+  } catch (e) {
+    console.error('Failed to load GitHub preference:', e);
+  }
+}
+
+async function saveGithubPreference(checked) {
+  try {
+    // First, delete any existing note with this prefix to avoid duplicates
+    const sharedNotes = await api('/api/shared');
+    for (const n of sharedNotes || []) {
+      if ((n.title || '').startsWith(PREF_NOTE_PREFIX)) {
+        await api(`/api/shared/${n.id}`, { method: 'DELETE' });
+      }
+    }
+    // Store the boolean; the API derives title/content from "text"
+    await api('/api/shared', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({text: PREF_NOTE_PREFIX + checked.toString(), tags: ''})
+    });
+  } catch (e) {
+    console.error('Failed to save GitHub preference:', e);
+    toast('Could not save preference', 'err');
+  }
+}
+
+async function runGhScan() {
+  const accountsInput = $('gh-accounts').value.trim();
+  const accounts = accountsInput ? accountsInput.split(',').map(s => s.trim()).filter(s => s) : [];
+  const btn = document.querySelector('#tab-github button[type="submit"]');
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Scanning…'; }
+  try {
+    // Persist accounts to config so they survive reload
+    if (accounts.length > 0) {
+      await api('/api/github/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts}) });
+    }
+    await api('/api/github/scan', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({accounts: accounts.length ? accounts : undefined}) });
+    // Await the reload so the numbers are guaranteed to reflect the new scan.
+    await loadGithub();
+  } catch (e) {
+    toast('Scan failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
+}
+
+async function renderGhRepos(repos) {
+  try {
+    const list = repos || await api('/api/github/repos');
+    if (!list.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; $('github-repos').removeAttribute('tabindex'); return []; }
+    $('github-repos').setAttribute('tabindex', '0');
+    const only = $('gh-only-prs').checked;
+    const filtered = only ? list.filter(r => r.open_prs > 0) : list;
+    // Only link out to github.com repo URLs; anything else renders as plain text.
+    const base = r => (typeof r.url === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+/.test(r.url)) ? r.url.replace(/\/+$/, '') : '';
+    const link = (u, text, title) => u
+      ? `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer" title="${esc(title || u)}">${text}</a>`
+      : `${text}`;
+    $('github-repos').innerHTML = `
+      <table class="responsive"><thead><tr>
+        <th>Repo</th><th class="num">PR</th><th class="num">Draft</th><th class="num">No rev</th>
+        <th class="num">Stale</th><th class="num">Issues</th><th class="num">Stars</th><th>Language</th>
+      </tr></thead><tbody>
+      ${filtered.map(r => {
+        const u = base(r);
+        return `
+        <tr>
+          <td data-label="Repo" class="font-semibold">${link(u, esc(r.full_name), 'Open repository')}</td>
+          <td class="num text-emerald-300">${link(u + '/pulls', r.open_prs ?? '—', 'Open pull requests')}</td>
+          <td data-label="Draft" class="num">${link(u + '/pulls?q=is%3Apr+is%3Aopen+draft%3Atrue', r.draft_prs ?? '—', 'Draft pull requests')}</td>
+          <td data-label="No rev" class="num text-amber-300">${link(u + '/pulls?q=is%3Apr+is%3Aopen+no%3Areview', r.no_reviewer ?? '—', 'Pull requests with no review')}</td>
+          <td data-label="Stale" class="num text-red-300">${link(u + '/pulls?sort=created&direction=asc', r.stale_prs ?? '—', 'Oldest open pull requests')}</td>
+          <td data-label="Issues" class="num">${link(u + '/issues', r.open_issues ?? '—', 'Open issues')}</td>
+          <td data-label="Stars" class="num">${link(u + '/stargazers', r.stars ?? 0, 'Stargazers')}</td>
+          <td data-label="Language" class="text-slate-400">${esc(r.language || '')}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>`;
+    return list;
+  } catch (e) { console.error(e); }
+}
+
+function renderGhCharts(history, metrics, repos) {
+  const reqId = ++ghChartsReqId;
+  window.__loadChartJs().then(ok => { if (ok) _drawGhCharts(history, metrics, repos, reqId).catch(e => console.error(e)); }); return; }
+async function _drawGhCharts(history, metrics, repos, reqId) {
+  // Destroy any existing chart instances bound to these canvases (including
+  // orphaned ones from previous/aborted renders) before recreating.
+  try { if (ghTrendChart) { ghTrendChart.destroy(); } } catch (e) { console.warn(e); }
+  ghTrendChart = null;
+  try { if (ghTopChart) { ghTopChart.destroy(); } } catch (e) { console.warn(e); }
+  ghTopChart = null;
+  const trendEl = $('chartGhTrend');
+  const topEl = $('chartGhTop');
+  if (trendEl) { const c = (typeof Chart !== 'undefined') ? Chart.getChart(trendEl) : null; if (c) { try { c.destroy(); } catch (e) { console.warn(e); } } }
+  if (topEl) { const c = (typeof Chart !== 'undefined') ? Chart.getChart(topEl) : null; if (c) { try { c.destroy(); } catch (e) { console.warn(e); } } }
+
+  const trendData = (history.trend||[]).map(t => t.total_prs);
+  const minTrend = trendData.length ? Math.min(...trendData) : 0;
+  const maxTrend = trendData.length ? Math.max(...trendData) : 0;
+  if (trendEl) {
+    trendEl.setAttribute('role', 'img');
+    trendEl.setAttribute('aria-label', `Open PR trend: min ${minTrend}, max ${maxTrend}`);
+
+    ghTrendChart = new Chart(trendEl, {
+      type: 'line',
+      data: { labels: (history.trend||[]).map(t => fmtDate(t.timestamp, true)), datasets: [{ label: 'Open PR', data: trendData, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.2)', fill: true, tension: .3 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#64748b' } } } }
+    });
+  }
+
+  // top repos chart: reuse repos passed from loadGithub (no extra fetch)
+  if (reqId !== ghChartsReqId) {
+    // Stale render: do not draw.
+    return;
+  }
+  const top = (repos || []).slice(0, 8);
+  const topEl2 = $('chartGhTop');
+  if (!topEl2) return;
+  // Destroy any chart currently bound to the canvas before creating a new one.
+  const existing = (typeof Chart !== 'undefined') ? Chart.getChart(topEl2) : null;
+  if (existing) { try { existing.destroy(); } catch (e) { console.warn(e); } }
+  if (ghTopChart) { try { ghTopChart.destroy(); } catch (e) { console.warn(e); } ghTopChart = null; }
+  topEl2.setAttribute('role', 'img');
+  if (top.length > 0) {
+    const topRepo = top.reduce((prev, current) => (prev.open_prs > current.open_prs) ? prev : current);
+    topEl2.setAttribute('aria-label', `Top repos by open PRs. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
+  } else {
+    topEl2.setAttribute('aria-label', 'Top repos by open PRs. Nessun dato disponibile.');
+  }
+
+  ghTopChart = new Chart(topEl2, {
+    type: 'bar',
+    data: { labels: top.map(r => r.full_name), datasets: [{ label: 'Open PR', data: top.map(r => r.open_prs || 0), backgroundColor: 'rgba(59,130,246,.6)', borderRadius: 8 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#94a3b8', font: { size: 11 } } } } }
+  });
+}
+
+async function loadGhAggs() {
+  try {
+    const [authors, labels] = await Promise.all([api('/api/github/authors'), api('/api/github/labels')]);
+    $('gh-authors').innerHTML = (authors||[]).map(a => `<span class="chip">${esc(a.author)} <b>${a.pr_count}</b></span>`).join('') || '<p class="text-slate-400 text-sm">—</p>';
+    $('gh-labels').innerHTML = (labels||[]).map(l => `<span class="chip">${esc(l.label)} <b>${l.pr_count}</b></span>`).join('') || '<p class="text-slate-400 text-sm">—</p>';
+  } catch (e) { console.error(e); }
+}
+
+</script>

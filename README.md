@@ -1,4 +1,4 @@
-# OmniState v2.46.0
+# OmniState v2.46.1
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,7 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.0 (current)
+### v2.46.1 (current)
+
+- **Refactor**: dashboard single script split into logical fragments (`11a_script_foundation`, `11b_script_overview_projects`, `11c_script_shared_search`, `11d_script_github`, `11e_script_misc`, `11f_script_supermemory`) to keep each source file under the 500 LOC target.
+
+### v2.46.0
 
 - **Performance**: dashboard loads only the opened tab on startup (lazy tab loading) instead of fetching all datasets at once; GitHub charts reuse the already-fetched repos instead of a duplicate request; Chart.js lazy-loads only when the GitHub tab renders charts.
 - **UX**: token-savings KPI now shows the reduction percentage and a progress bar (backend exposes `storedTokens`/`loadedTokens`); last-opened tab and project filter persist in localStorage; skeletons replace empty states during handoffs/shared/GitHub-stats loading; new Settings → Dashboard Preferences reset.

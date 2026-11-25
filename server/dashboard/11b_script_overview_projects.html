@@ -1,0 +1,433 @@
+<script>
+// ---------- Overview ----------
+async function loadOverview() {
+  const ov=$('overview-stats'); if(ov && !ov.innerHTML.trim()) ov.innerHTML = [1,2,3,4].map(()=>`<div class="glass p-6 skel-card"><div class="skel skel-text" style="width:40%;height:.7rem;margin-bottom:.5rem"></div><div class="skel" style="width:30%;height:2rem"></div></div>`).join('');
+  try {
+    const stats = await api('/api/stats');
+    const lu = $('last-update'); if (lu) lu.textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
+    const lus = $('last-update-sidebar'); if (lus) lus.textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
+    const saved = Math.max(0, stats.tokenSavings || 0);
+    const stored = Math.max(0, stats.storedTokens || 0);
+    const pct = stored ? Math.round((saved / stored) * 100) : 0;
+    const cards = [
+      { l: 'Projects', v: fmt(stats.projects), c: 'text-blue-400' },
+      { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
+      { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
+      { l: 'Token savings', v: fmt(Math.round(saved/1000)) + 'k', c: 'text-blue-300', t: 'Token risparmiati: stored raw memory tokens meno ciò che session_start carica effettivamente.', sub: pct + '% di riduzione · ' + fmt(Math.round(saved/1000)) + 'k su ' + fmt(Math.round(stored/1000)) + 'k stored', bar: { label: 'Riduzione token', value: Math.min(100, Math.max(0, pct)) } },
+      { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
+    ];
+    if (stats.projects === 0) {
+      cards.push({ l: 'Welcome', v: 'Let\'s go', c: 'text-amber-400', t: 'Register your first project: click "Projects" tab → "Register a project", or run the CLI: omnistate index /path/to/project' });
+    }
+    const osEl = $('overview-stats'); if (osEl) osEl.innerHTML = cards.map(c => `
+      <div class="glass p-6 stat-card">
+        <div class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2 flex justify-between items-start gap-2">
+          <span>${c.l}</span>
+          ${c.t ? `<button type="button" class="text-slate-500 hover:text-slate-300 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-blue-400 rounded-full w-4 h-4 flex items-center justify-center shrink-0 border border-slate-500/30 hover:border-slate-400/50 transition-colors" title="${esc(c.t)}" aria-label="${esc(c.t)}">i</button>` : ''}
+        </div>
+        <p class="text-2xl font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p>
+        ${c.sub ? `<p class="text-xs text-slate-400 mt-1">${c.sub}</p>` : ''}
+        ${c.bar ? `<div class="mt-3"><div class="flex justify-between text-xs text-slate-400 mb-1"><span>${c.bar.label}</span><span>${c.bar.value}%</span></div><div class="w-full h-1.5 overflow-hidden rounded-full" style="background:var(--border)"><div style="width:${c.bar.value}%;height:100%;background:var(--accent)"></div></div></div>` : ''}
+      </div>`).join('');
+    const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
+    const projWrap = $('overview-projects'); if (projWrap) projWrap.innerHTML = projects.length ? projects.map(p => `
+      <button type="button" class="glass p-5 stat-card w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400" role="listitem" data-name="${esc(p.name)}" onclick="openProject(this.dataset.name)" title="Open project details" aria-label="Open project details">
+        <p class="font-bold mb-1 truncate">${esc(p.name)}</p>
+        <p class="text-xs text-slate-400 mb-3 truncate" title="${esc(p.host_path)}">${esc(p.host_path)}</p>
+        <div class="flex gap-4 text-xs">
+          <span class="text-blue-300">${fmt(p.activeTasks)} active</span>
+          <span class="text-emerald-300">${fmt(p.doneTasks)} done</span>
+          <span class="text-purple-300">${fmt(p.snapshots)} snap</span>
+        </div>
+      </button>`).join('') : '<p class="text-slate-400 text-sm">No active projects. Check the Projects tab for archived/deleted ones.</p>';
+  } catch (e) {
+    console.error(e);
+    const ov = $('overview-stats');
+    if (ov) ov.innerHTML = '<p class="text-red-300 text-sm col-span-2 md:col-span-4">Could not load overview: ' + esc(e.message) + ' — <button type="button" onclick="loadOverview()" class="text-blue-300 underline">Retry</button></p>';
+  }
+}
+
+async function openProject(name) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'projects'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  $('tab-projects').classList.remove('hidden');
+  await loadProjects();
+  await showProject(name);
+}
+
+// ---------- Projects ----------
+const PROJECT_SECTIONS = [
+  { key: 'active', label: 'Active' },
+  { key: 'archived', label: 'Archived' },
+  { key: 'deleted', label: 'Deleted' },
+];
+
+async function loadProjects() {
+  try {
+    const [projects, workspaces] = await Promise.all([api('/api/projects'), api('/api/workspaces')]);
+    backToProjects();
+    if (!projects.length) { $('projects-table-wrap').innerHTML = '<p class="text-slate-400 text-sm">No projects. Run <code class="bg-white/10 px-1 py-0.5 rounded font-mono text-xs text-blue-300">omnistate index /path/to/project</code> or use Auto-discover.</p>'; $('projects-table-wrap').removeAttribute('tabindex'); return; }
+    $('projects-table-wrap').setAttribute('tabindex', '0');
+    _allProjects = projects;
+    const cnt=$('projects-count'); if(cnt) cnt.textContent = projects.length + ' projects' + (workspaces.length ? ' · ' + workspaces.length + ' workspaces' : '');
+    const rows = (list) => list.map(p => `
+      <tr class="cursor-pointer hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:bg-white/5 transition-colors" tabindex="0" data-name="${esc(p.name)}" onclick="showProject(this.dataset.name)" onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); showProject(this.dataset.name); }" title="View project memory" role="button" aria-label="Open project ${esc(p.name)}">
+        <td data-label="Project" class="font-semibold">${esc(p.name)}${p.workspace ? ' <span class="chip ml-1 text-xs">' + esc(p.workspace) + '</span>' : ''}</td>
+        <td data-label="Done" class="num text-emerald-300">${fmt(p.doneTasks)}</td>
+        <td data-label="Snapshots" class="num text-purple-300">${fmt(p.snapshots)}</td>
+        <td data-label="Token savings" class="num">${fmt(Math.round(p.tokenSavings/1000))}k</td>
+        <td data-label="Path" class="text-slate-400 text-xs truncate max-w-[220px]" title="${esc(p.host_path)}">${esc(p.host_path)}</td>
+      </tr>`).join('');
+    // Group projects by workspace for display
+    const wsMap = new Map();
+    for (const ws of workspaces) wsMap.set(ws.name, []);
+    const wsNames = new Set(workspaces.map(w => w.name));
+    const ungrouped = [];
+    for (const p of projects) {
+      if (p.workspace && wsMap.has(p.workspace)) wsMap.get(p.workspace).push(p);
+      else if (!wsNames.has(p.name)) ungrouped.push(p);
+    }
+    let tableHtml = `<table class="responsive"><thead><tr>
+        <th>Project</th><th class="num">Done</th>
+        <th class="num">Snapshots</th><th class="num">Token savings</th><th>Path</th>
+      </tr></thead><tbody>`;
+    for (const [wsName, wsProjects] of wsMap) {
+      if (!wsProjects.length) continue;
+      const ws = workspaces.find(w => w.name === wsName);
+      tableHtml += `<tr class="section-row"><td colspan="5">📁 ${esc(wsName)} <span class="text-slate-500 font-normal">(${wsProjects.length} projects)</span></td></tr>`;
+      tableHtml += rows(wsProjects);
+    }
+    tableHtml += PROJECT_SECTIONS.map(s => {
+      const list = ungrouped.filter(p => (p.category || 'active') === s.key);
+      if (!list.length) return '';
+      return `<tr class="section-row"><td colspan="5">${s.label} <span class="text-slate-500 font-normal">(${list.length})</span></td></tr>${rows(list)}`;
+    }).join('');
+    tableHtml += '</tbody></table>';
+    $('projects-table-wrap').innerHTML = tableHtml;
+    try { const pf = JSON.parse(localStorage.getItem(DS_KEY_PROJ_FILTER) || '""'); if ($('projects-filter')) $('projects-filter').value = pf || ''; } catch(e) { if ($('projects-filter')) $('projects-filter').value = ''; }
+    filterProjects();
+  } catch (e) {
+    console.error(e);
+    const wrap = $('projects-table-wrap');
+    if (wrap) wrap.innerHTML = '<p class="text-red-300 text-sm">Could not load projects: ' + esc(e.message) + ' — <button type="button" onclick="loadProjects()" class="text-blue-300 underline">Retry</button></p>';
+  }
+}
+
+async function showProject(name) {
+  try {
+    const d = await api('/api/projects/' + encodeURIComponent(name));
+    window._pmEntries = d.memory || [];
+    const m = d.metrics;
+    $('projects-table-wrap').classList.add('hidden');
+    const el = $('project-detail');
+    el.classList.remove('hidden');
+    el.innerHTML = `
+      <div class="flex items-center gap-3 mb-5 flex-wrap">
+        <button type="button" class="btn ghost" onclick="backToProjects()">← Back</button>
+        <h2 id="project-detail-heading" tabindex="-1" class="text-xl font-bold focus:outline-none">${esc(name)}</h2>
+        <span class="chip">${esc(d.category || 'active')}</span>
+        <span class="text-xs text-slate-500 truncate max-w-[280px]" title="${esc(d.project.host_path)}">${esc(d.project.host_path)}</span>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Active tasks</p><p class="text-2xl font-bold text-blue-300">${fmt(m.activeTasks)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Done tasks</p><p class="text-2xl font-bold text-emerald-300">${fmt(m.doneTasks)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Snapshots</p><p class="text-2xl font-bold text-purple-300">${fmt(m.snapshots)}</p></div>
+        <div class="glass p-5"><p class="text-xs text-slate-400 uppercase tracking-widest mb-1">Token savings</p><p class="text-2xl font-bold">${fmt(Math.round(m.tokenSavings/1000))}k</p></div>
+      </div>
+      <div class="flex gap-3 flex-wrap items-center mb-4 flex-wrap">
+        <h3 class="font-bold">Memory entries</h3>
+        <input type="search" id="pm-filter" aria-label="Filter project memory entries" class="ml-auto" placeholder="Filter entries…" oninput="renderPmEntries()">
+        <button type="button" id="handoff-btn" class="btn ghost text-xs" onclick="showHandoffForm()">+ Handoff</button>
+      </div>
+      <div id="pm-entries" role="list"></div>
+      <div id="handoff-form" class="hidden mt-4" role="list"></div>`;
+    renderPmEntries();
+    // Add project actions buttons to header
+    const header = el.querySelector('.flex.items-center.gap-3.mb-5.flex-wrap');
+    if (header && !header.querySelector('.proj-actions')) {
+      const actions = document.createElement('div');
+      actions.className = 'ml-auto flex gap-2 proj-actions';
+      
+      const btnMerge = document.createElement('button');
+      btnMerge.type = 'button';
+      btnMerge.className = 'btn ghost small';
+      btnMerge.textContent = 'Merge into…';
+      btnMerge.addEventListener('click', () => mergeProject(name));
+      
+      const btnRemove = document.createElement('button');
+      btnRemove.type = 'button';
+      btnRemove.className = 'btn ghost small danger';
+      btnRemove.textContent = 'Remove project';
+      btnRemove.addEventListener('click', () => removeProject(name));
+      
+      actions.appendChild(btnMerge);
+      actions.appendChild(btnRemove);
+      header.appendChild(actions);
+    }
+    const heading = document.getElementById('project-detail-heading');
+    if (heading) heading.focus();
+  } catch (e) { console.error(e); $('projects-table-wrap').classList.remove('hidden'); }
+}
+
+function renderPmEntries() {
+  const q = ($('pm-filter')?.value || '').toLowerCase();
+  window._pmEntriesFiltered = (window._pmEntries || []).filter(e =>
+    !q || (e.title||'').toLowerCase().includes(q) || (e.content||'').toLowerCase().includes(q));
+  const list = window._pmEntriesFiltered;
+  const container = $('pm-entries');
+  if(!container) return;
+  if(list.length > 50){
+    renderChunked(container, list, (e, idx) => {
+      let tags = '';
+      try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
+      const div = document.createElement('div'); div.className='glass p-4 mb-3'; div.setAttribute('role','listitem'); div.style.position='absolute'; div.style.left='0'; div.style.right='0'; div.style.top=(idx*64)+'px';
+      div.innerHTML = `
+        <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, window._pmEntriesFiltered[${idx}].content||window._pmEntriesFiltered[${idx}].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'used', this)" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[${idx}].memory_id||window._pmEntriesFiltered[${idx}].id||0, 'important', this)" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+        <div class="flex justify-between gap-4 items-center flex-wrap">
+          <div class="flex items-center gap-2">
+            <span class="chip">${esc(e.kind)}</span>
+            ${e.lifecycle_state && e.lifecycle_state !== 'active' ? `<span class="chip danger">${esc(e.lifecycle_state)}</span>` : ''}
+            <p class="font-semibold">${esc(e.title || '(untitled)')}</p>
+          </div>
+          <span class="text-xs text-slate-500">${fmtDate(e.created_at)}</span>
+        </div>
+        ${(e.importance ?? e.importance !== undefined) ? `<div class="mt-1 text-xs text-slate-500">importance ${Math.round((e.importance||0)*100)}% · exposed ${e.access_count||0}x</div>` : ''}
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((e.content||'').slice(0, 300))}${(e.content||'').length > 300 ? '…' : ''}</p>
+        ${tags ? `<div class="mt-2">${tags}</div>` : ''}
+      `;
+      return div;
+    }, 40, 600);
+    return;
+  }
+  let tags = '';
+  container.innerHTML = list.length ? list.map((e, idx) => {
+    try { tags = JSON.parse(e.tags || '[]').map(t => `<span class="chip">#${esc(t)}</span>`).join(''); } catch(_) { tags = ''; }
+    return `
+    <div class="glass p-4 mb-3" role="listitem">
+      <div class="flex justify-end gap-2 mb-2"><button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, window._pmEntriesFiltered[idx].content||window._pmEntriesFiltered[idx].title||'')">Copy</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'used', this)" aria-label="Mark as useful" title="Mark as useful">👍</button><button type="button" class="copy-btn" onclick="reinforceMemory(window._pmEntriesFiltered[idx].memory_id||window._pmEntriesFiltered[idx].id||0, 'important', this)" aria-label="Mark as important" title="Mark as important">⭐</button></div>
+      <div class="flex justify-between gap-4 items-center flex-wrap">
+        <div class="flex items-center gap-2">
+          <span class="chip">${esc(e.kind)}</span>
+          ${e.lifecycle_state && e.lifecycle_state !== 'active' ? `<span class="chip danger">${esc(e.lifecycle_state)}</span>` : ''}
+          <p class="font-semibold">${esc(e.title || '(untitled)')}</p>
+        </div>
+        <span class="text-xs text-slate-500">${fmtDate(e.created_at)}</span>
+      </div>
+      ${(e.importance ?? e.importance !== undefined) ? `<div class="mt-1 text-xs text-slate-500">importance ${Math.round((e.importance||0)*100)}% · exposed ${e.access_count||0}x</div>` : ''}
+      <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((e.content||'').slice(0, 300))}${(e.content||'').length > 300 ? '…' : ''}</p>
+      ${tags ? `<div class="mt-2">${tags}</div>` : ''}
+    </div>`;
+  }).join('') : '<p class="text-slate-400 text-sm">No memory entries.</p>';
+}
+
+function backToProjects() {
+  const el = $('project-detail');
+  if (el) { el.classList.add('hidden'); el.innerHTML = ''; }
+  const wrap = $('projects-table-wrap');
+  if (wrap) {
+    wrap.classList.remove('hidden');
+    wrap.focus();
+  }
+}
+
+let _pendingRemoveName = null;
+let _removeSourceElement = null;
+function openRemoveModal(name) {
+  _removeSourceElement = document.activeElement;
+  _pendingRemoveName = name;
+  $('remove-project-name').textContent = name;
+  $('remove-reason').value = '';
+  $('remove-project-modal').classList.remove('hidden');
+  $('remove-reason').focus();
+}
+function closeRemoveModal() {
+  $('remove-project-modal').classList.add('hidden');
+  _pendingRemoveName = null;
+  if (_removeSourceElement) {
+    _removeSourceElement.focus();
+    _removeSourceElement = null;
+  }
+}
+async function submitRemove() {
+  const name = _pendingRemoveName;
+  if (!name) return;
+  const reason = $('remove-reason').value.trim();
+
+  const btn = document.querySelector('#remove-form button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Removing…'; }
+  try {
+    await api(`/api/projects/${encodeURIComponent(name)}/remove`, {method: 'POST'});
+    toast(`Project "${name}" removed`, 'ok');
+    closeRemoveModal();
+    loadProjects();
+    backToProjects();
+  } catch(e) {
+    toast('Remove failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+async function removeProject(name) {
+  openRemoveModal(name);
+}
+
+let _pendingMergeSource = null;
+let _mergeSourceElement = null;
+async function openMergeModal(source) {
+  _mergeSourceElement = document.activeElement;
+  _pendingMergeSource = source;
+  $('merge-source-name').textContent = source;
+  $('merge-target-select').value = '';
+  $('merge-target-path').value = '';
+  // Populate dropdown with active projects
+  const sel = $('merge-target-select');
+  // Keep first option
+  const first = sel.options[0];
+  sel.innerHTML = '';
+  sel.appendChild(first);
+  try {
+    const projects = await api('/api/projects');
+    const active = projects.filter(p => (p.category || 'active') === 'active' && p.name !== source);
+    active.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = `${p.name} (${p.host_path})`;
+      sel.appendChild(opt);
+    });
+  } catch(e) {
+    console.error('Failed to load projects for merge dropdown', e);
+  }
+  $('merge-project-modal').classList.remove('hidden');
+  $('merge-target-select').focus();
+}
+function closeMergeModal() {
+  $('merge-project-modal').classList.add('hidden');
+  _pendingMergeSource = null;
+  if (_mergeSourceElement) {
+    _mergeSourceElement.focus();
+    _mergeSourceElement = null;
+  }
+}
+async function submitMerge() {
+  const source = _pendingMergeSource;
+  if (!source) return;
+  const selectVal = $('merge-target-select').value.trim();
+  const pathVal = $('merge-target-path').value.trim();
+  let target = selectVal || pathVal;
+  if (!target) {
+    toast('Select an existing target project or enter a new path', 'err');
+    return;
+  }
+  if (target === source) {
+    toast('Source and target must be different', 'err');
+    return;
+  }
+
+  const btn = document.querySelector('#merge-form button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Merging…'; }
+  // If target is a path not a project name, try to register it first
+  try {
+    // Check if project exists
+    const projects = await api('/api/projects');
+    const exists = projects.some(p => p.name === target);
+    if (!exists && pathVal) {
+      // Attempt to register new project by path
+      await api('/api/register', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path: target})});
+      // Re-fetch to get actual name
+      const projects2 = await api('/api/projects');
+      const newProj = projects2.find(p => p.host_path === target);
+      if (newProj) target = newProj.name;
+    }
+    await api('/api/projects/merge', {method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({source, target})});
+    toast(`Merged "${source}" → "${target}"`, 'ok');
+    closeMergeModal();
+    loadProjects();
+    backToProjects();
+  } catch(e) {
+    toast('Merge failed: ' + e.message, 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+async function mergeProject(source) {
+  await openMergeModal(source);
+}
+
+function showHandoffForm() {
+  const form = $('handoff-form');
+  if (!form) return;
+  form.classList.remove('hidden');
+  form.innerHTML = `
+    <form class="glass p-4 mb-3" role="listitem" onsubmit="event.preventDefault(); submitHandoff()">
+      <h3 id="handoff-form-heading" tabindex="-1" class="font-bold mb-2 focus:outline-none">Create Handoff</h3>
+      <label for="hf-state" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Current state <span class="text-red-500">*</span></label>
+      <textarea id="hf-state" aria-label="Current state" class="w-full mb-3" rows="2" placeholder="Current state…" required></textarea>
+      <label for="hf-next" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Next steps</label>
+      <textarea id="hf-next" aria-label="Next steps" class="w-full mb-3" rows="2" placeholder="Next steps (one per line)…"></textarea>
+      <label for="hf-done" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Completed steps</label>
+      <textarea id="hf-done" aria-label="Completed steps" class="w-full mb-3" rows="2" placeholder="Completed (one per line)…"></textarea>
+      <label for="hf-risks" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Risks</label>
+      <textarea id="hf-risks" aria-label="Risks" class="w-full mb-3" rows="2" placeholder="Risks (one per line)…"></textarea>
+      <label for="hf-valid" class="block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide">Validation steps</label>
+      <textarea id="hf-valid" aria-label="Validation steps" class="w-full mb-3" rows="2" placeholder="Validation (one per line)…"></textarea>
+      <div class="flex gap-2 mt-2">
+        <button type="submit" class="btn">Save handoff</button>
+        <button type="button" class="btn ghost" onclick="document.getElementById('handoff-form').classList.add('hidden'); document.getElementById('handoff-btn')?.focus();">Cancel</button>
+      </div>
+    </form>`;
+  form.scrollIntoView({behavior:'smooth'});
+  const heading = document.getElementById('handoff-form-heading');
+  if (heading) heading.focus();
+}
+
+async function submitHandoff() {
+  const project = $('project-detail-heading')?.textContent || $('projects-filter')?.value || '';
+  if (!project) { toast('Select a project first', 'err'); return; }
+  const state = $('hf-state')?.value || '';
+  const next = $('hf-next')?.value || '';
+  const done = $('hf-done')?.value || '';
+  const risks = $('hf-risks')?.value || '';
+  const valid = $('hf-valid')?.value || '';
+  const btn = document.querySelector('#handoff-form button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await api('/api/handoffs', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({project, current_state:state, next_steps:next, completed:done, risks, validation:valid}) });
+    toast('Handoff saved', 'ok');
+    document.getElementById('handoff-form').classList.add('hidden');
+    document.getElementById('handoff-btn')?.focus();
+  } catch(e) { toast(String(e), 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+async function registerProject() {
+  const path = $('register-path').value.trim();
+  if (!path) return;
+  const btn = document.querySelector('#tab-projects form[onsubmit*="registerProject"] button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Registering…'; }
+  try {
+    await api('/api/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({path}) });
+    $('register-path').value = '';
+    loadProjects();
+  } catch (e) { toast(e.message, 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+async function discoverProjects(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Discovering…'; }
+  try {
+    const r = await api('/api/discover', { method: 'POST' });
+    toast('Found and registered: ' + ((r.registered||[]).join(', ') || 'none'), 'info');
+    loadProjects();
+  } catch (e) { toast(e.message, 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+</script>

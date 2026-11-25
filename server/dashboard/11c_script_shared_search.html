@@ -1,0 +1,117 @@
+<script>
+// ---------- Shared ----------
+async function loadShared(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+  $('shared-list').innerHTML = [1,2,3].map(()=>'<div class="glass p-4 mb-3"><div class="skel skel-row" style="height:1rem;width:55%"></div><div class="skel" style="height:1.2rem;width:85%"></div></div>').join('');
+  try {
+    const list = await api('/api/shared');
+    const sc=$('shared-count'); if(sc) sc.textContent = list.length + ' notes';
+    $('shared-list').innerHTML = list.length ? list.map(m => `
+      <div class="glass p-4 mb-3" role="listitem" id="shared-item-${m.id}">
+        <div class="flex justify-between gap-4">
+          <p class="font-semibold">${esc(m.title)}</p>
+          <div class="flex items-center gap-3 shrink-0">
+            <span class="text-xs text-slate-500">${fmtDate(m.created_at)}</span>
+            <button type="button" class="btn ghost small" onclick="deleteShared(${m.id})" title="Delete entry" aria-label="Delete entry">✕</button>
+          </div>
+        </div>
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc(m.content)}</p>
+        ${m.tags ? `<div class="mt-2">${JSON.parse(m.tags).map(t => `<span class="chip">#${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No shared notes.</p>';
+  } catch (e) { console.error(e); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+async function addShared() {
+  const text = $('shared-text').value.trim();
+  const tags = $('shared-tags').value.trim();
+  if (!text) return;
+  const btn = document.querySelector('#tab-shared form[onsubmit*="addShared"] button[type="submit"]');
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await api('/api/shared', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text, tags}) });
+    $('shared-text').value = ''; $('shared-tags').value = '';
+    loadShared();
+  } catch (e) { toast(e.message, 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+async function deleteShared(id) {
+  const el = $('shared-item-' + id);
+  if (el) { el.style.opacity = '0.5'; el.style.pointerEvents = 'none'; }
+  let aborted = false;
+  toast('Memory entry deleted.', 'info', () => {
+    aborted = true;
+    if (el) { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; }
+  });
+
+  setTimeout(async () => {
+    if (aborted) return;
+    try {
+      await api('/api/shared/' + id, { method: 'DELETE' });
+      loadShared(); // reload to update count
+    } catch (e) {
+      toast(e.message, 'err');
+      if (el) { el.style.opacity = '1'; el.style.pointerEvents = 'auto'; }
+    }
+  }, 5200); // Wait slightly longer than the 5000ms toast timeout to ensure undo is not clicked late
+}
+
+async function exportMemoryMarkdown(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+  try {
+    const r = await api('/api/memory/export-markdown');
+    toast('Exported ' + r.exported + ' files to ' + r.output_dir, 'ok');
+  } catch (e) { toast(String(e), 'err'); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+// ---------- Search ----------
+async function doSearch() {
+  const q = $('search-q').value.trim();
+  if (!q) { $('search-results').innerHTML='<p class="text-slate-400 text-sm">Type a query to search.</p>'; const c=$('search-count'); if(c) c.textContent=''; return; }
+  const sc=$('search-count'); if(sc) sc.textContent='Searching…';
+  $('search-results').innerHTML = '<div class="glass p-4 mb-3" role="listitem">'+ [1,2,3].map(()=>'<div class="skel mb-2" style="height:1rem"></div>').join('') +'</div>';
+  try {
+    const scope = $('search-scope').value;
+    const project = ($('search-project')?.value||'').trim();
+    const startDate = $('search-start')?.value || '';
+    const endDate = $('search-end')?.value || '';
+    const limit = $('search-limit')?.value || '20';
+    let url = '/api/memory?q=' + encodeURIComponent(q) + '&scope=' + scope + '&limit=' + limit;
+    if(project) url += '&project=' + encodeURIComponent(project);
+    if(startDate) url += '&startDate=' + encodeURIComponent(startDate);
+    if(endDate) url += '&endDate=' + encodeURIComponent(endDate);
+    const results = await api(url);
+    if(sc) sc.textContent = results.length ? results.length + ' results' : 'no results';
+    $('search-results').innerHTML = results.length ? results.map(m => `
+      <div class="glass p-4 mb-3" role="listitem">
+        <div class="flex justify-between gap-4 flex-wrap">
+          <p class="font-semibold">${esc(m.title || '(untitled)')}</p>
+          <span class="text-xs text-slate-500">${esc(m.scope)}${m.project_name ? ' · ' + esc(m.project_name) : ''} · ${fmtDate(m.created_at, true)}</span>
+        </div>
+        <p class="text-sm text-slate-400 mt-1 whitespace-pre-wrap">${esc((m.content||'').slice(0, 380))}</p>
+        <div class="flex gap-2 mt-3 flex-wrap">
+          <span class="chip">${esc(m.kind)}</span>
+          ${m.source ? `<span class="chip">src: ${esc(m.source)}</span>` : ''}
+          ${m.valid_until ? `<span class="chip danger">expires ${fmtDate(m.valid_until, true)}</span>` : ''}
+          ${m.valid_from ? `<span class="chip">from ${fmtDate(m.valid_from, true)}</span>` : ''}
+          <span class="chip">imp: ${Math.round((m.importance||0)*100)}%</span>
+        </div>
+        <div class="flex gap-2 mt-2 flex-wrap">
+          <button type="button" class="copy-btn" aria-label="Copy text" onclick="copyText(this, this.dataset.v)" data-v="${esc(m.content||m.title||'')}">Copy</button>
+          <button type="button" class="copy-btn" aria-label="Mark as useful" title="Mark as useful" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'used', this)">👍 useful</button>
+          <button type="button" class="copy-btn" aria-label="Mark as important" title="Mark as important" onclick="reinforceMemory(${m.memory_id||m.id||0}, 'important', this)">⭐ important</button>
+          <button type="button" class="copy-btn" aria-label="Forget memory" title="Forget memory" onclick="forgetMemory(${m.memory_id||m.id||0})">🗑 forget</button>
+        </div>
+      </div>`).join('') : '<p class="text-slate-400 text-sm">No results. Try a broader query or change scope/project filter.</p>';
+  } catch (e) { console.error(e); toast(String(e).slice(0,140),'err'); if($('search-count')) $('search-count').textContent='error'; }
+}
+
+</script>

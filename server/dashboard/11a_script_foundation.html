@@ -1,0 +1,106 @@
+<script>
+const $ = (id) => document.getElementById(id);
+let ghTopChart = null, ghTrendChart = null;
+let ghChartsReqId = 0;
+try { $('auth-token').value = localStorage.getItem('omnistate_auth_token') || ''; } catch(e) {}
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    btn.classList.add('active');
+    $('tab-' + btn.dataset.tab).classList.remove('hidden');
+    if (btn.dataset.tab === 'github') loadGithub();
+    if (btn.dataset.tab === 'shared') loadShared();
+    if (btn.dataset.tab === 'projects') loadProjects();
+    if (btn.dataset.tab === 'handoffs') loadHandoffs();
+    if (btn.dataset.tab === 'supermemory') loadSupermemory();
+  });
+});
+
+function toggleSidebar() {
+  const sidebar = $('sidebar');
+  const overlay = $('sidebar-overlay');
+  if (sidebar) sidebar.classList.toggle('open');
+  if (overlay) overlay.classList.toggle('open');
+}
+function closeSidebarMobile() {
+  const sidebar = $('sidebar');
+  const overlay = $('sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+}
+function resetDashboardPrefs(){
+  try { localStorage.removeItem('omnistate_ds_lastTab'); localStorage.removeItem('omnistate_ds_projects_filter'); } catch(e) {}
+  toast('Dashboard preferences reset', 'info');
+}
+
+async function api(path, opts) {
+  const token = localStorage.getItem('omnistate_auth_token') || '';
+  const baseHeaders = token ? { 'Authorization': 'Bearer ' + token } : {};
+  const headers = { ...baseHeaders, ...((opts && opts.headers) || {}) };
+  const { headers: _h, ...rest } = (opts || {});
+  const res = await fetch(path, { cache: 'no-store', ...rest, headers });
+  if (res.status === 401) {
+    throw new Error('401 unauthorized — set the access token (OMNISTATE_AUTH_TOKEN) in the dashboard header.');
+  }
+  if (!res.ok) throw new Error(path + ' -> ' + res.status);
+  return res.json();
+}
+
+function saveToken() {
+  const t = ($('auth-token')?.value || '').trim();
+  if (t) localStorage.setItem('omnistate_auth_token', t);
+  else localStorage.removeItem('omnistate_auth_token');
+  loadAll();
+}
+
+function fmt(n) { return n == null ? '—' : n.toLocaleString('it-IT'); }
+function fmtDate(ts, dateOnly) {
+  if (!ts) return '—';
+  const s = String(ts).endsWith('Z') ? String(ts) : String(ts) + 'Z';
+  const d = new Date(s);
+  if (isNaN(d)) return String(ts);
+  return dateOnly ? d.toLocaleDateString('it-IT') : d.toLocaleString('it-IT');
+}
+// ---------- localStorage persistence (dashboard UI state) ----------
+const DS_KEY_TAB = 'omnistate_ds_lastTab';
+const DS_KEY_PROJ_FILTER = 'omnistate_ds_projects_filter';
+function dsGet(key, def){ try{ const v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); } catch(e){ return def; } }
+function dsSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+
+async function loadBackups(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+  try {
+    const list = await api('/api/backups');
+    const el = $('backups-list');
+    if (!el) return;
+    el.innerHTML = list.length ? list.map(b => `
+      <div class="glass p-3" style="min-width:160px" role="listitem">
+        <p class="font-bold text-sm">${esc(b.date)}</p>
+        <p class="text-xs text-slate-400">${b.memories} entries · ${b.size_mb} MB</p>
+      </div>`).join('') : '<p class="text-xs text-slate-400">No backups yet</p>';
+  } catch (e) { console.error(e); } finally {
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  }
+}
+
+async function refreshVersionBadge() {
+  try {
+    const h = await api('/health');
+    if (h && h.version) {
+      const el = $('version-badge'); if (el) el.textContent = 'OMNISTATE v' + h.version;
+      const sb = $('version-badge-sidebar'); if (sb) sb.textContent = 'v' + h.version;
+      const status = $('server-status'); if (status && h.version) status.title = 'v' + h.version;
+      const st = $('status-text'); if (st) st.textContent = 'SERVER';
+    }
+  } catch(e) {}
+}
+async function loadAll(btn = null) {
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Reloading…'; }
+  try { await Promise.all([loadOverview(), loadProjects(), loadGithub(), loadShared(), loadHandoffs(), loadSupermemory(), loadBackups(), refreshVersionBadge()]); } finally { if (btn) { btn.disabled = false; btn.textContent = originalText; } }
+}
+
+</script>
