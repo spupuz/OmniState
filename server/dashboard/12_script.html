@@ -30,6 +30,10 @@ function closeSidebarMobile() {
   if (sidebar) sidebar.classList.remove('open');
   if (overlay) overlay.classList.remove('open');
 }
+function resetDashboardPrefs(){
+  try { localStorage.removeItem('omnistate_ds_lastTab'); localStorage.removeItem('omnistate_ds_projects_filter'); } catch(e) {}
+  toast('Dashboard preferences reset', 'info');
+}
 
 async function api(path, opts) {
   const token = localStorage.getItem('omnistate_auth_token') || '';
@@ -59,6 +63,11 @@ function fmtDate(ts, dateOnly) {
   if (isNaN(d)) return String(ts);
   return dateOnly ? d.toLocaleDateString('it-IT') : d.toLocaleString('it-IT');
 }
+// ---------- localStorage persistence (dashboard UI state) ----------
+const DS_KEY_TAB = 'omnistate_ds_lastTab';
+const DS_KEY_PROJ_FILTER = 'omnistate_ds_projects_filter';
+function dsGet(key, def){ try{ const v = localStorage.getItem(key); return v == null ? def : JSON.parse(v); } catch(e){ return def; } }
+function dsSet(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
 
 async function loadBackups(btn = null) {
   const originalText = btn ? btn.textContent : '';
@@ -101,11 +110,14 @@ async function loadOverview() {
     const stats = await api('/api/stats');
     const lu = $('last-update'); if (lu) lu.textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
     const lus = $('last-update-sidebar'); if (lus) lus.textContent = 'Last update: ' + fmtDate(stats.lastUpdate);
+    const saved = Math.max(0, stats.tokenSavings || 0);
+    const stored = Math.max(0, stats.storedTokens || 0);
+    const pct = stored ? Math.round((saved / stored) * 100) : 0;
     const cards = [
       { l: 'Projects', v: fmt(stats.projects), c: 'text-blue-400' },
       { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
       { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
-      { l: 'Token savings', v: fmt(Math.round(stats.tokenSavings/1000)) + 'k', c: 'text-blue-300', t: 'Real measured saving: stored raw memory tokens minus what session_start actually loads.' },
+      { l: 'Token savings', v: fmt(Math.round(saved/1000)) + 'k', c: 'text-blue-300', t: 'Token risparmiati: stored raw memory tokens meno ciò che session_start carica effettivamente.', sub: pct + '% di riduzione · ' + fmt(Math.round(saved/1000)) + 'k su ' + fmt(Math.round(stored/1000)) + 'k stored', bar: { label: 'Riduzione token', value: Math.min(100, Math.max(0, pct)) } },
       { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
     if (stats.projects === 0) {
@@ -118,6 +130,8 @@ async function loadOverview() {
           ${c.t ? `<button type="button" class="text-slate-500 hover:text-slate-300 focus-visible:ring-2 focus-visible:outline-none focus-visible:ring-blue-400 rounded-full w-4 h-4 flex items-center justify-center shrink-0 border border-slate-500/30 hover:border-slate-400/50 transition-colors" title="${esc(c.t)}" aria-label="${esc(c.t)}">i</button>` : ''}
         </div>
         <p class="text-2xl font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p>
+        ${c.sub ? `<p class="text-xs text-slate-400 mt-1">${c.sub}</p>` : ''}
+        ${c.bar ? `<div class="mt-3"><div class="flex justify-between text-xs text-slate-400 mb-1"><span>${c.bar.label}</span><span>${c.bar.value}%</span></div><div class="w-full h-1.5 overflow-hidden rounded-full" style="background:var(--border)"><div style="width:${c.bar.value}%;height:100%;background:var(--accent)"></div></div></div>` : ''}
       </div>`).join('');
     const projects = (await api('/api/projects')).filter(p => (p.category || 'active') === 'active');
     const projWrap = $('overview-projects'); if (projWrap) projWrap.innerHTML = projects.length ? projects.map(p => `
@@ -194,6 +208,8 @@ async function loadProjects() {
     }).join('');
     tableHtml += '</tbody></table>';
     $('projects-table-wrap').innerHTML = tableHtml;
+    try { const pf = JSON.parse(localStorage.getItem(DS_KEY_PROJ_FILTER) || '""'); if ($('projects-filter')) $('projects-filter').value = pf || ''; } catch(e) { if ($('projects-filter')) $('projects-filter').value = ''; }
+    filterProjects();
   } catch (e) {
     console.error(e);
     const wrap = $('projects-table-wrap');
@@ -522,6 +538,7 @@ async function discoverProjects(btn = null) {
 async function loadShared(btn = null) {
   const originalText = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+  $('shared-list').innerHTML = [1,2,3].map(()=>'<div class="glass p-4 mb-3"><div class="skel skel-row" style="height:1rem;width:55%"></div><div class="skel" style="height:1.2rem;width:85%"></div></div>').join('');
   try {
     const list = await api('/api/shared');
     const sc=$('shared-count'); if(sc) sc.textContent = list.length + ' notes';
@@ -636,6 +653,7 @@ async function doSearch() {
 async function loadGithub(btn = null) {
   const originalText = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+  $('github-stats').innerHTML = [1,2,3,4].map(()=>'<div class="glass p-6 skel-card"><div class="skel skel-text" style="width:40%;height:.7rem;margin-bottom:.5rem"></div><div class="skel" style="width:30%;height:2rem"></div></div>').join('');
   try {
     const [cfg, metrics, delta, history] = await Promise.all([
       api('/api/github/config'), api('/api/github/metrics'), api('/api/github/delta'), api('/api/github/history')
@@ -657,8 +675,8 @@ async function loadGithub(btn = null) {
       { l: 'Last scan', v: fmtDate(metrics.timestamp).slice(0, 17), c: 'text-slate-300', s: 'text-sm md:text-base' },
     ].map(c => `<div class="glass p-6 stat-card" role="listitem"><p class="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">${c.l}</p><p class="${c.s} font-bold font-outfit ${c.c} leading-tight break-words">${c.v}</p></div>`).join('');
     $('gh-delta-text').textContent = delta.error ? delta.error : `Δ PR: ${delta.delta_prs >= 0 ? '+' : ''}${fmt(delta.delta_prs)} · Δ repos: ${delta.delta_repos >= 0 ? '+' : ''}${fmt(delta.delta_repos)} (${fmtDate(delta.latest)} vs ${fmtDate(delta.previous)})`;
-    renderGhRepos();
-    renderGhCharts(history, metrics);
+    const repos = await renderGhRepos();
+    renderGhCharts(history, metrics, repos);
     loadGhAggs();
     // Load preference for "Only with open PRs" checkbox
     await loadGithubPreference();
@@ -767,13 +785,13 @@ async function runGhScan() {
   }
 }
 
-async function renderGhRepos() {
+async function renderGhRepos(repos) {
   try {
-    const repos = await api('/api/github/repos');
-    if (!repos.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; $('github-repos').removeAttribute('tabindex'); return; }
+    const list = repos || await api('/api/github/repos');
+    if (!list.length) { $('github-repos').innerHTML = '<p class="text-slate-400 text-sm">No scans yet.</p>'; $('github-repos').removeAttribute('tabindex'); return []; }
     $('github-repos').setAttribute('tabindex', '0');
     const only = $('gh-only-prs').checked;
-    const filtered = only ? repos.filter(r => r.open_prs > 0) : repos;
+    const filtered = only ? list.filter(r => r.open_prs > 0) : list;
     // Only link out to github.com repo URLs; anything else renders as plain text.
     const base = r => (typeof r.url === 'string' && /^https:\/\/github\.com\/[^/]+\/[^/]+/.test(r.url)) ? r.url.replace(/\/+$/, '') : '';
     const link = (u, text, title) => u
@@ -799,11 +817,14 @@ async function renderGhRepos() {
         </tr>`;
       }).join('')}
       </tbody></table>`;
+    return list;
   } catch (e) { console.error(e); }
 }
 
-function renderGhCharts(history, metrics) {
+function renderGhCharts(history, metrics, repos) {
   const reqId = ++ghChartsReqId;
+  window.__loadChartJs().then(ok => { if (ok) _drawGhCharts(history, metrics, repos, reqId).catch(e => console.error(e)); }); return; }
+async function _drawGhCharts(history, metrics, repos, reqId) {
   // Destroy any existing chart instances bound to these canvases (including
   // orphaned ones from previous/aborted renders) before recreating.
   try { if (ghTrendChart) { ghTrendChart.destroy(); } } catch (e) { console.warn(e); }
@@ -829,33 +850,31 @@ function renderGhCharts(history, metrics) {
     });
   }
 
-  // top repos chart: fetch repos again
-  api('/api/github/repos').then(repos => {
-    if (reqId !== ghChartsReqId) {
-      // Stale render: do not draw.
-      return;
-    }
-    const top = (repos || []).slice(0, 8);
-    const topEl2 = $('chartGhTop');
-    if (!topEl2) return;
-    // Destroy any chart currently bound to the canvas before creating a new one.
-    const existing = (typeof Chart !== 'undefined') ? Chart.getChart(topEl2) : null;
-    if (existing) { try { existing.destroy(); } catch (e) { console.warn(e); } }
-    if (ghTopChart) { try { ghTopChart.destroy(); } catch (e) { console.warn(e); } ghTopChart = null; }
-    topEl2.setAttribute('role', 'img');
-    if (top.length > 0) {
-      const topRepo = top.reduce((prev, current) => (prev.open_prs > current.open_prs) ? prev : current);
-      topEl2.setAttribute('aria-label', `Top repos by open PRs. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
-    } else {
-      topEl2.setAttribute('aria-label', 'Top repos by open PRs. Nessun dato disponibile.');
-    }
+  // top repos chart: reuse repos passed from loadGithub (no extra fetch)
+  if (reqId !== ghChartsReqId) {
+    // Stale render: do not draw.
+    return;
+  }
+  const top = (repos || []).slice(0, 8);
+  const topEl2 = $('chartGhTop');
+  if (!topEl2) return;
+  // Destroy any chart currently bound to the canvas before creating a new one.
+  const existing = (typeof Chart !== 'undefined') ? Chart.getChart(topEl2) : null;
+  if (existing) { try { existing.destroy(); } catch (e) { console.warn(e); } }
+  if (ghTopChart) { try { ghTopChart.destroy(); } catch (e) { console.warn(e); } ghTopChart = null; }
+  topEl2.setAttribute('role', 'img');
+  if (top.length > 0) {
+    const topRepo = top.reduce((prev, current) => (prev.open_prs > current.open_prs) ? prev : current);
+    topEl2.setAttribute('aria-label', `Top repos by open PRs. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
+  } else {
+    topEl2.setAttribute('aria-label', 'Top repos by open PRs. Nessun dato disponibile.');
+  }
 
-    ghTopChart = new Chart(topEl2, {
-      type: 'bar',
-      data: { labels: top.map(r => r.full_name), datasets: [{ label: 'Open PR', data: top.map(r => r.open_prs || 0), backgroundColor: 'rgba(59,130,246,.6)', borderRadius: 8 }] },
-      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#94a3b8', font: { size: 11 } } } } }
-    });
-  }).catch(e => { console.error(e); });
+  ghTopChart = new Chart(topEl2, {
+    type: 'bar',
+    data: { labels: top.map(r => r.full_name), datasets: [{ label: 'Open PR', data: top.map(r => r.open_prs || 0), backgroundColor: 'rgba(59,130,246,.6)', borderRadius: 8 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#64748b' } }, y: { ticks: { color: '#94a3b8', font: { size: 11 } } } } }
+  });
 }
 
 async function loadGhAggs() {
@@ -991,7 +1010,7 @@ function debouncedSearch(){ clearTimeout(_searchTimer); _searchTimer=setTimeout(
 function clearSearch(){ const q=$('search-q'); if(q) q.value=''; const sp=$('search-project'); if(sp) sp.value=''; const ss=$('search-start'); if(ss) ss.value=''; const se=$('search-end'); if(se) se.value=''; const el=$('search-results'); if(el) el.innerHTML='<p class="text-slate-400 text-sm">Type a query to search.</p>'; const c=$('search-count'); if(c) c.textContent=''; }
 // ---------- projects filter ----------
 let _allProjects=[];
-function filterProjects(){ const q=($('projects-filter')?.value||'').toLowerCase(); const rows=document.querySelectorAll('#projects-table-wrap tbody tr'); const cnt=$('projects-count'); let vis=0; rows.forEach(r=>{ const show=!q||r.textContent.toLowerCase().includes(q); r.style.display=show?'':'none'; if(show) vis++; }); if(cnt) cnt.textContent = q ? vis+' / '+rows.length : rows.length+' projects'; }
+function filterProjects(){ const q=($('projects-filter')?.value||'').toLowerCase(); try { localStorage.setItem(DS_KEY_PROJ_FILTER, JSON.stringify($('projects-filter')?.value || '')); } catch(e) {} const rows=document.querySelectorAll('#projects-table-wrap tbody tr'); const cnt=$('projects-count'); let vis=0; rows.forEach(r=>{ const show=!q||r.textContent.toLowerCase().includes(q); r.style.display=show?'':'none'; if(show) vis++; }); if(cnt) cnt.textContent = q ? vis+' / '+rows.length : rows.length+' projects'; }
 // ---------- palette ----------
 let _paletteSource = null;
 const PALETTE_CMDS=[
@@ -1011,6 +1030,8 @@ function switchTab(name){
   document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); });
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
   const el=$('tab-'+name); if(el) el.classList.remove('hidden');
+  dsSet(DS_KEY_TAB, name);
+  if(name==='overview') loadOverview();
   if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); if(name==='supermemory') loadSupermemory();
   location.hash = name; closePalette();
 }
@@ -1086,9 +1107,10 @@ async function reinforceMemory(id, signal, btn = null) {
 }
 
 async function loadHandoffs() {
+  const el=$('handoffs-list'); if(!el) return;
+  el.innerHTML = [1,2,3].map(()=>'<div class="glass p-4 mb-3"><div class="skel skel-row" style="height:1rem;width:55%"></div><div class="skel" style="height:1.2rem;width:85%"></div></div>').join('');
   try {
     const list = await api('/api/handoffs');
-    const el=$('handoffs-list'); if(!el) return;
     el.innerHTML = list.length ? list.map(h => {
       let meta = {};
       try { meta = JSON.parse(h.content); } catch(_) {}
@@ -1373,11 +1395,13 @@ window.addEventListener('hashchange', () => {
   if (valid.includes(tab)) switchTab(tab);
 });
 (function(){
-  const tab = location.hash.replace('#', '');
-  if (tab) switchTab(tab);
+  const hashTab = location.hash.replace('#', '');
+  const valid = ['overview','projects','github','shared','search','handoffs','supermemory'];
+  let tab = dsGet(DS_KEY_TAB, 'overview');
+  if (!valid.includes(tab)) tab = 'overview';
+  if (valid.includes(hashTab)) tab = hashTab;
+  switchTab(tab);
 })();
-
-loadAll();
 
 
 // ── Saved searches (single source) ──

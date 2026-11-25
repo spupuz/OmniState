@@ -1,4 +1,4 @@
-# OmniState v2.45.3
+# OmniState v2.46.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -28,7 +28,7 @@ No local skills, no memory files scattered across projects: everything lives in 
 - **Metrics endpoint + manifest**: `GET /api/metrics`, PWA manifest (`/manifest.json`), theme-color meta, skip-link and `aria-live` for accessibility.
 - **Markdown export**: `memory_export_markdown` dumps active memories as human-readable `.md` files — decisions as `ADR-XXXX.md` under `decisions/` — for versioning stable knowledge in a repository.
 - **Forget with audit**: `memory_forget` accepts an optional `reason` recorded in the `memory_feedback` audit table.
-- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with unified design tokens, pill tabs/buttons/inputs, glass cards with hover lift, health badges, saved-search dropdown, native form validation, in-button loading states, non-blocking toasts, accessible tab navigation, PWA manifest support, and graphic confirmation modals for project Remove and Merge (audit-trail reason field for removal, target selection dropdown for merge).
+- **Web dashboard** on `:8347`: aggregate view, per-project drill-down, shared memory, global search, handoffs, with unified design tokens, pill tabs/buttons/inputs, glass cards with hover lift, health badges, saved-search dropdown, native form validation, in-button loading states, non-blocking toasts, accessible tab navigation, PWA manifest support, and graphic confirmation modals for project Remove and Merge (audit-trail reason field for removal, target selection dropdown for merge); lazy tab loading (only the opened tab fetches), token-savings reduction % + progress bar, last-tab and project-filter persistence, lazy Chart.js loading, skeleton loading states, and a Settings → Dashboard Preferences reset.
 - **Project lifecycle**: the Projects tab splits repositories into **Active / Archived / Deleted** — GitHub is authoritative: a project whose remote repo is archived or deleted on GitHub moves to those sections even if its local folder still exists (and only active projects show on the Overview). **Remove project** (soft-delete) and **Merge projects** available from the project detail view, MCP tools (`project_remove`, `project_merge`) and REST API.
 - **GitHub PR Health**: scans open PRs of your accounts/orgs with metrics (drafts, no-reviewer, stale, issues), historical trends and delta — stored in the central DB. Every repo row in the dashboard links straight to its GitHub PRs and issues.
 - **Optional auth**: set `OMNISTATE_AUTH_TOKEN` in `.env` to protect `/api/*` and MCP session creation with a Bearer token — dashboard prompts for it and stores it in `localStorage`; MCP clients send it via header (opencode) or `httpHeaders` (Antigravity).
@@ -535,7 +535,12 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.45.3 (current)
+### v2.46.0 (current)
+
+- **Performance**: dashboard loads only the opened tab on startup (lazy tab loading) instead of fetching all datasets at once; GitHub charts reuse the already-fetched repos instead of a duplicate request; Chart.js lazy-loads only when the GitHub tab renders charts.
+- **UX**: token-savings KPI now shows the reduction percentage and a progress bar (backend exposes `storedTokens`/`loadedTokens`); last-opened tab and project filter persist in localStorage; skeletons replace empty states during handoffs/shared/GitHub-stats loading; new Settings → Dashboard Preferences reset.
+
+### v2.45.3
 
 - **Security (Sentinel)**: block SSRF via redirect in the Supermemory update download — the URL host was validated but `urlopen` followed redirects to any host, whose payload was then written to `/app/supermemory_server.py` and executed; added a no-redirect opener (redirects disabled, 3xx rejected) for the release check, version probe and download (PR #207).
 

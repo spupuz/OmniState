@@ -758,6 +758,8 @@ class App:
             stored_tokens = sum(p["storedTokens"] for p in metrics_list if p["category"] == "active")
             loaded_tokens = sum(p["loadedTokens"] for p in metrics_list if p["category"] == "active")
             stats["tokenSavings"] = max(0, stored_tokens - loaded_tokens)
+            stats["storedTokens"] = stored_tokens
+            stats["loadedTokens"] = loaded_tokens
             # Include backup count from /data/backups (not from DB — separate from metrics)
             stats["backups"] = len(list((self.cfg.data_dir / "backups").glob("index_*.db"))) if (self.cfg.data_dir / "backups").exists() else 0
             return stats
