@@ -1,4 +1,4 @@
-# OmniState v2.46.1
+# OmniState v2.46.2
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,7 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.1 (current)
+### v2.46.2 (current)
+
+- **Fix**: dashboard UI strings corrected to English (GitHub top-repo aria-label, token card tooltip/labels).
+
+### v2.46.1
 
 - **Refactor**: dashboard single script split into logical fragments (`11a_script_foundation`, `11b_script_overview_projects`, `11c_script_shared_search`, `11d_script_github`, `11e_script_misc`, `11f_script_supermemory`) to keep each source file under the 500 LOC target.
 

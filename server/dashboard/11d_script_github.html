@@ -215,9 +215,9 @@ async function _drawGhCharts(history, metrics, repos, reqId) {
   topEl2.setAttribute('role', 'img');
   if (top.length > 0) {
     const topRepo = top.reduce((prev, current) => (prev.open_prs > current.open_prs) ? prev : current);
-    topEl2.setAttribute('aria-label', `Top repos by open PRs. Repo principale: ${topRepo.full_name} con ${topRepo.open_prs} PR`);
+    topEl2.setAttribute('aria-label', `Top repos by open PRs. Main repo: ${topRepo.full_name} with ${topRepo.open_prs} open PRs`);
   } else {
-    topEl2.setAttribute('aria-label', 'Top repos by open PRs. Nessun dato disponibile.');
+    topEl2.setAttribute('aria-label', 'Top repos by open PRs. No data available.');
   }
 
   ghTopChart = new Chart(topEl2, {

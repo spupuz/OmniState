@@ -13,7 +13,7 @@ async function loadOverview() {
       { l: 'Projects', v: fmt(stats.projects), c: 'text-blue-400' },
       { l: 'Memory entries', v: fmt(stats.memoryEntries), c: 'text-emerald-400' },
       { l: 'Scan GitHub', v: fmt(stats.ghScans), c: 'text-purple-400' },
-      { l: 'Token savings', v: fmt(Math.round(saved/1000)) + 'k', c: 'text-blue-300', t: 'Token risparmiati: stored raw memory tokens meno ciò che session_start carica effettivamente.', sub: pct + '% di riduzione · ' + fmt(Math.round(saved/1000)) + 'k su ' + fmt(Math.round(stored/1000)) + 'k stored', bar: { label: 'Riduzione token', value: Math.min(100, Math.max(0, pct)) } },
+      { l: 'Token savings', v: fmt(Math.round(saved/1000)) + 'k', c: 'text-blue-300', t: 'Token savings: stored raw memory tokens minus what session_start actually loads.', sub: pct + '% reduction · ' + fmt(Math.round(saved/1000)) + 'k of ' + fmt(Math.round(stored/1000)) + 'k stored', bar: { label: 'Token reduction', value: Math.min(100, Math.max(0, pct)) } },
       { l: 'DB backups', v: fmt(stats.backups || 0), c: 'text-purple-400', t: 'Daily DB backups kept (last 7)' },
     ];
     if (stats.projects === 0) {
