@@ -140,7 +140,9 @@ const PALETTE_CMDS=[
   {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
   {id:'export-md', label:'Export memory as Markdown', run:()=>exportMemoryMarkdown()},
 ];
+const TAB_TITLES = { overview:'Overview', projects:'Projects', github:'GitHub PR Health', shared:'Shared Memory', search:'Search', handoffs:'Handoffs', supermemory:'Supermemory', settings:'Settings', about:'About' };
 function switchTab(name){
+  const title = $('dashboard-title'); if (title) title.textContent = TAB_TITLES[name] || name;
   document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.toggle('active', b.dataset.tab===name); b.setAttribute('aria-selected', b.dataset.tab===name); });
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
   const el=$('tab-'+name); if(el) el.classList.remove('hidden');

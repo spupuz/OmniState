@@ -1,4 +1,4 @@
-# OmniState v2.46.4
+# OmniState v2.46.5
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -535,7 +535,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.4 (current)
+### v2.46.5 (current)
+
+- **Fix**: dashboard header title now follows the active tab instead of staying "Overview" while another tab (e.g. Shared Memory) is open.
+
+### v2.46.4
 
 - **Fix**: sidebar version badge made automatic (empty static value, live version injected by dashboard refresh).
 
