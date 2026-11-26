@@ -1,4 +1,4 @@
-# OmniState v2.47.0
+# OmniState v2.48.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -203,6 +203,11 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 | `github_scan` | Runs a GitHub scan (open PRs + metrics) |
 | `github_metrics` / `github_delta` / `github_history` | GitHub scan results |
 | `github_config` | Configures accounts/token for automatic scans (validates the PAT; rejects invalid or placeholder tokens) |
+| `supermemory_search` | Search Supermemory memories; accepts `namespace`, `query`, `limit`, `scope`, and `search_mode` ('hybrid' default, 'vector', 'fulltext', 'keyword') |
+| `supermemory_add` | Add a memory to Supermemory; accepts `namespace`, `content`, `title`, `tags`, `source`, and optional `metadata` dict |
+| `supermemory_profile` | Get Supermemory profile info |
+| `supermemory_sync` | Trigger a Supermemory sync |
+| `supermemory_status` | Check Supermemory connection status |
 
 ## OpenCode plugin — auto-population hooks
 
@@ -545,7 +550,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.47.0 (current)
+### v2.48.0 (current)
+
+- **Features (PR #209)**: exposed `search_mode` parameter (`hybrid`/`vector`/`fulltext`/`keyword`) in `supermemory_search` MCP tool and REST endpoint; added optional `metadata` dict parameter to `supermemory_add` MCP tool and REST endpoint for storing additional metadata fields with memories.
+
+### v2.47.0
 
 - **Features**: added `project_archive` / `project_restore` (lifecycle changes without deleting data), `config_get` / `config_set` (dot-notation access to non-secret config, secrets never returned), `memory_reinforce_bulk` / `memory_forget_bulk` (per-item results), configurable backup retention (`OMNISTATE_BACKUP_RETENTION_DAYS`), and `OMNISTATE_DASHBOARD_AUTH=false` for an open web dashboard on a trusted LAN while `/api/*` and MCP stay Bearer-protected. REST equivalents added for project archive/restore.
 - **Performance**: `memory_search` and `GET /api/memory` accept an opt-in `cursor` for offset pagination (`{results, has_more, next_cursor}`); the default response stays a plain list for backward compatibility.
