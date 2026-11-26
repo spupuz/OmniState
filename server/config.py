@@ -64,6 +64,8 @@ class Config:
     scan_interval_seconds: int = 300
     reindex_on_change: bool = True
     auto_import_legacy: bool = False
+    backup_retention_days: int = 7
+    dashboard_auth: bool = True
     # Bearer token protecting /api/* and MCP session creation (network access).
     # Empty = open (trusted localhost only). Never logged.
     auth_token: str = ""
@@ -174,6 +176,7 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
         cfg.scan_interval_seconds = int(raw.get("scan_interval_seconds", cfg.scan_interval_seconds))
         cfg.reindex_on_change = bool(raw.get("reindex_on_change", cfg.reindex_on_change))
         cfg.auto_import_legacy = bool(raw.get("auto_import_legacy", cfg.auto_import_legacy))
+        cfg.backup_retention_days = int(raw.get("backup_retention_days", cfg.backup_retention_days))
         cfg.auth_token = str(raw.get("auth_token", "") or "")
         for r in raw.get("roots", []):
             cfg.roots.append(Root(host=r.get("host", ""), container=r.get("container", "")))
@@ -214,6 +217,10 @@ def load_config(data_dir: Path | None = None, env: dict | None = None) -> Config
         cfg.scan_interval_seconds = int(env["OMNISTATE_SCAN_INTERVAL_SECONDS"])
     if env.get("OMNISTATE_AUTO_IMPORT_LEGACY") is not None:
         cfg.auto_import_legacy = env["OMNISTATE_AUTO_IMPORT_LEGACY"].strip().lower() in ("1", "true", "yes", "on")
+    if env.get("OMNISTATE_BACKUP_RETENTION_DAYS"):
+        cfg.backup_retention_days = int(env["OMNISTATE_BACKUP_RETENTION_DAYS"])
+    if env.get("OMNISTATE_DASHBOARD_AUTH") is not None:
+        cfg.dashboard_auth = env["OMNISTATE_DASHBOARD_AUTH"].strip().lower() in ("1", "true", "yes", "on")
     if env.get("OMNISTATE_AUTH_TOKEN") is not None:
         cfg.auth_token = env["OMNISTATE_AUTH_TOKEN"].strip()
     if env.get("SUPERMEMORY_API_KEY"):
@@ -245,6 +252,7 @@ def save_config(cfg: Config) -> None:
         "scan_interval_seconds": cfg.scan_interval_seconds,
         "reindex_on_change": cfg.reindex_on_change,
         "auto_import_legacy": cfg.auto_import_legacy,
+        "backup_retention_days": cfg.backup_retention_days,
         "auth_token": "",
         "supermemory": {
             "api_key": "",

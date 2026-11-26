@@ -191,6 +191,88 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
 
     @server.tool()
     @_logged
+    def project_archive(project: str) -> str:
+        """Archive a project: set gh_state=archived without removing memories."""
+        _resolve_project(project)
+        store.set_project_gh_state(project, "archived")
+        return json.dumps({"archived": project, "status": "archived"}, indent=2)
+
+    @server.tool()
+    @_logged
+    def project_restore(project: str) -> str:
+        """Restore an archived project: set gh_state=active."""
+        _resolve_project(project)
+        store.set_project_gh_state(project, "active")
+        return json.dumps({"restored": project, "status": "active"}, indent=2)
+
+    @server.tool()
+    @_logged
+    def config_get(key: str = "") -> str:
+        """Get a non-secret config value using dot notation (e.g. 'github.scan_interval_hours').
+        Secrets (auth token, GitHub token, API keys) are never returned."""
+        key = (key or "").strip()
+        if not key:
+            raise ToolError("config_get: provide a key, e.g. 'github.scan_interval_hours'")
+        parts = key.split(".")
+        if any(p.lower() in {"auth_token", "token", "api_key", "password", "secret"} for p in parts):
+            raise ToolError(f"config_get: '{key}' is a secret and cannot be read")
+        try:
+            val: Any = cfg
+            for p in parts:
+                val = getattr(val, p)
+            return json.dumps({"key": key, "value": val}, indent=2, default=str)
+        except Exception as e:
+            raise ToolError(f"config_get: {e}")
+
+    @server.tool()
+    @_logged
+    def config_set(key: str, value: str) -> str:
+        """Set a non-secret config value using dot notation; changes are saved to config.json."""
+        key = (key or "").strip()
+        # Full dot-path -> type. Secrets are deliberately excluded.
+        allowed: dict[str, str] = {
+            "scan_interval_seconds": "int",
+            "reindex_on_change": "bool",
+            "auto_import_legacy": "bool",
+            "backup_retention_days": "int",
+            "github.accounts": "list",
+            "github.scan_interval_hours": "int",
+            "github.stale_days": "int",
+            "github.extended": "bool",
+            "github.include_forks": "bool",
+            "github.include_archived": "bool",
+            "supermemory.enabled": "bool",
+            "supermemory.sync_interval_hours": "int",
+            "supermemory.sync_on_session_end": "bool",
+            "supermemory.base_url": "str",
+            "supermemory.api_version": "str",
+            "supermemory.default_space": "str",
+        }
+        kind = allowed.get(key)
+        if kind is None:
+            raise ToolError(f"config_set: '{key}' is not an allowed non-secret config key")
+        parts = key.split(".")
+        target: Any = cfg
+        for p in parts[:-1]:
+            target = getattr(target, p)
+        attr = parts[-1]
+        if kind == "bool":
+            parsed: Any = value.strip().lower() in ("1", "true", "yes", "on")
+        elif kind == "int":
+            try:
+                parsed = int(value)
+            except ValueError:
+                raise ToolError(f"config_set: '{key}' must be an integer")
+        elif kind == "list":
+            parsed = [a.strip() for a in value.split(",") if a.strip()]
+        else:
+            parsed = value
+        setattr(target, attr, parsed)
+        save_config(cfg)
+        return json.dumps({"key": key, "value": parsed, "saved": True}, indent=2, default=str)
+
+    @server.tool()
+    @_logged
     def project_merge(source: str, target: str) -> str:
         """Merge source project into target project: move all memories to target and mark source as removed."""
         _resolve_project(source)
@@ -308,13 +390,16 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
     @server.tool()
     @_logged
     def memory_search(query: str, project: str = "", scope: str = "all", limit: int = 10,
-                      startDate: str = "", endDate: str = "", include_outdated: bool = False,
-                      tags: str = "", debug: bool = False) -> str:
+                      cursor: str = "", startDate: str = "", endDate: str = "",
+                      include_outdated: bool = False, tags: str = "", debug: bool = False) -> str:
         """Hybrid search: FTS5 + coverage + tags + decayed importance + familiarity.
         Temporal filters (startDate/endDate, ISO or YYYY-MM-DD) apply to created_at.
-        Tags filter: comma-separated list, all tags must be present (AND logic)."""
+        Tags filter: comma-separated list, all tags must be present (AND logic).
+        Cursor: opaque offset from a previous page. When provided, the result is
+        {"results", "has_more", "next_cursor"}; otherwise a plain list (legacy shape)."""
         results = store.search_memory(
             query, project=project or None, scope=scope, limit=min(limit, 50),
+            cursor=cursor or None, paginate=bool(cursor),
             start_date=startDate or None, end_date=endDate or None,
             include_outdated=include_outdated, tags=tags.split(",") if tags else None,
             debug=debug,
@@ -359,6 +444,31 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
         outdated/incorrect suppress the memory without deleting; restore re-activates.
         Importance is adjusted (bounded 0..1) and the event is audited."""
         return json.dumps(store.reinforce_memory(memory_id, signal, reason), indent=2)
+
+    @server.tool()
+    @_logged
+    def memory_reinforce_bulk(memory_ids: list[int], signal: str, reason: str = "") -> str:
+        """Apply a feedback signal to multiple memories at once."""
+        results = []
+        for mid in memory_ids:
+            try:
+                results.append({"memory_id": mid, **store.reinforce_memory(mid, signal, reason)})
+            except Exception as e:
+                results.append({"memory_id": mid, "error": str(e)})
+        return json.dumps({"results": results, "count": len(results)}, indent=2)
+
+    @server.tool()
+    @_logged
+    def memory_forget_bulk(memory_ids: list[int], reason: str = "") -> str:
+        """Delete multiple memories at once with optional audit reason."""
+        results = []
+        for mid in memory_ids:
+            try:
+                ok = store.delete_memory(mid, reason=reason)
+                results.append({"memory_id": mid, "deleted": ok})
+            except Exception as e:
+                results.append({"memory_id": mid, "error": str(e)})
+        return json.dumps({"results": results, "count": len(results)}, indent=2)
 
     @server.tool()
     @_logged
@@ -419,8 +529,8 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
     @_logged
     def db_backup() -> str:
         """Create a consistent SQLite backup (WAL-safe) in /data/backups with a
-        SHA-256 checksum and 7-day rotation. Returns the backup file and size."""
-        return json.dumps(store.db_backup(), indent=2)
+        SHA-256 checksum and configured rotation. Returns the backup file and size."""
+        return json.dumps(store.db_backup(retention_days=cfg.backup_retention_days), indent=2)
 
     @server.tool()
     @_logged

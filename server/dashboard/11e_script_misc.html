@@ -125,6 +125,27 @@ function clearSearch(){ const q=$('search-q'); if(q) q.value=''; const sp=$('sea
 // ---------- projects filter ----------
 let _allProjects=[];
 function filterProjects(){ const q=($('projects-filter')?.value||'').toLowerCase(); try { localStorage.setItem(DS_KEY_PROJ_FILTER, JSON.stringify($('projects-filter')?.value || '')); } catch(e) {} const rows=document.querySelectorAll('#projects-table-wrap tbody tr'); const cnt=$('projects-count'); let vis=0; rows.forEach(r=>{ const show=!q||r.textContent.toLowerCase().includes(q); r.style.display=show?'':'none'; if(show) vis++; }); if(cnt) cnt.textContent = q ? vis+' / '+rows.length : rows.length+' projects'; }
+// ---------- full data export ----------
+async function exportAllData(btn = null) {
+  const original = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Exporting…'; }
+  const parts = [];
+  try {
+    const r = await api('/api/memory/export');
+    parts.push('JSON ' + r.memories + ' memories');
+  } catch (e) { parts.push('JSON failed: ' + e.message); }
+  try {
+    const r = await api('/api/memory/export-markdown');
+    parts.push('Markdown ' + r.exported + ' files');
+  } catch (e) { parts.push('Markdown failed: ' + e.message); }
+  try {
+    const r = await api('/api/backups/create', { method: 'POST' });
+    parts.push('Backup ' + r.file);
+  } catch (e) { parts.push('Backup failed: ' + e.message); }
+  toast('Export complete — ' + parts.join(' · '), 'ok');
+  if (btn) { btn.disabled = false; btn.textContent = original; }
+}
+
 // ---------- palette ----------
 let _paletteSource = null;
 const PALETTE_CMDS=[
@@ -139,6 +160,9 @@ const PALETTE_CMDS=[
   {id:'theme', label:'Toggle theme', kbd:'T', run:()=>{ toggleTheme(); toast('Theme toggled','info'); }},
   {id:'clear-search', label:'Clear search', run:()=>{ switchTab('search'); clearSearch(); }},
   {id:'export-md', label:'Export memory as Markdown', run:()=>exportMemoryMarkdown()},
+  {id:'export-all', label:'Export all data (JSON + Markdown + DB backup)', run:()=>exportAllData()},
+  {id:'discover', label:'Discover new projects (scan disk)', run:()=>{ switchTab('projects'); discoverProjects(); }},
+  {id:'scan-gh', label:'Scan GitHub now', run:()=>{ switchTab('github'); runGhScan(); }},
 ];
 const TAB_TITLES = { overview:'Overview', projects:'Projects', github:'GitHub PR Health', shared:'Shared Memory', search:'Search', handoffs:'Handoffs', supermemory:'Supermemory', settings:'Settings', about:'About' };
 function switchTab(name){
@@ -149,7 +173,7 @@ function switchTab(name){
   dsSet(DS_KEY_TAB, name);
   if(name==='overview'){ loadOverview(); loadBackups(); }
   if(name==='github') loadGithub(); if(name==='shared') loadShared(); if(name==='projects') loadProjects(); if(name==='handoffs') loadHandoffs(); if(name==='supermemory') loadSupermemory();
-  location.hash = name; closePalette();
+  location.hash = name; closePalette(); closeSidebarMobile();
 }
 function openPalette(){ _paletteSource = document.activeElement; const p=$('palette'); if(!p) return; p.classList.remove('hidden'); const inp=$('palette-input'); if(inp){ inp.setAttribute('aria-expanded','true'); inp.value=''; inp.focus(); renderPalette(''); } }
 function closePalette(){ const p=$('palette'); if(p) { p.classList.add('hidden'); const inp=$('palette-input'); if(inp) inp.setAttribute('aria-expanded','false'); if(_paletteSource) { _paletteSource.focus(); _paletteSource = null; } } }

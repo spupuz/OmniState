@@ -351,13 +351,33 @@ class App:
             - /mcp is checked at session creation (POST without an
               Mcp-Session-Id); follow-ups on an already-authenticated session
               pass without resending the header.
+
+            If `dashboard_auth=False` (via OMNISTATE_DASHBOARD_AUTH=0), the
+            dashboard routes (/, /favicon.*, /manifest.json, /output.css)
+            are accessible without a token. The dashboard's API calls will
+            still require auth unless the request appears to originate from
+            the dashboard itself (Accept: text/html or Referer from same origin).
             """
             token = self.cfg.auth_token
             if not token:
                 return await call_next(request)
             path = request.url.path
-            if path in ("/", "/health"):
+            # Always open: health, favicon, manifest, CSS
+            if path in ("/", "/health", "/favicon.svg", "/favicon.ico", "/manifest.json", "/output.css"):
                 return await call_next(request)
+            # Dashboard static assets and UI: open if dashboard_auth disabled
+            if not self.cfg.dashboard_auth:
+                # Allow dashboard shell and its static assets
+                if path == "/" or path.startswith("/favicon") or path == "/manifest.json" or path == "/output.css":
+                    return await call_next(request)
+                # For API calls from browser (dashboard), allow if they look like
+                # a browser request (Accept: text/html or Referer from same origin)
+                accept = request.headers.get("accept", "")
+                referer = request.headers.get("referer", "")
+                host = request.headers.get("host", "")
+                is_browser = "text/html" in accept or (referer and host and referer.startswith(f"http://{host}") or referer.startswith(f"https://{host}"))
+                if is_browser and path.startswith("/api/"):
+                    return await call_next(request)
             protected = path.startswith("/api/") or path.startswith("/mcp")
             if not protected:
                 return await call_next(request)
@@ -540,6 +560,24 @@ class App:
             self.invalidate_metrics_cache()
             return {"removed": name, "status": "removed"}
 
+        @app.post("/api/projects/{name}/archive")
+        def api_project_archive(name: str) -> dict[str, Any]:
+            row = self.store.get_project(name)
+            if row is None:
+                return JSONResponse({"error": "not found"}, status_code=404)
+            self.store.set_project_gh_state(name, "archived")
+            self.invalidate_metrics_cache()
+            return {"archived": name, "status": "archived"}
+
+        @app.post("/api/projects/{name}/restore")
+        def api_project_restore(name: str) -> dict[str, Any]:
+            row = self.store.get_project(name)
+            if row is None:
+                return JSONResponse({"error": "not found"}, status_code=404)
+            self.store.set_project_gh_state(name, "active")
+            self.invalidate_metrics_cache()
+            return {"restored": name, "status": "active"}
+
         @app.post("/api/projects/merge")
         def api_project_merge(body: dict[str, Any]) -> dict[str, Any]:
             source = (body.get("source") or "").strip()
@@ -571,9 +609,11 @@ class App:
         @app.get("/api/memory")
         def api_memory(q: str = "", project: str = "", scope: str = "all", limit: int = 20,
                        startDate: str = "", endDate: str = "", include_outdated: bool = False,
-                       tags: str = "") -> list[dict[str, Any]]:
+                       tags: str = "", cursor: str = "") -> Any:
+            # Without a cursor this still returns a plain list (legacy shape).
             return self.store.search_memory(
                 q, project=project or None, scope=scope, limit=limit,
+                cursor=cursor or None, paginate=bool(cursor),
                 start_date=startDate or None, end_date=endDate or None,
                 include_outdated=include_outdated,
                 tags=tags.split(",") if tags else None,
@@ -605,8 +645,13 @@ class App:
             return {"deleted": True, "memory_id": mem_id}
 
         @app.get("/api/memory/export")
-        def api_memory_export() -> dict[str, Any]:
-            return self.store.export_memories("memory-export.json")
+        def api_memory_export(name: str = "") -> dict[str, Any]:
+            # Timestamped by default so repeated "Export All" clicks never collide.
+            # The store still validates that the path stays inside the data dir.
+            from datetime import datetime, timezone
+            import uuid
+            fname = name or f"memory-export-{datetime.now(timezone.utc):%Y%m%d-%H%M%S}-{uuid.uuid4().hex[:6]}.json"
+            return self.store.export_memories(fname)
 
         @app.get("/api/memory/export-markdown")
         def api_memory_export_markdown() -> dict[str, Any]:
@@ -690,8 +735,9 @@ class App:
 
         @app.post("/api/backups/create")
         def api_backup_create() -> dict[str, Any]:
-            """Create a new DB backup (SHA-256 checksum + rotation to last 7)."""
-            return self.store.db_backup()
+            """Create a new DB backup (SHA-256 checksum + rotation per config)."""
+            info = self.store.db_backup(retention_days=self.cfg.backup_retention_days)
+            return info
 
         @app.post("/api/backups/maintain")
         def api_backup_maintain(body: dict[str, Any] | None = None) -> dict[str, Any]:

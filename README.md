@@ -1,4 +1,4 @@
-# OmniState v2.46.7
+# OmniState v2.47.0
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -84,6 +84,7 @@ cp .env.example .env
 | `GITHUB_SCAN_INTERVAL_HOURS` | — | Hours between automatic scans (default `6`). |
 | `OMNISTATE_SCAN_INTERVAL_SECONDS` | — | Seconds between discovery scans (default `300`). |
 | `OMNISTATE_AUTH_TOKEN` | — | **Optional** access token for everything reachable over the network (`/api/*` + MCP sessions) — set it if the box is reachable by others on the LAN. Read below for how each client sends it. |
+| `OMNISTATE_DASHBOARD_AUTH` | — | **Optional** (default `true`). Set to `false` to allow dashboard access without a token while keeping `/api/*` and `/mcp` protected. Useful when you want the web UI open on LAN but MCP clients still require the Bearer token. |
 | `DATA_HOST_DIR` | — | Host folder where all server data lives, bind-mounted at `/data` (default `./data` inside the OmniState dir). A plain directory: browse it, back it up, move it. |
 | `OMNISTATE_AUTO_IMPORT_LEGACY` | — | Import old v1 memory files (`chunks/`, `tasks-history.json`, …) automatically when a project with such files is discovered (default off: `false`). |
 | `SUPERMEMORY_ENABLED` | — | Enable Supermemory integration (default `true` in the shipped `.env.example`). |
@@ -96,6 +97,8 @@ The file also holds the GitHub token: **do not share it, do not commit it, do no
 ### Access token (optional auth)
 
 When `OMNISTATE_AUTH_TOKEN` is set in `.env`, the server requires a **Bearer token** on `/api/*` and on **MCP session creation** (`POST /mcp` without an `Mcp-Session-Id`). Routes that stay open on purpose: `/` (dashboard shell, so the token prompt loads), `/health`, `/favicon.*`, and MCP follow-ups that already carry a server-issued `Mcp-Session-Id`. Without the variable the server is wide open, as before.
+
+**Dashboard-only access without token:** Set `OMNISTATE_DASHBOARD_AUTH=false` in `.env` to allow the web dashboard (and its API calls from the browser) to work without a token, while `/api/*` and `/mcp` remain protected for programmatic clients. This is useful on trusted LANs where you want the UI open but still require the token for MCP tools.
 
 Verify: `curl http://localhost:8347/health` → `{"status":"ok","version":"X.Y.Z",...}` (the version always mirrors `VERSION.txt`). With a token set, `curl http://localhost:8347/api/projects` returns **401** unless you send `-H "Authorization: Bearer $TOKEN"`; it accepts an optional `?category=active|archived|deleted|all` filter (default `all`).
 
@@ -180,18 +183,22 @@ Any MCP client with **Streamable HTTP** support: point it to `http://localhost:8
 |---|---|
 | `project_register` | Registers the current project (auto-registration) |
 | `project_remove` | Marks a project as removed (soft delete) |
+| `project_archive` / `project_restore` | Moves a project to Archived / back to Active (no data deleted) |
 | `project_merge` | Moves all memories from source to target, marks source removed |
 | `project_discover` | Scans mounted roots for new projects |
 | `session_start` | Loads relevant memory, starts a session |
 | `session_snapshot` | Archives done tasks, distills progress, creates a chunk |
 | `task_add` / `task_update` / `task_list` | Task management |
-| `memory_search` | Scored hybrid recall across projects + shared (keyword coverage, tag boost, decayed importance, familiarity); accepts `startDate`/`endDate`, `tags` (comma-separated, AND logic), and natural-language dates |
+| `memory_search` | Scored hybrid recall across projects + shared (keyword coverage, tag boost, decayed importance, familiarity); accepts `startDate`/`endDate`, `tags` (comma-separated, AND logic), natural-language dates, and `cursor` for pagination (when a cursor is passed the result becomes `{results, has_more, next_cursor}`; otherwise a plain list) |
 | `memory_remember` | Saves a note (per-project or shared) |
 | `memory_recall` / `memory_forget` | Recall and delete memory |
 | `memory_reinforce` | Applies feedback signals (`used`/`important`/`irrelevant`/`incorrect`/`outdated`) that tune recall without deleting |
+| `memory_reinforce_bulk` / `memory_forget_bulk` | Apply a signal or delete several memories in one call (per-item results) |
 | `memory_feedback_for` | Returns the feedback audit trail for a memory entry |
 | `memory_recent` | Lists the latest active memories (optionally per project) |
 | `memory_export` | Dumps all memories + feedback to a JSON backup file |
+| `config_get` / `config_set` | Read/write non-secret config in dot notation (e.g. `github.scan_interval_hours`); secrets are never returned |
+| `db_backup` / `db_maintenance` | Consistent WAL-safe backup (with configured retention) and DB compaction |
 | `project_summary` / `project_metrics` | Project state and metrics |
 | `github_scan` | Runs a GitHub scan (open PRs + metrics) |
 | `github_metrics` / `github_delta` / `github_history` | GitHub scan results |
@@ -243,7 +250,8 @@ Open **http://localhost:8347** in the browser:
 - **GitHub PR Health**: stats (repos, PRs, drafts, no-reviewer, stale, issues), delta vs previous scan, charts (top repos, distribution, historical trend, per-repo trend), repos table (each repo name and count links to its GitHub PRs/issues pages), top authors/labels, "Scan now" button (awaits the reload; API responses are `no-store` so the new counts always appear immediately; accounts and scan settings are persisted via `POST /api/github/config`), "Only with open PRs" filter (persisted via shared memory), "Save config" button and Advanced Settings panel (extended, include_forks, include_archived, scan_interval_hours, stale_days).
 - **Global search** across projects: live debounced search as you type, filters for project scope/name, date range and result limit, result counter, skeleton loading, inline **Copy / 👍 useful / ⭐ important / 🗑 forget** actions, and a **⭐ Saved** dropdown (persisted in `localStorage`, max 15, Esc/outside to close) that auto-saves every query and lets you reload or remove past searches.
 - **Theme toggle**: the dashboard persists a light/dark/system preference (sidebar cycle button, Settings dropdown, or the `T` key) — `system` follows the OS color scheme and updates live when it changes; the sidebar icon switches between sun, moon and a monitor for system. Refined light-theme overrides for glass, table and chip surfaces.
-- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, create a handoff, toggle theme or clear search from a keyboard-first palette (every item is focusable and runs with `Enter`/`Space`; `/` focuses search, `Esc` closes).
+- **Command palette** (`Ctrl/⌘+K`): jump to any tab, reload all data, export Markdown, export all data, discover new projects, scan GitHub now, create a handoff, toggle theme or clear search from a keyboard-first palette (every item is focusable and runs with `Enter`/`Space`; `/` focuses search, `Esc` closes).
+- **Export All Data** (Settings tab): one click writes a timestamped JSON memory dump, a Markdown export, and a consistent SQLite backup into the server's data folder — repeatable without filename collisions.
 - **Handoffs tab**: browse structured agent handoffs (current state, completed, next steps, risks, validation) with a one-click form to create new ones.
 - **Accessible + actionable**: the charts expose summary stats via `aria-label` (`role="img"`); dynamic grids are exposed as ARIA lists (`role="list"` / `role="listitem"`); Overview project cards and command-palette items are keyboard-operable (`role="button"`, Enter/Space); Projects table rows are focusable with Enter/Space to open the project drill-down; Overview stat cards include tooltip descriptions with accessible interactive tooltip buttons for keyboard compatibility; actionable groups are wrapped in semantic `<form>` elements so **Enter** submits natively; scrollable regions are focusable only while they actually overflow; empty states show the exact next command to run. Every dashboard button is an explicit `<button type="button">`, hover-revealed actions (e.g. the saved-search delete control) also reveal on `:focus-within`, interactive elements (`.btn`, `.tab-btn`, `.copy-btn`) show a visible `:focus-visible` ring for keyboard navigation, and form controls that lack a visible label carry an `aria-label`, and every interactive utility button (copy, reinforce, forget) carries a descriptive `aria-label` for screen-reader context.
 - **Inline copy feedback**: dashboard copy buttons now show temporary '✓ Copied' visual feedback for 2 seconds after clicking, confirming the action without requiring gaze shift. This was added via the inline feedback pattern where the button text changes and then restores automatically.
@@ -537,7 +545,14 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.7 (current)
+### v2.47.0 (current)
+
+- **Features**: added `project_archive` / `project_restore` (lifecycle changes without deleting data), `config_get` / `config_set` (dot-notation access to non-secret config, secrets never returned), `memory_reinforce_bulk` / `memory_forget_bulk` (per-item results), configurable backup retention (`OMNISTATE_BACKUP_RETENTION_DAYS`), and `OMNISTATE_DASHBOARD_AUTH=false` for an open web dashboard on a trusted LAN while `/api/*` and MCP stay Bearer-protected. REST equivalents added for project archive/restore.
+- **Performance**: `memory_search` and `GET /api/memory` accept an opt-in `cursor` for offset pagination (`{results, has_more, next_cursor}`); the default response stays a plain list for backward compatibility.
+- **UX**: Settings now has a one-click **Export All Data** button (timestamped JSON + Markdown + consistent DB snapshot, repeatable without collisions); the command palette gained "Export all data", "Discover new projects" and "Scan GitHub now"; the mobile sidebar auto-closes on tab selection. `.env.example` documents every supported variable.
+- **Bugfix**: fixed `config_get`/`config_set` referencing an undefined `self` and a bool/int collision on `backup_retention_days`; fixed `db_backup` importing a nonexistent package path; fixed an uncommitted write transaction in `_record_exposures` that deadlocked the SQLite backup API after any search.
+
+### v2.46.7
 
 - **Bugfix**: Supermemory auto-update version detection no longer raises `NameError` in the fallback used outside Docker — `server/app.py` reads the repository copy of `supermemory_server.py` with `pathlib` (PR #208).
 

@@ -666,18 +666,42 @@ class Store:
         project: str | None = None,
         scope: str = "all",
         limit: int = 10,
+        cursor: str | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
         include_outdated: bool = False,
         tags: list[str] | None = None,
         debug: bool = False,
-    ) -> list[dict[str, Any]]:
+        paginate: bool = False,
+    ) -> list[dict[str, Any]] | dict[str, Any]:
         """Hybrid recall: FTS5 evidence + coverage + tag boost + decayed
         importance + bounded familiarity (feedback signals never rewritten here).
 
         Mirrors the mcp-local-memory scoring model with FTS-only evidence.
+
+        Parameters
+        ----------
+        cursor : str | None
+            Opaque offset cursor (the ``next_cursor`` from a previous page).
+        paginate : bool
+            When True, return ``{"results", "has_more", "next_cursor"}``.
+            Default False preserves the historical list return value.
         """
         limit = max(1, int(limit))
+        try:
+            offset = max(0, int(cursor)) if cursor else 0
+        except (ValueError, TypeError):
+            offset = 0
+
+        def _envelope(items: list[dict[str, Any]], more: bool):
+            if not paginate:
+                return items
+            return {
+                "results": items,
+                "has_more": more,
+                "next_cursor": str(offset + limit) if more else "",
+            }
+
         start, end, rest = _parse_temporal(query)
         tokens = _text_tokens(rest)
         start = _normalize_iso(start_date) if start_date else start
@@ -686,10 +710,10 @@ class Store:
         # Pure temporal query (dates only, no remaining tokens)
         if not tokens and (start or end):
             rows = self._recall_by_time(project, scope, start, end, limit, include_outdated)
-            return [self._score_row(r, debug) for r in rows]
+            return _envelope([self._score_row(r, debug) for r in rows], False)
 
         if not tokens:
-            return []
+            return _envelope([], False)
 
         fts_phrase = " OR ".join(f'"{t.replace(chr(34), chr(34) + chr(34))}"' for t in sorted(tokens))
         params: list = [fts_phrase]
@@ -725,7 +749,8 @@ class Store:
             )
             params.extend(tag_params)
         where_sql = ("WHERE " + " AND ".join(where)) if where else ""
-        pool = max(20, min(200, limit * 4))
+        # Fetch enough ranked candidates to fill the requested page (offset aware).
+        pool = min(500, max(20, (offset + limit) * 4))
         rows = self.q(
             "SELECT m.*, p.name AS project_name, f.rank FROM "
             "(SELECT rowid, bm25(memory_fts) AS rank FROM memory_fts WHERE memory_fts MATCH ?) f "
@@ -735,8 +760,9 @@ class Store:
             "ORDER BY f.rank LIMIT ?",
             tuple(params) + (pool,),
         )
+
         if not rows:
-            return []
+            return _envelope([], False)
 
         q_tokens = tokens
         for r in rows:
@@ -774,7 +800,8 @@ class Store:
                 kept_sets.append(ts)
             collapsed.append(r)
         collapsed.sort(key=lambda r: (r.get("score", 0), r.get("relevance", 0), r.get("coverage", 0)), reverse=True)
-        top = collapsed[:limit]
+        has_more = len(collapsed) > offset + limit
+        top = collapsed[offset:offset + limit]
         # Tag filtering: if tags provided, keep only those where all tags are present in the entry's tags
         if tags:
             # Normalize tags to lower case for comparison
@@ -785,7 +812,7 @@ class Store:
                 return all(tag in entry_tags for tag in tag_set)
             top = [r for r in top if entry_has_all_tags(r)]
         self._record_exposures([int(r["id"]) for r in top], query)
-        return top
+        return _envelope(top, has_more)
 
     def _recall_by_time(self, project, scope, start, end, limit, include_outdated):
         where: list[str] = []
@@ -891,6 +918,9 @@ class Store:
                 f"WHERE id IN ({','.join('?' * len(mem_ids))})",
                 (now, *mem_ids),
             )
+            # Commit here: an uncommitted write transaction blocks SQLite's
+            # backup API (db_backup) and any subsequent writer.
+            self._conn.commit()
 
     # ---------- reinforcement lifecycle ----------
 
@@ -1473,15 +1503,22 @@ class Store:
         )
         return rows
 
-    def db_backup(self, backup_dir: Path | str | None = None) -> dict[str, Any]:
+    def db_backup(self, backup_dir: Path | str | None = None,
+                  retention_days: int | None = None) -> dict[str, Any]:
         """Create a consistent backup of the SQLite DB using the SQLite backup API.
 
         Safe while the server is running (WAL mode): the backup API handles the
         transaction boundary correctly. Writes to /data/backups/index_YYYY-MM-DD_HHMMSS.db
-        plus a SHA-256 checksum, then rotates to keep the most recent 7 backups.
+        plus a SHA-256 checksum, then rotates backups based on ``retention_days``
+        (default: 7, or from :class:`~server.config.Config`).
+
+        The ``retention_days`` parameter overrides the default 7-day rotation; use
+        ``None`` to fall back to the server config value.
         """
         import hashlib
         import os as _os
+        # REST/MCP callers pass the configured retention; 7 is the safe default.
+        days = retention_days if retention_days is not None else 7
         bdir = Path(backup_dir) if backup_dir else self.db_path.parent / "backups"
         bdir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H%M%S")
@@ -1495,9 +1532,9 @@ class Store:
                 dest.close()
         checksum = hashlib.sha256(out.read_bytes()).hexdigest()
         (out.with_suffix(out.suffix + ".sha256")).write_text(f"{checksum}  {out.name}\n", encoding="utf-8")
-        # Rotation: keep the 7 most recent backups + their checksums.
+        # Rotation: keep the N most recent backups based on retention_days.
         backups = sorted(bdir.glob("index_*.db"), key=lambda p: p.stat().st_mtime, reverse=True)
-        for old in backups[7:]:
+        for old in backups[days:]:
             old.unlink(missing_ok=True)
             old.with_suffix(old.suffix + ".sha256").unlink(missing_ok=True)
         size = out.stat().st_size
@@ -1506,7 +1543,7 @@ class Store:
             "size_bytes": size,
             "size_mb": round(size / 1024 / 1024, 2),
             "sha256": checksum,
-            "kept": min(len(backups), 7),
+            "kept": min(len(backups), days),
         }
 
     async def db_backup_async(self, backup_dir: Path | str | None = None) -> dict[str, Any]:

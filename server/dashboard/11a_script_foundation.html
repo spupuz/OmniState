@@ -15,6 +15,7 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
     if (btn.dataset.tab === 'projects') loadProjects();
     if (btn.dataset.tab === 'handoffs') loadHandoffs();
     if (btn.dataset.tab === 'supermemory') loadSupermemory();
+    closeSidebarMobile();
   });
 });
 
