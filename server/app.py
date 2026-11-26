@@ -269,7 +269,7 @@ class App:
             text = Path("/app/supermemory_server.py").read_text(encoding="utf-8")
         except Exception:
             try:
-                text = Path(os.path.join(os.path.dirname(__file__), "..", "supermemory_server.py")).read_text(encoding="utf-8")
+                text = (Path(__file__).parent.parent / "supermemory_server.py").read_text(encoding="utf-8")
             except Exception:
                 return "unknown"
         m = re.search(r'version="([^"]+)"', text)
