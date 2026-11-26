@@ -699,16 +699,17 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
 
     @server.tool()
     @_logged
-    async def supermemory_search(query: str, namespace: str = "", limit: int = 10, scope: str = "shared") -> str:
+    async def supermemory_search(query: str, namespace: str = "", limit: int = 10, scope: str = "shared", search_mode: str = "hybrid") -> str:
         """Search Supermemory memories.
 
         Returns Supermemory search results for the given query.
         If namespace is empty, uses the configured default space.
+        search_mode: 'hybrid' (default), 'vector', 'fulltext', or 'keyword'
         """
         def _run() -> str:
             client = _sm_client()
             try:
-                result = client.search(namespace=namespace, query=query, limit=limit)
+                result = client.search(namespace=namespace, query=query, limit=limit, search_mode=search_mode)
             except SupermemoryError as e:
                 raise ToolError(str(e))
             result["scope"] = scope
@@ -734,16 +735,17 @@ def create_server(cfg: Config, store: Store, app: Any = None) -> MCPServer:
 
     @server.tool()
     @_logged
-    async def supermemory_add(content: str, namespace: str = "", title: str = "", tags: str = "", source: str = "") -> str:
+    async def supermemory_add(content: str, namespace: str = "", title: str = "", tags: str = "", source: str = "", metadata: dict[str, Any] | None = None) -> str:
         """Add a memory to Supermemory.
 
         Stores content in Supermemory.
         If namespace is empty, uses the configured default space.
+        metadata: optional dict of additional metadata fields to store with the memory
         """
         def _run() -> str:
             client = _sm_client()
             try:
-                result = client.add(namespace=namespace, content=content, title=title, tags=tags, source=source)
+                result = client.add(namespace=namespace, content=content, title=title, tags=tags, source=source, metadata=metadata)
             except SupermemoryError as e:
                 raise ToolError(str(e))
             return json.dumps(result, indent=2)

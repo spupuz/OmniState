@@ -1015,6 +1015,7 @@ class App:
             namespace: str = "",
             limit: int = 10,
             scope: str = "shared",
+            search_mode: str = "hybrid",
         ) -> dict[str, Any]:
             enabled, err = _sm_enabled()
             if not enabled:
@@ -1022,7 +1023,7 @@ class App:
             client = _sm_client()
             try:
                 if (q or "").strip():
-                    result = client.search(namespace=namespace, query=q, limit=limit)
+                    result = client.search(namespace=namespace, query=q, limit=limit, search_mode=search_mode)
                 else:
                     result = client.list_memories(namespace=namespace, limit=limit)
             except SupermemoryError as e:
@@ -1069,6 +1070,7 @@ class App:
                     title=body.get("title", "") or "",
                     tags=body.get("tags", "") or "",
                     source=body.get("source", "") or "",
+                    metadata=body.get("metadata"),
                 )
             except SupermemoryError as e:
                 return JSONResponse({"error": str(e)}, status_code=502)
