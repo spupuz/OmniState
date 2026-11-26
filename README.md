@@ -1,4 +1,4 @@
-# OmniState v2.46.6
+# OmniState v2.46.7
 
 <p align="center">
   <img src="server/favicon.svg" alt="OmniState logo" width="80" height="80">
@@ -302,7 +302,7 @@ OmniState can bridge to [Supermemory](https://github.com/supermemoryai/supermemo
 
 The Supermemory local server in the OmniState Docker image auto-updates:
 
-- Every hour, the OmniState scheduler controlls the GitHub releases page of the OmniState repository (which tracks releases of `supermemory_server.py`).
+- Every hour, the OmniState scheduler checks the GitHub releases page of the OmniState repository (which tracks releases of `supermemory_server.py`). The installed version is read from `/app/supermemory_server.py` inside the container, with a fallback to the repository copy when the server runs outside Docker.
 - If a new version is found, you can apply it with a single POST to `/api/supermemory/update`.
 - The update downloads the new server code only from `github.com` / `raw.githubusercontent.com` with redirects disabled (a 3xx response is rejected), so a trusted host cannot bounce the request to an internal address (SSRF), and replaces the file atomically, then restarts the process.
 - If you prefer to keep the local server at its current version, disable this check by setting `SUPERMEMORY_AUTO_UPDATE=false` (env var not implemented yet – the check is optional and only logs)
@@ -537,7 +537,11 @@ The skills' slash-command UX (`/start-session`, `/snapshot-session`, `/cost-setu
 
 ## Changelog
 
-### v2.46.6 (current)
+### v2.46.7 (current)
+
+- **Bugfix**: Supermemory auto-update version detection no longer raises `NameError` in the fallback used outside Docker — `server/app.py` reads the repository copy of `supermemory_server.py` with `pathlib` (PR #208).
+
+### v2.46.6
 
 - **Fix**: DB Backups card in the Overview tab loads on tab open (not only on manual Refresh), so the seven daily backups are visible as soon as you land on the tab.
 - **Fix**: dashboard KPI grid uses explicit responsive CSS columns instead of Tailwind utility classes, keeping the stat-card layout correct even when the pre-built CSS is stale.
